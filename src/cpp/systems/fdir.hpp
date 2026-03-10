@@ -274,7 +274,7 @@ public:
     using EventCallback = std::function<void(const EventLogEntry&)>;
     using RecoveryHandler = std::function<bool(ErrorCode, RecoveryAction)>;
     
-    FDIRManager() = default;
+    FDIRManager() : eventCallback_(nullptr), recoveryHandler_(nullptr) {}
     
     /// Регистрация параметра для мониторинга
     uint8_t registerParameter(const ParameterConfig& config,
