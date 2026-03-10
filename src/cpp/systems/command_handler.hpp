@@ -84,7 +84,7 @@ struct CommandHeader {
  */
 struct Command {
     CommandHeader header;
-    std::array<uint8_t, MAX_COMMAND_SIZE - sizeof(CommandHeader)> data{};
+    std::array<uint8_t, 240> data{};  // MAX_COMMAND_SIZE - sizeof(CommandHeader) = 256 - 16 = 240
     
     // Метаданные
     uint32_t timestamp;        // Время получения

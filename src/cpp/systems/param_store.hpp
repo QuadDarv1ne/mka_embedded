@@ -145,7 +145,7 @@ public:
     
     using ChangeCallback = std::function<void(uint16_t, ParamValue)>;
     
-    ParameterStore() = default;
+    ParameterStore() : changeCallback_(nullptr) {}
     
     // ========================================================================
     // Регистрация параметров
