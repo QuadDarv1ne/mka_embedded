@@ -84,8 +84,17 @@ namespace rtos {
 // Константы
 // ============================================================================
 
+#ifndef configTICK_RATE_HZ
+constexpr uint32_t configTICK_RATE_HZ = 1000;  // По умолчанию 1 кГц (1 мс за тик)
+#endif
+
 constexpr uint32_t INFINITE_TIMEOUT = 0xFFFFFFFF;
 constexpr uint32_t NO_TIMEOUT = 0;
+
+// Преобразование миллисекунд в тики
+constexpr uint32_t msToTicks(uint32_t ms) {
+    return (ms * configTICK_RATE_HZ + 999) / 1000;
+}
 
 // ============================================================================
 // Задача (Task)
@@ -143,11 +152,11 @@ public:
     TaskHandle_t getHandle() const { return handle_; }
     
     static void delay(uint32_t ms) {
-        vTaskDelay(ms);
+        vTaskDelay(msToTicks(ms));
     }
     
     static void delayUntil(uint32_t& lastWakeTime, uint32_t periodMs) {
-        vTaskDelayUntil(&lastWakeTime, periodMs);
+        vTaskDelayUntil(&lastWakeTime, msToTicks(periodMs));
     }
     
     static uint32_t getTickCount() {
@@ -197,11 +206,13 @@ public:
     }
     
     bool send(const T& item, uint32_t timeoutMs = INFINITE_TIMEOUT) {
-        return xQueueSend(handle_, &item, timeoutMs) != 0;
+        uint32_t ticks = (timeoutMs == INFINITE_TIMEOUT) ? INFINITE_TIMEOUT : msToTicks(timeoutMs);
+        return xQueueSend(handle_, &item, ticks) != 0;
     }
     
     bool receive(T& item, uint32_t timeoutMs = INFINITE_TIMEOUT) {
-        return xQueueReceive(handle_, &item, timeoutMs) != 0;
+        uint32_t ticks = (timeoutMs == INFINITE_TIMEOUT) ? INFINITE_TIMEOUT : msToTicks(timeoutMs);
+        return xQueueReceive(handle_, &item, ticks) != 0;
     }
     
     std::optional<T> receive(uint32_t timeoutMs = 0) {
@@ -245,7 +256,8 @@ public:
     }
     
     bool take(uint32_t timeoutMs = INFINITE_TIMEOUT) {
-        return xSemaphoreTake(handle_, timeoutMs) != 0;
+        uint32_t ticks = (timeoutMs == INFINITE_TIMEOUT) ? INFINITE_TIMEOUT : msToTicks(timeoutMs);
+        return xSemaphoreTake(handle_, ticks) != 0;
     }
     
     bool give() {
@@ -271,7 +283,8 @@ public:
     }
     
     bool take(uint32_t timeoutMs = INFINITE_TIMEOUT) {
-        return xSemaphoreTake(handle_, timeoutMs) != 0;
+        uint32_t ticks = (timeoutMs == INFINITE_TIMEOUT) ? INFINITE_TIMEOUT : msToTicks(timeoutMs);
+        return xSemaphoreTake(handle_, ticks) != 0;
     }
     
     bool give() {
@@ -293,7 +306,8 @@ public:
     }
     
     bool lock(uint32_t timeoutMs = INFINITE_TIMEOUT) {
-        return xSemaphoreTake(handle_, timeoutMs) != 0;
+        uint32_t ticks = (timeoutMs == INFINITE_TIMEOUT) ? INFINITE_TIMEOUT : msToTicks(timeoutMs);
+        return xSemaphoreTake(handle_, ticks) != 0;
     }
     
     bool unlock() {
@@ -395,8 +409,9 @@ public:
     
     uint32_t wait(uint32_t bits, bool clearOnExit = true, bool waitForAll = false,
                   uint32_t timeoutMs = INFINITE_TIMEOUT) {
+        uint32_t ticks = (timeoutMs == INFINITE_TIMEOUT) ? INFINITE_TIMEOUT : msToTicks(timeoutMs);
         return xEventGroupWaitBits(handle_, bits, clearOnExit ? 1 : 0,
-                                   waitForAll ? 1 : 0, timeoutMs);
+                                   waitForAll ? 1 : 0, ticks);
     }
     
     uint32_t set(uint32_t bits) {
