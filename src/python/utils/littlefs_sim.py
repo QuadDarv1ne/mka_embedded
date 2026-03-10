@@ -207,12 +207,15 @@ class LittleFS:
         # Журнал операций для восстановления
         self.journal: List[dict] = []
     
-    def format(self) -> bool:
+    # Константа успеха
+    LFS_OK = 0
+    
+    def format(self) -> int:
         """
         Форматирование файловой системы.
         
         Returns:
-            True если успешно
+            0 если успешно (LFS_OK)
         """
         self.root = LFSDirectory(name="")
         self.mounted = True
@@ -234,7 +237,7 @@ class LittleFS:
         self._write_file("/sys/version", b"LittleFS v2.0")
         self._write_file("/sys/created", struct.pack('<d', time.time()))
         
-        return True
+        return self.LFS_OK
     
     def mount(self) -> bool:
         """
@@ -670,6 +673,31 @@ class LittleFS:
             'time': time.time(),
             **kwargs
         })
+
+    # ========================================================================
+    # Упрощённые методы для совместимости
+    # ========================================================================
+
+    def write_file(self, path: str, data: bytes) -> bool:
+        """Запись файла (упрощённый метод)."""
+        with self.open(path, 'w') as f:
+            f.write(data)
+        return True
+    
+    def read_file(self, path: str) -> Optional[bytes]:
+        """Чтение файла (упрощённый метод)."""
+        try:
+            with self.open(path, 'r') as f:
+                return f.read()
+        except LittleFSError:
+            return None
+    
+    def exists(self, path: str) -> bool:
+        """Проверка существования файла или директории."""
+        try:
+            return self._get_entry(path) is not None
+        except:
+            return False
 
 
 # ============================================================================

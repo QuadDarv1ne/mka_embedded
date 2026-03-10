@@ -236,6 +236,11 @@ class OTAManager:
         self._active_slot = ImageSlot.SLOT_A
     
     @property
+    def state(self) -> str:
+        """Получение состояния в виде строки для совместимости."""
+        return self.metadata.state.name
+    
+    @property
     def progress_percent(self) -> int:
         """Прогресс в процентах."""
         if self.metadata.total_size == 0:

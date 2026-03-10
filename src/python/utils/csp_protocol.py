@@ -181,14 +181,18 @@ class CSPPacket:
                 raise CSPError("Missing CRC32")
             
             received_crc = struct.unpack('<I', payload[-4:])[0]
-            payload = payload[:-4]
+            payload_data = payload[:-4]  # Данные без CRC
             
-            # Проверка CRC
-            packet_without_crc = data[:offset] + payload
-            calculated_crc = cls._calculate_crc32(packet_without_crc)
+            # Проверка CRC: вычисляем от header + length_field + data
+            # length_field находится в data[offset-1]
+            packet_for_crc = data[:offset - 1] + payload_data
+            calculated_crc = cls._calculate_crc32(packet_for_crc)
             
             if received_crc != calculated_crc:
                 raise CSPError(f"CRC32 error: {received_crc:08X} vs {calculated_crc:08X}")
+        
+            # Используем данные без CRC
+            payload = payload_data
         
         return cls(
             priority=priority,
