@@ -1,0 +1,34 @@
+# Принудительно LF для всех текстовых файлов
+* text=auto
+
+# C/C++/Header файлы - LF
+*.c text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+
+# Python файлы - LF
+*.py text eol=lf
+
+# CMake файлы - LF
+CMakeLists.txt text eol=lf
+*.cmake text eol=lf
+
+# Markdown и документация - LF
+*.md text eol=lf
+
+# Скрипты - LF
+*.sh text eol=lf
+
+# Бинарные файлы - бинарные (без преобразования)
+*.bin binary
+*.hex binary
+*.elf binary
+*.map binary
+
+# Архивы - бинарные
+*.zip binary
+*.rar binary
+*.7z binary
+*.tar binary
+*.gz binary
