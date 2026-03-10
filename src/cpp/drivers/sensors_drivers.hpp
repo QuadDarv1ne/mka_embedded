@@ -13,6 +13,7 @@
 #define SENSORS_DRIVERS_HPP
 
 #include <cstdint>
+#include <cstddef>
 #include <cmath>
 #include <array>
 #include <optional>
@@ -464,7 +465,10 @@ private:
     }
     
     void delayMs(uint32_t ms) {
-        // TODO: Задержка
+        // Простая задержка через пустой цикл
+        // В реальной системе использовать HAL_Delay или FreeRTOS vTaskDelay
+        volatile uint32_t count = ms * (SystemCoreClock / 1000 / 4);
+        while (count--) {}
     }
 };
 
@@ -786,7 +790,8 @@ private:
     
     bool parseUBXMessage(GPSData& data) {
         uint8_t header[6];
-        if (uart_.receive(header, 10, 10) != hal::Status::OK) {
+        size_t received = 0;
+        if (uart_.receive({header, sizeof(header)}, 10, received) != hal::Status::OK || received < 6) {
             return false;
         }
         
