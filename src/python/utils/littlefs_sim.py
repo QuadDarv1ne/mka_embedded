@@ -239,18 +239,18 @@ class LittleFS:
         
         return self.LFS_OK
     
-    def mount(self) -> bool:
+    def mount(self) -> int:
         """
         Монтирование файловой системы.
         
         Returns:
-            True если успешно
+            0 (LFS_OK) если успешно
         """
         if not self.mounted:
             # Проверка superblock (в реальной системе)
             self.mounted = True
         
-        return self.mounted
+        return self.LFS_OK
     
     def unmount(self) -> None:
         """Размонтирование файловой системы."""
