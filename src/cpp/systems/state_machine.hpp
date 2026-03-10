@@ -133,7 +133,7 @@ public:
     
     using ModeChangeCallback = std::function<void(SatelliteMode, SatelliteMode, TransitionReason)>;
     
-    SatelliteStateMachine() {
+    SatelliteStateMachine() : modeChangeCallback_(nullptr) {
         initializeDefaultTransitions();
     }
     
