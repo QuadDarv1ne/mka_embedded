@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstring>
 #include <cstdio>
+#include <cstdarg>
 #include <functional>
 #include <array>
 #include <span>

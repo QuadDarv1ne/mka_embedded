@@ -198,7 +198,30 @@ private:
     FreeList freeLists_[MAX_ORDER + 1];
     
     void splitBlock(uint8_t fromOrder, uint8_t toOrder) {
-        // Упрощённая реализация
+        // Найти блок для разделения
+        BlockHeader* block = freeLists_[fromOrder].head;
+        if (!block) return;
+        
+        // Удалить из списка больших блоков
+        freeLists_[fromOrder].head = block->next;
+        freeLists_[fromOrder].count--;
+        
+        // Разделить на два блока меньшего размера
+        size_t blockSize = MIN_BLOCK_SIZE * (1 << toOrder);
+        BlockHeader* second = reinterpret_cast<BlockHeader*>(
+            reinterpret_cast<uint8_t*>(block) + blockSize);
+        
+        block->order = toOrder;
+        block->allocated = false;
+        block->next = nullptr;
+        
+        second->order = toOrder;
+        second->allocated = false;
+        second->next = freeLists_[toOrder].head;
+        
+        // Добавить в список меньших блоков
+        freeLists_[toOrder].head = block;
+        freeLists_[toOrder].count += 2;
     }
 };
 
