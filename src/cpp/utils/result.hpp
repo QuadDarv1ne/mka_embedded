@@ -75,12 +75,6 @@ public:
         new (&storage_.error) E(std::move(error));
     }
 
-    /// Конструктор по умолчанию (успех с T{})
-    constexpr Result() noexcept(std::is_nothrow_default_constructible<T>::value)
-        : ok_(true) {
-        new (&storage_.value) T();
-    }
-
     /// Копирующий конструктор
     Result(const Result& other) noexcept(
         std::is_nothrow_copy_constructible<T>::value &&
