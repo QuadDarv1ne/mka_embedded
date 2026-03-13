@@ -1,5 +1,5 @@
-Add timestamp source to FDIRManager
+Fix test_utils.cpp - use correct Callback types
 
-- Add TimestampSource callback type
-- Add setTimestampSource() method
-- Use timestamp source in logEvent() for real timestamps
+- Use +[]() syntax for non-capturing lambdas with Callback
+- Use makeCallbackWithStorage for capturing lambdas
+- Add WithStorageModify test for capturing lambda
