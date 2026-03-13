@@ -191,6 +191,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_memory_pool mka_core GTest::gtest_main)
     add_test(NAME test_memory_pool COMMAND test_memory_pool)
 
+    # Тест log system
+    add_executable(test_log_system tests/test_log_system.cpp)
+    target_link_libraries(test_log_system mka_core GTest::gtest_main)
+    add_test(NAME test_log_system COMMAND test_log_system)
+
     # Тест FreeRTOS wrapper - требует реального FreeRTOS для линковки
     # add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
     # target_link_libraries(test_freertos_wrapper mka_core GTest::gtest_main)
