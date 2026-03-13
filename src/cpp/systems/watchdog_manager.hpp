@@ -14,9 +14,10 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
 #include <span>
+
+#include "utils/callback.hpp"
 
 namespace mka {
 namespace wdt {
@@ -286,7 +287,7 @@ public:
     /**
      * @brief Установка callback для события истечения таймаута
      */
-    void setExpireCallback(std::function<void(const char*, uint32_t)> callback) {
+    void setExpireCallback(Callback<void(const char*, uint32_t)> callback) {
         expireCallback_ = callback;
     }
     
@@ -321,13 +322,13 @@ private:
     
     IHardwareWatchdog* hwWdt_ = nullptr;
     bool initialized_ = false;
-    
+
     std::array<VirtualWatchdog, MAX_WATCHDOG_TASKS> virtualWdts_{};
     size_t taskCount_ = 0;
-    
+
     ResetReason lastResetReason_ = ResetReason::UNKNOWN;
-    
-    std::function<void(const char*, uint32_t)> expireCallback_;
+
+    Callback<void(const char*, uint32_t)> expireCallback_;
     
     void onTaskExpired(const char* taskName, uint32_t elapsedMs) {
         // Логирование (можно заменить на реальный логгер)
