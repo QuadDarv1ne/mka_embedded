@@ -1,5 +1,6 @@
-Fix test_utils.cpp - use correct Callback types
+Add nullptr support to Callback
 
-- Use +[]() syntax for non-capturing lambdas with Callback
-- Use makeCallbackWithStorage for capturing lambdas
-- Add WithStorageModify test for capturing lambda
+- Add constructor from nullptr_t
+- Add assignment operator from nullptr_t
+- Add equality comparison operators with nullptr
+- Add tests for nullptr comparison and assignment

@@ -83,6 +83,27 @@ TEST(CallbackTest, EmptyCallback) {
     EXPECT_TRUE(cb.isEmpty());
 }
 
+TEST(CallbackTest, NullptrComparison) {
+    Callback<int()> cb;
+    EXPECT_EQ(cb, nullptr);
+    EXPECT_EQ(nullptr, cb);
+    
+    auto lambda = +[]() { return 42; };
+    Callback<int()> cb2(lambda);
+    EXPECT_NE(cb2, nullptr);
+    EXPECT_NE(nullptr, cb2);
+}
+
+TEST(CallbackTest, NullptrAssignment) {
+    auto lambda = +[]() { return 42; };
+    Callback<int()> cb(lambda);
+    
+    EXPECT_TRUE(cb.isValid());
+    cb = nullptr;
+    EXPECT_FALSE(cb.isValid());
+    EXPECT_EQ(cb, nullptr);
+}
+
 TEST(CallbackTest, FunctionCallback) {
     auto lambda = +[](int x) { return x * 2; };
     Callback<int(int)> cb(lambda);
