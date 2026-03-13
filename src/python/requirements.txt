@@ -1,0 +1,29 @@
+# MKA Embedded Python Dependencies
+# Установка: pip install -r requirements.txt
+
+# Тестирование
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Статический анализ
+flake8>=6.1.0
+mypy>=1.5.0
+
+# Научные вычисления (для симуляторов)
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Визуализация
+matplotlib>=3.7.0
+
+# Протоколы связи
+pyserial>=3.5
+
+# Работа с данными
+pyyaml>=6.0
+
+# Типизация (для mypy)
+typing-extensions>=4.7.0
+
+# Утилиты
+click>=8.1.0
