@@ -1,0 +1,4 @@
+Fix FDIRManager registerParameter initialization
+
+- Use explicit ParameterMonitor constructor call instead of initializer list
+- This ensures proper construction with Callback member
