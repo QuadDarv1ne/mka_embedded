@@ -1,16 +1,5 @@
-Replace std::function with Callback in HAL and FreeRTOS
+Add timestamp source to FDIRManager
 
-- Replace std::function with mka::Callback in hal_full.hpp
-  - IGPIO::InterruptCallback
-  - IUART::RxCallback, TxCompleteCallback
-  - ISPI::TransferCallback
-  - ICAN::RxCallback, TxCompleteCallback
-  - IADC::ConversionCallback
-  - ITimer::Callback
-  - IPowerSystem::AlertCallback
-  - IDMA::TransferCallback
-
-- Replace std::function with mka::Callback in freertos_wrapper.hpp
-  - Task::TaskFunction
-  - Timer::TimerCallback
-  - ProtectedValue::update
+- Add TimestampSource callback type
+- Add setTimestampSource() method
+- Use timestamp source in logEvent() for real timestamps

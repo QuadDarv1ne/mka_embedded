@@ -276,6 +276,7 @@ public:
     
     using EventCallback = Callback<void(const EventLogEntry&)>;
     using RecoveryHandler = Callback<bool(ErrorCode, RecoveryAction)>;
+    using TimestampSource = Callback<uint32_t()>;
 
     FDIRManager() = default;
 
@@ -298,7 +299,12 @@ public:
     void setRecoveryHandler(RecoveryHandler handler) {
         recoveryHandler_ = handler;
     }
-    
+
+    /// Установка источника времени для меток событий
+    void setTimestampSource(TimestampSource source) {
+        timestampSource_ = source;
+    }
+
     /// Обновление значения параметра
     Severity updateParameter(uint8_t id, float value, uint32_t timestampMs) {
         if (id >= paramCount_) return Severity::INFO;
@@ -374,12 +380,13 @@ private:
 
     EventCallback eventCallback_;
     RecoveryHandler recoveryHandler_;
+    TimestampSource timestampSource_;
     
     void logEvent(ErrorCode code, Severity severity,
                   Subsystem subsystem, uint8_t source,
                   int16_t value, int16_t threshold) {
         EventLogEntry entry{};
-        entry.timestamp = 0; // TODO: получить реальное время
+        entry.timestamp = timestampSource_ ? timestampSource_() : 0;
         entry.code = code;
         entry.severity = severity;
         entry.subsystem = subsystem;
