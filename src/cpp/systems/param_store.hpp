@@ -15,10 +15,11 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
 #include <span>
 #include <optional>
+
+#include "utils/callback.hpp"
 
 namespace mka {
 namespace param {
@@ -142,10 +143,10 @@ struct ParamEntry {
 class ParameterStore {
 public:
     static constexpr size_t MAX_PARAMS = 128;
-    
-    using ChangeCallback = std::function<void(uint16_t, ParamValue)>;
-    
-    ParameterStore() : changeCallback_(nullptr) {}
+
+    using ChangeCallback = Callback<void(uint16_t, ParamValue)>;
+
+    ParameterStore() = default;
     
     // ========================================================================
     // Регистрация параметров

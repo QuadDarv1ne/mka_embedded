@@ -18,10 +18,11 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
 #include <span>
 #include <cmath>
+
+#include "utils/callback.hpp"
 
 namespace mka {
 namespace fdir {
@@ -181,9 +182,11 @@ struct ParameterStats {
  */
 class ParameterMonitor {
 public:
-    using Callback = std::function<void(Severity, float, float)>;
-    
-    ParameterMonitor(const ParameterConfig& config, Callback callback = nullptr)
+    using Callback = Callback<void(Severity, float, float)>;
+
+    ParameterMonitor() = default;
+
+    ParameterMonitor(const ParameterConfig& config, Callback callback)
         : config_(config), callback_(callback) {}
     
     /**
@@ -271,18 +274,18 @@ public:
     static constexpr size_t MAX_PARAMETERS = 64;
     static constexpr size_t EVENT_LOG_SIZE = 256;
     
-    using EventCallback = std::function<void(const EventLogEntry&)>;
-    using RecoveryHandler = std::function<bool(ErrorCode, RecoveryAction)>;
-    
-    FDIRManager() : eventCallback_(nullptr), recoveryHandler_(nullptr) {}
-    
+    using EventCallback = Callback<void(const EventLogEntry&)>;
+    using RecoveryHandler = Callback<bool(ErrorCode, RecoveryAction)>;
+
+    FDIRManager() = default;
+
     /// Регистрация параметра для мониторинга
     uint8_t registerParameter(const ParameterConfig& config,
-                              ParameterMonitor::Callback callback = nullptr) {
+                              ParameterMonitor::Callback callback = {}) {
         if (paramCount_ >= MAX_PARAMETERS) return 0xFF;
-        
+
         uint8_t id = paramCount_++;
-        monitors_[id] = new ParameterMonitor(config, callback);
+        monitors_[id] = {config, callback};
         return id;
     }
     
@@ -298,16 +301,16 @@ public:
     
     /// Обновление значения параметра
     Severity updateParameter(uint8_t id, float value, uint32_t timestampMs) {
-        if (id >= paramCount_ || !monitors_[id]) return Severity::INFO;
-        
-        Severity severity = monitors_[id]->check(value, timestampMs);
-        
+        if (id >= paramCount_) return Severity::INFO;
+
+        Severity severity = monitors_[id].check(value, timestampMs);
+
         if (severity >= Severity::WARNING) {
-            logEvent(ErrorCode::UNKNOWN, severity, 
-                    Subsystem::OBC, id, 
+            logEvent(ErrorCode::UNKNOWN, severity,
+                    Subsystem::OBC, id,
                     static_cast<int16_t>(value), 0);
         }
-        
+
         return severity;
     }
     
@@ -349,28 +352,26 @@ public:
     
     /// Получение статистики аномалий
     void getAnomalyStats(uint8_t paramId, ParameterStats& stats) const {
-        if (paramId < paramCount_ && monitors_[paramId]) {
-            stats = monitors_[paramId]->getStats();
+        if (paramId < paramCount_) {
+            stats = monitors_[paramId].getStats();
         }
     }
     
     /// Сброс всех мониторов
     void resetAllMonitors() {
         for (size_t i = 0; i < paramCount_; i++) {
-            if (monitors_[i]) {
-                monitors_[i]->reset();
-            }
+            monitors_[i].reset();
         }
     }
     
 private:
-    std::array<ParameterMonitor*, MAX_PARAMETERS> monitors_{};
+    std::array<ParameterMonitor, MAX_PARAMETERS> monitors_{};
     size_t paramCount_ = 0;
-    
+
     std::array<EventLogEntry, EVENT_LOG_SIZE> eventLog_{};
     size_t logHead_ = 0;
     size_t logCount_ = 0;
-    
+
     EventCallback eventCallback_;
     RecoveryHandler recoveryHandler_;
     

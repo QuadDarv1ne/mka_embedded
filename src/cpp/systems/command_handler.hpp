@@ -16,10 +16,11 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
 #include <span>
 #include <optional>
+
+#include "utils/callback.hpp"
 
 namespace mka {
 namespace cmd {
@@ -176,12 +177,12 @@ constexpr uint16_t OTA_ABORT           = 0x0803;  // Отменить обнов
  * @param response Ответ для заполнения
  * @return Код результата
  */
-using CommandHandler = std::function<ResultCode(const Command& cmd, CommandResponse& response)>;
+using CommandHandler = Callback<ResultCode(const Command& cmd, CommandResponse& response)>;
 
 /**
  * @brief Валидатор параметров команды
  */
-using ParamValidator = std::function<bool(std::span<const uint8_t> params)>;
+using ParamValidator = Callback<bool(std::span<const uint8_t> params)>;
 
 // ============================================================================
 // Регистр команд
@@ -294,15 +295,15 @@ public:
     /**
      * @brief Установка источника времени
      */
-    void setTimestampSource(std::function<uint32_t()> source) {
+    void setTimestampSource(Callback<uint32_t()> source) {
         getTimestampMs = source;
     }
-    
+
 private:
     std::array<CommandRegistration, MAX_COMMANDS> registrations_{};
     size_t commandCount_ = 0;
-    
-    std::function<uint32_t()> getTimestampMs = []{ return 0; };
+
+    Callback<uint32_t()> getTimestampMs;
     
     const CommandRegistration* findRegistration(uint16_t commandId) const {
         for (size_t i = 0; i < commandCount_; i++) {

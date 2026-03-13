@@ -13,8 +13,9 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
+
+#include "utils/callback.hpp"
 
 namespace mka {
 namespace statemachine {
@@ -99,12 +100,12 @@ struct StateMachineContext {
 /**
  * @brief Проверка возможности перехода
  */
-using TransitionValidator = std::function<bool(const StateMachineContext&)>;
+using TransitionValidator = Callback<bool(const StateMachineContext&)>;
 
 /**
  * @brief Действие при переходе
  */
-using TransitionAction = std::function<void(SatelliteMode, SatelliteMode, TransitionReason)>;
+using TransitionAction = Callback<void(SatelliteMode, SatelliteMode, TransitionReason)>;
 
 // ============================================================================
 // Конфигурация переходов
@@ -130,10 +131,10 @@ class SatelliteStateMachine {
 public:
     static constexpr size_t MAX_TRANSITIONS = 32;
     static constexpr size_t MODE_HISTORY_SIZE = 16;
-    
-    using ModeChangeCallback = std::function<void(SatelliteMode, SatelliteMode, TransitionReason)>;
-    
-    SatelliteStateMachine() : modeChangeCallback_(nullptr) {
+
+    using ModeChangeCallback = Callback<void(SatelliteMode, SatelliteMode, TransitionReason)>;
+
+    SatelliteStateMachine() {
         initializeDefaultTransitions();
     }
     

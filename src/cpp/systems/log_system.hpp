@@ -15,9 +15,10 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
-#include <functional>
 #include <array>
 #include <span>
+
+#include "utils/callback.hpp"
 
 namespace mka {
 namespace log {
@@ -252,8 +253,8 @@ public:
         }
     }
     
-    void setTimestampSource(std::function<uint32_t()> getSeconds,
-                            std::function<uint16_t()> getMs) {
+    void setTimestampSource(Callback<uint32_t()> getSeconds,
+                            Callback<uint16_t()> getMs) {
         getSeconds_ = getSeconds;
         getMs_ = getMs;
     }
@@ -359,9 +360,9 @@ private:
     LogBuffer<BUFFER_SIZE> buffer_;
     ILogOutput* outputs_[MAX_OUTPUTS] = {};
     size_t outputCount_ = 0;
-    
-    std::function<uint32_t()> getSeconds_;
-    std::function<uint16_t()> getMs_;
+
+    Callback<uint32_t()> getSeconds_;
+    Callback<uint16_t()> getMs_;
 };
 
 // ============================================================================
@@ -392,8 +393,8 @@ private:
  */
 class UARTLogOutput : public ILogOutput {
 public:
-    using WriteFunc = std::function<void(const char*, size_t)>;
-    
+    using WriteFunc = Callback<void(const char*, size_t)>;
+
     UARTLogOutput(WriteFunc write) : write_(write) {}
     
     void write(const LogEntry& entry, const char* formatted) override {

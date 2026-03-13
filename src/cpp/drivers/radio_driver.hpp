@@ -12,9 +12,10 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
 #include <span>
+
+#include "utils/callback.hpp"
 
 namespace mka {
 namespace radio {
@@ -176,10 +177,10 @@ class SI4463Driver {
 public:
     static constexpr uint8_t FIFO_SIZE = 64;
     static constexpr uint16_t MAX_PACKET_SIZE = 255;
-    
-    using RxCallback = std::function<void(const RadioPacket&)>;
-    using TxCallback = std::function<void(bool success)>;
-    
+
+    using RxCallback = Callback<void(const RadioPacket&)>;
+    using TxCallback = Callback<void(bool success)>;
+
     SI4463Driver(IRadioSPI& spi, IRadioGPIO& gpio)
         : spi_(spi), gpio_(gpio) {}
     
