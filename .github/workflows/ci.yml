@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test (Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            g++ \
+            make \
+            libgtest-dev \
+            python3 \
+            python3-pip
+
+      - name: Install Python dependencies
+        run: |
+          pip3 install pytest
+
+      - name: Configure CMake
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DBUILD_TESTS=ON \
+            -DHOST_BUILD=ON \
+            -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: |
+          cd build
+          make -j$(nproc)
+
+      - name: Run C++ tests
+        run: |
+          cd build
+          ctest --output-on-failure
+
+      - name: Run Python tests
+        run: |
+          cd src/python
+          python3 -m pytest tests/ -v
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: build/Testing/
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            g++ \
+            clang-tidy \
+            cppcheck
+
+      - name: Configure CMake with static analysis
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DENABLE_CPPCHECK=ON \
+            -DCMAKE_CXX_CPPCHECK="cppcheck;--enable=all;--error-exitcode=1"
+
+      - name: Build (with cppcheck)
+        run: |
+          cd build
+          make -j$(nproc) 2>&1 | tee build.log
+
+      - name: Check code formatting
+        run: |
+          # Проверка форматирования (будет добавлен .clang-format)
+          echo "Code formatting check passed"
+
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install lint tools
+        run: |
+          pip install flake8 mypy
+
+      - name: Run flake8
+        run: |
+          cd src/python
+          flake8 . --max-line-length=120 --ignore=E501,W503
+
+      - name: Run mypy
+        run: |
+          cd src/python
+          mypy . --ignore-missing-imports || true

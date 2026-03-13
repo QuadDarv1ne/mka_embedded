@@ -1,0 +1,210 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
+            "name": "host-debug",
+            "displayName": "Host Debug",
+            "description": "Сборка для хоста (Linux/Windows/Mac) с отладочной информацией",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HOST_BUILD": "ON",
+                "BUILD_TESTS": "ON",
+                "BUILD_DOCS": "OFF",
+                "ENABLE_CPPCHECK": "OFF",
+                "ENABLE_CLANG_TIDY": "OFF",
+                "ENABLE_COVERAGE": "OFF"
+            }
+        },
+        {
+            "name": "host-release",
+            "displayName": "Host Release",
+            "description": "Сборка для хоста с оптимизацией",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "HOST_BUILD": "ON",
+                "BUILD_TESTS": "ON",
+                "BUILD_DOCS": "OFF"
+            }
+        },
+        {
+            "name": "host-coverage",
+            "displayName": "Host Coverage",
+            "description": "Сборка для хоста с code coverage",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HOST_BUILD": "ON",
+                "BUILD_TESTS": "ON",
+                "ENABLE_COVERAGE": "ON"
+            }
+        },
+        {
+            "name": "stm32f4-debug",
+            "displayName": "STM32F4 Debug",
+            "description": "Сборка для STM32F4 с отладочной информацией",
+            "inherits": "base",
+            "generator": "Ninja Multi-Config",
+            "toolchainFile": "${sourceDir}/cmake/stm32f4.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "STM32F4": "ON",
+                "HOST_BUILD": "OFF",
+                "BUILD_TESTS": "OFF",
+                "BUILD_DOCS": "OFF"
+            }
+        },
+        {
+            "name": "stm32f4-release",
+            "displayName": "STM32F4 Release",
+            "description": "Сборка для STM32F4 с оптимизацией размера",
+            "inherits": "base",
+            "generator": "Ninja Multi-Config",
+            "toolchainFile": "${sourceDir}/cmake/stm32f4.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "STM32F4": "ON",
+                "HOST_BUILD": "OFF",
+                "BUILD_TESTS": "OFF",
+                "BUILD_DOCS": "OFF"
+            }
+        },
+        {
+            "name": "stm32f7-debug",
+            "displayName": "STM32F7 Debug",
+            "description": "Сборка для STM32F7 с отладочной информацией",
+            "inherits": "base",
+            "generator": "Ninja Multi-Config",
+            "toolchainFile": "${sourceDir}/cmake/stm32f7.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "STM32F7": "ON",
+                "HOST_BUILD": "OFF",
+                "BUILD_TESTS": "OFF",
+                "BUILD_DOCS": "OFF"
+            }
+        },
+        {
+            "name": "stm32f7-release",
+            "displayName": "STM32F7 Release",
+            "description": "Сборка для STM32F7 с оптимизацией размера",
+            "inherits": "base",
+            "generator": "Ninja Multi-Config",
+            "toolchainFile": "${sourceDir}/cmake/stm32f7.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "STM32F7": "ON",
+                "HOST_BUILD": "OFF",
+                "BUILD_TESTS": "OFF",
+                "BUILD_DOCS": "OFF"
+            }
+        },
+        {
+            "name": "stm32h7-debug",
+            "displayName": "STM32H7 Debug",
+            "description": "Сборка для STM32H7 с отладочной информацией",
+            "inherits": "base",
+            "generator": "Ninja Multi-Config",
+            "toolchainFile": "${sourceDir}/cmake/stm32h7.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "STM32H7": "ON",
+                "HOST_BUILD": "OFF",
+                "BUILD_TESTS": "OFF",
+                "BUILD_DOCS": "OFF"
+            }
+        },
+        {
+            "name": "stm32h7-release",
+            "displayName": "STM32H7 Release",
+            "description": "Сборка для STM32H7 с оптимизацией размера",
+            "inherits": "base",
+            "generator": "Ninja Multi-Config",
+            "toolchainFile": "${sourceDir}/cmake/stm32h7.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "STM32H7": "ON",
+                "HOST_BUILD": "OFF",
+                "BUILD_TESTS": "OFF",
+                "BUILD_DOCS": "OFF"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "host-debug",
+            "configurePreset": "host-debug"
+        },
+        {
+            "name": "host-release",
+            "configurePreset": "host-release"
+        },
+        {
+            "name": "stm32f4-debug",
+            "configurePreset": "stm32f4-debug"
+        },
+        {
+            "name": "stm32f4-release",
+            "configurePreset": "stm32f4-release"
+        },
+        {
+            "name": "stm32f7-debug",
+            "configurePreset": "stm32f7-debug"
+        },
+        {
+            "name": "stm32f7-release",
+            "configurePreset": "stm32f7-release"
+        },
+        {
+            "name": "stm32h7-debug",
+            "configurePreset": "stm32h7-debug"
+        },
+        {
+            "name": "stm32h7-release",
+            "configurePreset": "stm32h7-release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "host-debug",
+            "configurePreset": "host-debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "host-debug-workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "host-debug"
+                },
+                {
+                    "type": "build",
+                    "name": "host-debug"
+                },
+                {
+                    "type": "test",
+                    "name": "host-debug"
+                }
+            ]
+        }
+    ]
+}

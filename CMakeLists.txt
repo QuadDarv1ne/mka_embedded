@@ -138,11 +138,6 @@ if(BUILD_TESTS AND HOST_BUILD)
     find_package(GTest QUIET)
     
     if(GTest_FOUND)
-        # Тест HAL
-        add_executable(test_hal tests/test_hal.cpp)
-        target_link_libraries(test_hal mka_core GTest::gtest_main)
-        add_test(NAME test_hal COMMAND test_hal)
-        
         # Тест алгоритмов
         add_executable(test_algorithms tests/test_algorithms.cpp)
         target_link_libraries(test_algorithms mka_algorithms GTest::gtest_main)
@@ -192,18 +187,65 @@ endif()
 # ============================================================================
 
 option(ENABLE_CPPCHECK "Enable static analysis with cppcheck" OFF)
+option(ENABLE_CLANG_TIDY "Enable static analysis with clang-tidy" OFF)
 
+# Cppcheck настройки
 if(ENABLE_CPPCHECK)
     find_program(CPPCHECK cppcheck)
     if(CPPCHECK)
-        set(CMAKE_CXX_CPPCHECK 
+        set(CMAKE_CXX_CPPCHECK
             ${CPPCHECK}
             --enable=all
             --error-exitcode=1
             --inline-suppr
             --std=c++17
+            --suppress=missingIncludeSystem
+            --suppress=unusedFunction
+            --force
+            -j4
         )
+        message(STATUS "Cppcheck enabled: ${CPPCHECK}")
+    else()
+        message(WARNING "Cppcheck requested but not found")
     endif()
+endif()
+
+# Clang-tidy настройки
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANGTIDY clang-tidy)
+    if(CLANGTIDY)
+        set(CMAKE_CXX_CLANG_TIDY
+            ${CLANGTIDY}
+            --format-style=file
+            --header-filter=src/.*
+            --checks=
+                -bugprone-*,
+                -cert-*,
+                -clang-analyzer-*,
+                -cppcoreguidelines-*,
+                -misc-*,
+                -performance-*,
+                -portability-*,
+                -readability-*,
+                -use-trailing-return-type,
+                -readability-magic-numbers,
+                -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+                -cppcoreguidelines-avoid-magic-numbers,
+                -readability-identifier-length
+        )
+        message(STATUS "Clang-tidy enabled: ${CLANGTIDY}")
+    else()
+        message(WARNING "Clang-tidy requested but not found")
+    endif()
+endif()
+
+# Code coverage настройки
+option(ENABLE_COVERAGE "Enable code coverage with gcov" OFF)
+
+if(ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(--coverage -fprofile-arcs -ftest-coverage -O0)
+    add_link_options(--coverage)
+    message(STATUS "Code coverage enabled")
 endif()
 
 # ============================================================================

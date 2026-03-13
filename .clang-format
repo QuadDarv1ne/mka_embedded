@@ -1,0 +1,95 @@
+---
+# MKA Embedded C++ Code Style
+# Основано на LLVM style с адаптацией для embedded разработки
+
+BasedOnStyle: LLVM
+
+# Ширина табуляции
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+
+# Использование пробелов вместо табов
+UseTab: Never
+
+# Длина строки
+ColumnLimit: 120
+
+# Выравнивание после запятых
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# Скобки
+BreakBeforeBraces: Attach
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+
+# Перенос строк
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeBinaryOperators: None
+BreakAfterBinaryOperators: None
+BreakBeforeTernaryOperators: true
+
+# Пробелы
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Переносы
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortCommentsOnASingleLine: true
+
+# Отступы для access modifiers
+AccessModifierOffset: -4
+
+# Выравнивание includes
+SortIncludes: CaseInsensitive
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex: '^<.*\.h>'
+    Priority: 1
+  - Regex: '^<.*>'
+    Priority: 2
+  - Regex: '^".*\.hpp"'
+    Priority: 3
+  - Regex: '^".*\.h"'
+    Priority: 4
+
+# Макросы
+MacroBlockBegin: ''
+MacroBlockEnd: ''
+
+# Pointer alignment
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+# Other
+CompactNamespaces: false
+FixNamespaceComments: true
+NamespaceIndentation: None
+ReflowComments: true
+SortUsingDeclarations: true
+Standard: c++17
+
+# Для заголовочных файлов
+Language: Cpp
