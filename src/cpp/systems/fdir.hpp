@@ -285,7 +285,7 @@ public:
         if (paramCount_ >= MAX_PARAMETERS) return 0xFF;
 
         uint8_t id = paramCount_++;
-        monitors_[id] = {config, callback};
+        monitors_[id] = ParameterMonitor(config, callback);
         return id;
     }
     
