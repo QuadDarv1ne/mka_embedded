@@ -142,17 +142,22 @@ if(BUILD_TESTS AND HOST_BUILD)
         add_executable(test_algorithms tests/test_algorithms.cpp)
         target_link_libraries(test_algorithms mka_algorithms GTest::gtest_main)
         add_test(NAME test_algorithms COMMAND test_algorithms)
-        
+
         # Тест FDIR
         add_executable(test_fdir tests/test_fdir.cpp)
         target_link_libraries(test_fdir mka_core GTest::gtest_main)
         add_test(NAME test_fdir COMMAND test_fdir)
-        
+
         # Тест State Machine
         add_executable(test_statemachine tests/test_statemachine.cpp)
         target_link_libraries(test_statemachine mka_core GTest::gtest_main)
         add_test(NAME test_statemachine COMMAND test_statemachine)
-        
+
+        # Тест утилит (Result, Callback)
+        add_executable(test_utils tests/test_utils.cpp)
+        target_link_libraries(test_utils mka_core GTest::gtest_main)
+        add_test(NAME test_utils COMMAND test_utils)
+
     else()
         message(STATUS "Google Test not found, skipping unit tests")
     endif()

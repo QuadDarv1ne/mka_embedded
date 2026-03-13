@@ -294,10 +294,9 @@ constexpr Callback<Ret(Args...)> makeCallback(Ret (*func)(Args...)) {
     return Callback<Ret(Args...)>(func);
 }
 
-template<typename F>
+template<typename F, typename Ret = std::invoke_result_t<F>>
 auto makeCallbackWithStorage(F&& func) {
-    using Ret = std::invoke_result_t<F>;
-    return CallbackWithStorage<Ret(Args...)>(std::forward<F>(func));
+    return CallbackWithStorage<Ret>(std::forward<F>(func));
 }
 
 } // namespace mka

@@ -13,7 +13,6 @@
 #include <cstring>
 #include <array>
 #include <span>
-#include <functional>
 #include <vector>
 #include <unordered_map>
 
