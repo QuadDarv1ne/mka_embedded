@@ -13,10 +13,11 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
 #include <span>
 #include <optional>
+
+#include "../utils/callback.hpp"
 
 // Forward declarations для FreeRTOS типов
 typedef void* TaskHandle_t;
@@ -106,8 +107,8 @@ constexpr uint32_t msToTicks(uint32_t ms) {
 template<size_t StackSize>
 class Task {
 public:
-    using TaskFunction = std::function<void()>;
-    
+    using TaskFunction = Callback<void()>;
+
     Task(const char* name, uint32_t priority, TaskFunction func)
         : name_(name), priority_(priority), func_(func) {}
     
@@ -350,8 +351,8 @@ private:
  */
 class Timer {
 public:
-    using TimerCallback = std::function<void()>;
-    
+    using TimerCallback = Callback<void()>;
+
     Timer(const char* name, uint32_t periodMs, bool autoReload, TimerCallback callback)
         : name_(name), period_(periodMs), autoReload_(autoReload), callback_(callback) {}
     
@@ -454,8 +455,8 @@ public:
         MutexGuard guard(mutex_);
         value_ = value;
     }
-    
-    void update(std::function<void(T&)> updater) {
+
+    void update(Callback<void(T&)> updater) {
         MutexGuard guard(mutex_);
         updater(value_);
     }

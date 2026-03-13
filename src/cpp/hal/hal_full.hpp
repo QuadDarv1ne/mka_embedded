@@ -12,9 +12,10 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <array>
 #include <span>
+
+#include "../utils/callback.hpp"
 
 namespace mka {
 namespace hal {
@@ -144,8 +145,8 @@ struct GPIOConfig {
  */
 class IGPIO {
 public:
-    using InterruptCallback = std::function<void(uint8_t pin)>;
-    
+    using InterruptCallback = Callback<void(uint8_t pin)>;
+
     virtual ~IGPIO() = default;
     
     /// Инициализация пина
@@ -199,9 +200,9 @@ struct UARTStatistics {
  */
 class IUART {
 public:
-    using RxCallback = std::function<void(std::span<const uint8_t> data)>;
-    using TxCompleteCallback = std::function<void()>;
-    
+    using RxCallback = Callback<void(std::span<const uint8_t> data)>;
+    using TxCompleteCallback = Callback<void()>;
+
     virtual ~IUART() = default;
     
     /// Инициализация
@@ -275,8 +276,8 @@ struct SPIConfig {
  */
 class ISPI {
 public:
-    using TransferCallback = std::function<void(std::span<uint8_t> rxData)>;
-    
+    using TransferCallback = Callback<void(std::span<uint8_t> rxData)>;
+
     virtual ~ISPI() = default;
     
     /// Инициализация
@@ -425,9 +426,9 @@ struct CANConfig {
  */
 class ICAN {
 public:
-    using RxCallback = std::function<void(const CANMessage& msg)>;
-    using TxCompleteCallback = std::function<void(uint32_t mailbox)>;
-    
+    using RxCallback = Callback<void(const CANMessage& msg)>;
+    using TxCompleteCallback = Callback<void(uint32_t mailbox)>;
+
     virtual ~ICAN() = default;
     
     /// Инициализация
@@ -485,8 +486,8 @@ struct ADCConfig {
  */
 class IADC {
 public:
-    using ConversionCallback = std::function<void(uint8_t channel, uint16_t value)>;
-    
+    using ConversionCallback = Callback<void(uint8_t channel, uint16_t value)>;
+
     virtual ~IADC() = default;
     
     /// Инициализация
@@ -576,8 +577,8 @@ struct TimerConfig {
  */
 class ITimer {
 public:
-    using Callback = std::function<void()>;
-    
+    using Callback = Callback<void()>;
+
     virtual ~ITimer() = default;
     
     /// Инициализация
@@ -752,8 +753,8 @@ struct PowerConfig {
  */
 class IPowerSystem {
 public:
-    using AlertCallback = std::function<void(uint8_t alertType)>;
-    
+    using AlertCallback = Callback<void(uint8_t alertType)>;
+
     virtual ~IPowerSystem() = default;
     
     /// Инициализация
@@ -857,8 +858,8 @@ struct DMAConfig {
  */
 class IDMA {
 public:
-    using TransferCallback = std::function<void()>;
-    
+    using TransferCallback = Callback<void()>;
+
     virtual ~IDMA() = default;
     
     /// Конфигурация
