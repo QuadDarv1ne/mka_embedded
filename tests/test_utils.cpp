@@ -84,7 +84,7 @@ TEST(CallbackTest, EmptyCallback) {
 }
 
 TEST(CallbackTest, FunctionCallback) {
-    auto lambda = [](int x) { return x * 2; };
+    auto lambda = +[](int x) { return x * 2; };
     Callback<int(int)> cb(lambda);
 
     EXPECT_TRUE(cb.isValid());
@@ -94,16 +94,17 @@ TEST(CallbackTest, FunctionCallback) {
 
 TEST(CallbackTest, VoidCallback) {
     int counter = 0;
-    auto lambda = [&counter]() { counter++; };
+    auto lambda = +[]() { /* no capture - uses global or passed data */ };
     Callback<void()> cb(lambda);
 
     cb.call();
     cb.call();
-    EXPECT_EQ(counter, 2);
+    // Note: Callback without capture cannot modify external state
+    // For capturing lambdas, use CallbackWithStorage
 }
 
 TEST(CallbackTest, CallbackReset) {
-    auto lambda = [](int x) { return x; };
+    auto lambda = +[](int x) { return x; };
     Callback<int(int)> cb(lambda);
 
     EXPECT_TRUE(cb.isValid());
@@ -113,7 +114,8 @@ TEST(CallbackTest, CallbackReset) {
 
 TEST(CallbackTest, BoolOperator) {
     Callback<int()> empty_cb;
-    Callback<int()> valid_cb([]() { return 42; });
+    auto lambda = +[]() { return 42; };
+    Callback<int()> valid_cb(lambda);
 
     EXPECT_FALSE(empty_cb);
     EXPECT_TRUE(valid_cb);
@@ -137,6 +139,17 @@ TEST(CallbackTest, WithStorageVoid) {
 
     cb(42);
     EXPECT_EQ(value, 42);
+}
+
+TEST(CallbackTest, WithStorageModify) {
+    int counter = 0;
+    auto lambda = [&counter]() { counter++; };
+
+    auto cb = makeCallbackWithStorage(lambda);
+
+    cb();
+    cb();
+    EXPECT_EQ(counter, 2);
 }
 
 TEST(CallbackTest, MakeCallback) {
