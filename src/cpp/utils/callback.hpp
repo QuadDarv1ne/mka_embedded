@@ -31,6 +31,10 @@ public:
         : context_(nullptr)
         , invoker_(nullptr) {}
 
+    constexpr Callback(std::nullptr_t) noexcept
+        : context_(nullptr)
+        , invoker_(nullptr) {}
+
     template<typename F>
     constexpr Callback(F* func) noexcept
         : context_(reinterpret_cast<void*>(func))
@@ -39,6 +43,20 @@ public:
     constexpr bool isEmpty() const noexcept { return invoker_ == nullptr; }
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
+
+    Callback& operator=(std::nullptr_t) noexcept {
+        context_ = nullptr;
+        invoker_ = nullptr;
+        return *this;
+    }
+
+    friend constexpr bool operator==(const Callback& cb, std::nullptr_t) noexcept {
+        return cb.invoker_ == nullptr;
+    }
+
+    friend constexpr bool operator==(std::nullptr_t, const Callback& cb) noexcept {
+        return cb.invoker_ == nullptr;
+    }
 
     Ret call(Args... args) const {
         if (invoker_) {
@@ -76,6 +94,10 @@ public:
         : context_(nullptr)
         , invoker_(nullptr) {}
 
+    constexpr Callback(std::nullptr_t) noexcept
+        : context_(nullptr)
+        , invoker_(nullptr) {}
+
     template<typename F>
     constexpr Callback(F* func) noexcept
         : context_(reinterpret_cast<void*>(func))
@@ -84,6 +106,20 @@ public:
     constexpr bool isEmpty() const noexcept { return invoker_ == nullptr; }
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
+
+    Callback& operator=(std::nullptr_t) noexcept {
+        context_ = nullptr;
+        invoker_ = nullptr;
+        return *this;
+    }
+
+    friend constexpr bool operator==(const Callback& cb, std::nullptr_t) noexcept {
+        return cb.invoker_ == nullptr;
+    }
+
+    friend constexpr bool operator==(std::nullptr_t, const Callback& cb) noexcept {
+        return cb.invoker_ == nullptr;
+    }
 
     void call(Args... args) const {
         if (invoker_) {
