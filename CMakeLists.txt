@@ -170,6 +170,16 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_executable(test_utils tests/test_utils.cpp)
     target_link_libraries(test_utils mka_core GTest::gtest_main)
     add_test(NAME test_utils COMMAND test_utils)
+
+    # Тест команд (Command Handler)
+    add_executable(test_commands tests/test_commands.cpp)
+    target_link_libraries(test_commands mka_core GTest::gtest_main)
+    add_test(NAME test_commands COMMAND test_commands)
+
+    # Тест хранилища параметров (Parameter Store)
+    add_executable(test_param_store tests/test_param_store.cpp)
+    target_link_libraries(test_param_store mka_core GTest::gtest_main)
+    add_test(NAME test_param_store COMMAND test_param_store)
 endif()
 
 # ============================================================================

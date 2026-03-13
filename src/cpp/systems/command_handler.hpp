@@ -182,7 +182,7 @@ using CommandHandler = Callback<ResultCode(const Command& cmd, CommandResponse& 
 /**
  * @brief Валидатор параметров команды
  */
-using ParamValidator = Callback<bool(std::span<const uint8_t> params)>;
+using ParamValidator = Callback<bool(const uint8_t* params, size_t size)>;
 
 // ============================================================================
 // Регистр команд
@@ -256,8 +256,7 @@ public:
         
         // Валидация параметров
         if (reg->validator) {
-            std::span<const uint8_t> params(cmd.data.data(), cmd.header.dataLength);
-            if (!reg->validator(params)) {
+            if (!reg->validator(cmd.data.data(), cmd.header.dataLength)) {
                 response.resultCode = ResultCode::INVALID_PARAMS;
                 return response;
             }
@@ -323,7 +322,7 @@ private:
  * @brief Создание обработчика NOOP
  */
 inline CommandHandler createNoopHandler() {
-    return [](const Command& cmd, CommandResponse& resp) -> ResultCode {
+    return +[](const Command&, CommandResponse& resp) -> ResultCode {
         resp.data[0] = 'O';
         resp.data[1] = 'K';
         resp.responseLength = 2;
@@ -335,10 +334,17 @@ inline CommandHandler createNoopHandler() {
  * @brief Создание обработчика GET_VERSION
  */
 inline CommandHandler createGetVersionHandler(uint8_t major, uint8_t minor, uint8_t patch) {
-    return [major, minor, patch](const Command& cmd, CommandResponse& resp) -> ResultCode {
-        resp.data[0] = major;
-        resp.data[1] = minor;
-        resp.data[2] = patch;
+    // Используем глобальное хранилище для версий
+    // Это ограничение Callback без захвата
+    static uint8_t s_major = 0, s_minor = 0, s_patch = 0;
+    s_major = major;
+    s_minor = minor;
+    s_patch = patch;
+    
+    return +[](const Command&, CommandResponse& resp) -> ResultCode {
+        resp.data[0] = s_major;
+        resp.data[1] = s_minor;
+        resp.data[2] = s_patch;
         resp.responseLength = 3;
         return ResultCode::OK;
     };
@@ -347,23 +353,23 @@ inline CommandHandler createGetVersionHandler(uint8_t major, uint8_t minor, uint
 /**
  * @brief Парсер команды из байтов
  */
-inline std::optional<Command> parseCommand(std::span<const uint8_t> data) {
-    if (data.size() < sizeof(CommandHeader)) {
+inline std::optional<Command> parseCommand(const uint8_t* data, size_t dataSize) {
+    if (dataSize < sizeof(CommandHeader)) {
         return std::nullopt;
     }
-    
+
     Command cmd{};
-    std::memcpy(&cmd.header, data.data(), sizeof(CommandHeader));
-    
+    std::memcpy(&cmd.header, data, sizeof(CommandHeader));
+
     // Проверка длины
-    if (data.size() < sizeof(CommandHeader) + cmd.header.dataLength) {
+    if (dataSize < sizeof(CommandHeader) + cmd.header.dataLength) {
         return std::nullopt;
     }
-    
+
     // Копирование данных
     size_t dataLen = std::min<size_t>(cmd.header.dataLength, cmd.data.size());
-    std::memcpy(cmd.data.data(), data.data() + sizeof(CommandHeader), dataLen);
-    
+    std::memcpy(cmd.data.data(), data + sizeof(CommandHeader), dataLen);
+
     cmd.valid = true;
     return cmd;
 }
@@ -371,34 +377,34 @@ inline std::optional<Command> parseCommand(std::span<const uint8_t> data) {
 /**
  * @brief Сериализация ответа в байты
  */
-inline size_t serializeResponse(const CommandResponse& resp, std::span<uint8_t> buffer) {
+inline size_t serializeResponse(const CommandResponse& resp, uint8_t* buffer, size_t bufferSize) {
     size_t totalSize = 7 + resp.responseLength;  // Header + data
-    
-    if (buffer.size() < totalSize) {
+
+    if (bufferSize < totalSize) {
         return 0;
     }
-    
+
     size_t offset = 0;
-    
+
     // Command ID
     buffer[offset++] = resp.commandId >> 8;
     buffer[offset++] = resp.commandId & 0xFF;
-    
+
     // Sequence number
     buffer[offset++] = resp.sequenceNumber >> 8;
     buffer[offset++] = resp.sequenceNumber & 0xFF;
-    
+
     // Result code
     buffer[offset++] = static_cast<uint8_t>(resp.resultCode);
-    
+
     // Response length
     buffer[offset++] = resp.responseLength >> 8;
     buffer[offset++] = resp.responseLength & 0xFF;
-    
+
     // Data
-    std::memcpy(buffer.data() + offset, resp.data.data(), resp.responseLength);
+    std::memcpy(buffer + offset, resp.data.data(), resp.responseLength);
     offset += resp.responseLength;
-    
+
     return offset;
 }
 
