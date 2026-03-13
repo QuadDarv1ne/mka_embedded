@@ -133,7 +133,6 @@ TEST(CallbackTest, FunctionCallback) {
 }
 
 TEST(CallbackTest, VoidCallback) {
-    int counter = 0;
     auto lambda = +[]() { /* no capture - uses global or passed data */ };
     Callback<void()> cb(lambda);
 

@@ -175,7 +175,6 @@ public:
     template<typename F>
     constexpr auto map(F&& func) const&
         -> Result<std::invoke_result_t<F, const T&>, E> {
-        using NewT = std::invoke_result_t<F, const T&>;
         if (ok_) {
             return std::forward<F>(func)(storage_.value);
         } else {
@@ -186,7 +185,6 @@ public:
     template<typename F>
     constexpr auto map(F&& func) &&
         -> Result<std::invoke_result_t<F, T>, E> {
-        using NewT = std::invoke_result_t<F, T>;
         if (ok_) {
             return std::forward<F>(func)(std::move(storage_.value));
         } else {
