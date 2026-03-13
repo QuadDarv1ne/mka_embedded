@@ -180,6 +180,11 @@ public:
         , destroy_(nullptr)
         , size_(0) {}
 
+    constexpr CallbackWithStorage(std::nullptr_t) noexcept
+        : invoker_(nullptr)
+        , destroy_(nullptr)
+        , size_(0) {}
+
     template<typename F>
     CallbackWithStorage(F&& func) {
         using FuncType = std::decay_t<F>;
@@ -191,8 +196,43 @@ public:
         destroy_ = &destroy<FuncType>;
     }
 
-    CallbackWithStorage(const CallbackWithStorage&) = delete;
-    CallbackWithStorage& operator=(const CallbackWithStorage&) = delete;
+    CallbackWithStorage& operator=(std::nullptr_t) noexcept {
+        if (destroy_) {
+            destroy_(storage_);
+        }
+        invoker_ = nullptr;
+        destroy_ = nullptr;
+        size_ = 0;
+        return *this;
+    }
+
+    CallbackWithStorage(const CallbackWithStorage& other) noexcept
+        : invoker_(other.invoker_)
+        , destroy_(other.destroy_)
+        , size_(other.size_) {
+        if (size_ > 0 && invoker_) {
+            for (size_t i = 0; i < size_; ++i) {
+                storage_[i] = other.storage_[i];
+            }
+        }
+    }
+
+    CallbackWithStorage& operator=(const CallbackWithStorage& other) noexcept {
+        if (this != &other) {
+            if (destroy_) {
+                destroy_(storage_);
+            }
+            invoker_ = other.invoker_;
+            destroy_ = other.destroy_;
+            size_ = other.size_;
+            if (size_ > 0 && invoker_) {
+                for (size_t i = 0; i < size_; ++i) {
+                    storage_[i] = other.storage_[i];
+                }
+            }
+        }
+        return *this;
+    }
 
     CallbackWithStorage(CallbackWithStorage&& other) noexcept
         : invoker_(other.invoker_)
@@ -218,14 +258,14 @@ public:
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
 
-    Ret call(Args... args) {
+    Ret call(Args... args) const {
         if (invoker_) {
-            return invoker_(storage_, args...);
+            return invoker_(const_cast<void*>(reinterpret_cast<const void*>(storage_)), args...);
         }
         return Ret{};
     }
 
-    Ret operator()(Args... args) {
+    Ret operator()(Args... args) const {
         return call(args...);
     }
 
@@ -267,6 +307,11 @@ public:
         , destroy_(nullptr)
         , size_(0) {}
 
+    constexpr CallbackWithStorage(std::nullptr_t) noexcept
+        : invoker_(nullptr)
+        , destroy_(nullptr)
+        , size_(0) {}
+
     template<typename F>
     CallbackWithStorage(F&& func) {
         using FuncType = std::decay_t<F>;
@@ -278,8 +323,43 @@ public:
         destroy_ = &destroy<FuncType>;
     }
 
-    CallbackWithStorage(const CallbackWithStorage&) = delete;
-    CallbackWithStorage& operator=(const CallbackWithStorage&) = delete;
+    CallbackWithStorage& operator=(std::nullptr_t) noexcept {
+        if (destroy_) {
+            destroy_(storage_);
+        }
+        invoker_ = nullptr;
+        destroy_ = nullptr;
+        size_ = 0;
+        return *this;
+    }
+
+    CallbackWithStorage(const CallbackWithStorage& other) noexcept
+        : invoker_(other.invoker_)
+        , destroy_(other.destroy_)
+        , size_(other.size_) {
+        if (size_ > 0 && invoker_) {
+            for (size_t i = 0; i < size_; ++i) {
+                storage_[i] = other.storage_[i];
+            }
+        }
+    }
+
+    CallbackWithStorage& operator=(const CallbackWithStorage& other) noexcept {
+        if (this != &other) {
+            if (destroy_) {
+                destroy_(storage_);
+            }
+            invoker_ = other.invoker_;
+            destroy_ = other.destroy_;
+            size_ = other.size_;
+            if (size_ > 0 && invoker_) {
+                for (size_t i = 0; i < size_; ++i) {
+                    storage_[i] = other.storage_[i];
+                }
+            }
+        }
+        return *this;
+    }
 
     CallbackWithStorage(CallbackWithStorage&& other) noexcept
         : invoker_(other.invoker_)
@@ -305,13 +385,13 @@ public:
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
 
-    void call(Args... args) {
+    void call(Args... args) const {
         if (invoker_) {
-            invoker_(storage_, args...);
+            invoker_(const_cast<void*>(reinterpret_cast<const void*>(storage_)), args...);
         }
     }
 
-    void operator()(Args... args) {
+    void operator()(Args... args) const {
         call(args...);
     }
 
@@ -354,6 +434,11 @@ public:
         , destroy_(nullptr)
         , size_(0) {}
 
+    constexpr CallbackWithStorage(std::nullptr_t) noexcept
+        : invoker_(nullptr)
+        , destroy_(nullptr)
+        , size_(0) {}
+
     template<typename F>
     CallbackWithStorage(F&& func) {
         using FuncType = std::decay_t<F>;
@@ -365,8 +450,43 @@ public:
         destroy_ = &destroy<FuncType>;
     }
 
-    CallbackWithStorage(const CallbackWithStorage&) = delete;
-    CallbackWithStorage& operator=(const CallbackWithStorage&) = delete;
+    CallbackWithStorage& operator=(std::nullptr_t) noexcept {
+        if (destroy_) {
+            destroy_(storage_);
+        }
+        invoker_ = nullptr;
+        destroy_ = nullptr;
+        size_ = 0;
+        return *this;
+    }
+
+    CallbackWithStorage(const CallbackWithStorage& other) noexcept
+        : invoker_(other.invoker_)
+        , destroy_(other.destroy_)
+        , size_(other.size_) {
+        if (size_ > 0 && invoker_) {
+            for (size_t i = 0; i < size_; ++i) {
+                storage_[i] = other.storage_[i];
+            }
+        }
+    }
+
+    CallbackWithStorage& operator=(const CallbackWithStorage& other) noexcept {
+        if (this != &other) {
+            if (destroy_) {
+                destroy_(storage_);
+            }
+            invoker_ = other.invoker_;
+            destroy_ = other.destroy_;
+            size_ = other.size_;
+            if (size_ > 0 && invoker_) {
+                for (size_t i = 0; i < size_; ++i) {
+                    storage_[i] = other.storage_[i];
+                }
+            }
+        }
+        return *this;
+    }
 
     CallbackWithStorage(CallbackWithStorage&& other) noexcept
         : invoker_(other.invoker_)
@@ -392,13 +512,13 @@ public:
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
 
-    void call(Args... args) {
+    void call(Args... args) const {
         if (invoker_) {
             invoker_(storage_, args...);
         }
     }
 
-    void operator()(Args... args) {
+    void operator()(Args... args) const {
         call(args...);
     }
 

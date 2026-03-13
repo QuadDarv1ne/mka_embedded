@@ -209,8 +209,9 @@ public:
         SatelliteMode oldMode = currentMode_;
         currentMode_ = targetMode;
         lastTransitionReason_ = reason;
+        transitionsCount_++;
         addToHistory(oldMode, targetMode, reason);
-        
+
         if (modeChangeCallback_) {
             modeChangeCallback_(oldMode, targetMode, reason);
         }
@@ -385,51 +386,51 @@ private:
     
     void initializeDefaultTransitions() {
         // OFF -> INIT
-        addTransition(SatelliteMode::OFF, SatelliteMode::INIT, 
-            [](const StateMachineContext& ctx) { return true; });
-        
+        addTransition(SatelliteMode::OFF, SatelliteMode::INIT,
+            +[](const StateMachineContext& ctx) { return true; });
+
         // INIT -> SAFE
         addTransition(SatelliteMode::INIT, SatelliteMode::SAFE,
-            [](const StateMachineContext& ctx) { return ctx.antennaDeployed; });
-        
+            +[](const StateMachineContext& ctx) { return ctx.antennaDeployed; });
+
         // SAFE -> STANDBY
         addTransition(SatelliteMode::SAFE, SatelliteMode::STANDBY,
-            [](const StateMachineContext& ctx) {
-                return ctx.batteryLevel > 30.0f && 
-                       ctx.temperatureOBC > -10.0f && 
+            +[](const StateMachineContext& ctx) {
+                return ctx.batteryLevel > 30.0f &&
+                       ctx.temperatureOBC > -10.0f &&
                        ctx.temperatureOBC < 55.0f;
             });
-        
+
         // STANDBY -> NOMINAL
         addTransition(SatelliteMode::STANDBY, SatelliteMode::NOMINAL,
-            [](const StateMachineContext& ctx) {
-                return ctx.batteryLevel > 50.0f && 
-                       ctx.adcsNominal && 
+            +[](const StateMachineContext& ctx) {
+                return ctx.batteryLevel > 50.0f &&
+                       ctx.adcsNominal &&
                        ctx.commNominal;
             });
-        
+
         // NOMINAL -> MISSION
         addTransition(SatelliteMode::NOMINAL, SatelliteMode::MISSION,
-            [](const StateMachineContext& ctx) {
-                return ctx.batteryLevel > 70.0f && 
-                       ctx.adcsNominal && 
+            +[](const StateMachineContext& ctx) {
+                return ctx.batteryLevel > 70.0f &&
+                       ctx.adcsNominal &&
                        ctx.commNominal &&
                        ctx.payloadNominal;
             });
-        
+
         // Обратные переходы (всегда разрешены для снижения режима)
         addTransition(SatelliteMode::MISSION, SatelliteMode::NOMINAL, nullptr);
         addTransition(SatelliteMode::NOMINAL, SatelliteMode::STANDBY, nullptr);
         addTransition(SatelliteMode::STANDBY, SatelliteMode::SAFE, nullptr);
-        
+
         // SAFE можно войти из любого режима
         addTransition(SatelliteMode::NOMINAL, SatelliteMode::SAFE, nullptr);
         addTransition(SatelliteMode::MISSION, SatelliteMode::SAFE, nullptr);
-        
+
         // MAINTENANCE
         addTransition(SatelliteMode::NOMINAL, SatelliteMode::MAINTENANCE, nullptr);
         addTransition(SatelliteMode::MAINTENANCE, SatelliteMode::NOMINAL, nullptr);
-        
+
         // EMERGENCY
         addTransition(SatelliteMode::SAFE, SatelliteMode::EMERGENCY, nullptr);
         addTransition(SatelliteMode::EMERGENCY, SatelliteMode::SAFE, nullptr);
