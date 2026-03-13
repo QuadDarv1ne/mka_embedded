@@ -180,6 +180,16 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_executable(test_param_store tests/test_param_store.cpp)
     target_link_libraries(test_param_store mka_core GTest::gtest_main)
     add_test(NAME test_param_store COMMAND test_param_store)
+
+    # Тест watchdog менеджера
+    add_executable(test_watchdog tests/test_watchdog.cpp)
+    target_link_libraries(test_watchdog mka_core GTest::gtest_main)
+    add_test(NAME test_watchdog COMMAND test_watchdog)
+
+    # Тест FreeRTOS wrapper - требует реального FreeRTOS для линковки
+    # add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
+    # target_link_libraries(test_freertos_wrapper mka_core GTest::gtest_main)
+    # add_test(NAME test_freertos_wrapper COMMAND test_freertos_wrapper)
 endif()
 
 # ============================================================================
