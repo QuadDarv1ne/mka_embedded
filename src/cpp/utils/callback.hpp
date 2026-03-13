@@ -58,6 +58,14 @@ public:
         return cb.invoker_ == nullptr;
     }
 
+    friend constexpr bool operator!=(const Callback& cb, std::nullptr_t) noexcept {
+        return cb.invoker_ != nullptr;
+    }
+
+    friend constexpr bool operator!=(std::nullptr_t, const Callback& cb) noexcept {
+        return cb.invoker_ != nullptr;
+    }
+
     Ret call(Args... args) const {
         if (invoker_) {
             return invoker_(context_, args...);
@@ -119,6 +127,14 @@ public:
 
     friend constexpr bool operator==(std::nullptr_t, const Callback& cb) noexcept {
         return cb.invoker_ == nullptr;
+    }
+
+    friend constexpr bool operator!=(const Callback& cb, std::nullptr_t) noexcept {
+        return cb.invoker_ != nullptr;
+    }
+
+    friend constexpr bool operator!=(std::nullptr_t, const Callback& cb) noexcept {
+        return cb.invoker_ != nullptr;
     }
 
     void call(Args... args) const {
@@ -202,14 +218,14 @@ public:
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
 
-    Ret call(Args... args) const {
+    Ret call(Args... args) {
         if (invoker_) {
             return invoker_(storage_, args...);
         }
         return Ret{};
     }
 
-    Ret operator()(Args... args) const {
+    Ret operator()(Args... args) {
         return call(args...);
     }
 
@@ -289,13 +305,100 @@ public:
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
 
-    void call(Args... args) const {
+    void call(Args... args) {
         if (invoker_) {
             invoker_(storage_, args...);
         }
     }
 
-    void operator()(Args... args) const {
+    void operator()(Args... args) {
+        call(args...);
+    }
+
+    void reset() {
+        if (destroy_) {
+            destroy_(storage_);
+        }
+        size_ = 0;
+        invoker_ = nullptr;
+        destroy_ = nullptr;
+    }
+
+private:
+    alignas(alignof(std::max_align_t)) uint8_t storage_[ContextSize];
+    InvokerFunc invoker_;
+    DestroyFunc destroy_;
+    size_t size_;
+
+    template<typename F>
+    static void invoke(void* context, Args... args) {
+        auto* func = reinterpret_cast<F*>(context);
+        (*func)(args...);
+    }
+
+    template<typename F>
+    static void destroy(void* context) {
+        reinterpret_cast<F*>(context)->~F();
+    }
+};
+
+// Специализация для void
+template<size_t ContextSize, typename... Args>
+class CallbackWithStorage<void(Args...), ContextSize> {
+public:
+    using InvokerFunc = void (*)(void*, Args...);
+    using DestroyFunc = void (*)(void*);
+
+    constexpr CallbackWithStorage() noexcept
+        : invoker_(nullptr)
+        , destroy_(nullptr)
+        , size_(0) {}
+
+    template<typename F>
+    CallbackWithStorage(F&& func) {
+        using FuncType = std::decay_t<F>;
+        static_assert(sizeof(FuncType) <= ContextSize,
+                      "Lambda too large for CallbackWithStorage");
+        new (storage_) FuncType(std::forward<F>(func));
+        size_ = sizeof(FuncType);
+        invoker_ = &invoke<FuncType>;
+        destroy_ = &destroy<FuncType>;
+    }
+
+    CallbackWithStorage(const CallbackWithStorage&) = delete;
+    CallbackWithStorage& operator=(const CallbackWithStorage&) = delete;
+
+    CallbackWithStorage(CallbackWithStorage&& other) noexcept
+        : invoker_(other.invoker_)
+        , destroy_(other.destroy_)
+        , size_(other.size_) {
+        if (size_ > 0) {
+            for (size_t i = 0; i < size_; ++i) {
+                storage_[i] = other.storage_[i];
+            }
+        }
+        other.size_ = 0;
+        other.invoker_ = nullptr;
+        other.destroy_ = nullptr;
+    }
+
+    ~CallbackWithStorage() {
+        if (destroy_) {
+            destroy_(storage_);
+        }
+    }
+
+    constexpr bool isEmpty() const noexcept { return invoker_ == nullptr; }
+    constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
+    constexpr explicit operator bool() const noexcept { return isValid(); }
+
+    void call(Args... args) {
+        if (invoker_) {
+            invoker_(storage_, args...);
+        }
+    }
+
+    void operator()(Args... args) {
         call(args...);
     }
 
@@ -331,9 +434,15 @@ constexpr Callback<Ret(Args...)> makeCallback(Ret (*func)(Args...)) {
     return Callback<Ret(Args...)>(func);
 }
 
-template<typename F, typename Ret = std::invoke_result_t<F>>
-auto makeCallbackWithStorage(F&& func) {
-    return CallbackWithStorage<Ret>(std::forward<F>(func));
+template<typename F, typename Ret>
+auto makeCallbackWithStorage(const F& func) {
+    return CallbackWithStorage<Ret>(func);
+}
+
+template<typename F>
+auto makeCallbackWithStorage(const F& func) {
+    using Ret = std::invoke_result_t<const F&>;
+    return CallbackWithStorage<Ret>(func);
 }
 
 } // namespace mka

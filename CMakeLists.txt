@@ -6,6 +6,23 @@ cmake_minimum_required(VERSION 3.20)
 project(MKA_Embedded VERSION 1.0.0 LANGUAGES CXX)
 
 # ============================================================================
+# FetchContent для зависимостей
+# ============================================================================
+
+include(FetchContent)
+
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.14.0
+)
+
+# Для Windows: отключаем статические CRT флаги
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(googletest)
+
+# ============================================================================
 # Настройки компилятора
 # ============================================================================
 
@@ -133,34 +150,26 @@ option(BUILD_TESTS "Build unit tests" ON)
 
 if(BUILD_TESTS AND HOST_BUILD)
     enable_testing()
-    
-    # Google Test
-    find_package(GTest QUIET)
-    
-    if(GTest_FOUND)
-        # Тест алгоритмов
-        add_executable(test_algorithms tests/test_algorithms.cpp)
-        target_link_libraries(test_algorithms mka_algorithms GTest::gtest_main)
-        add_test(NAME test_algorithms COMMAND test_algorithms)
 
-        # Тест FDIR
-        add_executable(test_fdir tests/test_fdir.cpp)
-        target_link_libraries(test_fdir mka_core GTest::gtest_main)
-        add_test(NAME test_fdir COMMAND test_fdir)
+    # Тест алгоритмов
+    add_executable(test_algorithms tests/test_algorithms.cpp)
+    target_link_libraries(test_algorithms mka_algorithms GTest::gtest_main)
+    add_test(NAME test_algorithms COMMAND test_algorithms)
 
-        # Тест State Machine
-        add_executable(test_statemachine tests/test_statemachine.cpp)
-        target_link_libraries(test_statemachine mka_core GTest::gtest_main)
-        add_test(NAME test_statemachine COMMAND test_statemachine)
+    # Тест FDIR
+    add_executable(test_fdir tests/test_fdir.cpp)
+    target_link_libraries(test_fdir mka_core GTest::gtest_main)
+    add_test(NAME test_fdir COMMAND test_fdir)
 
-        # Тест утилит (Result, Callback)
-        add_executable(test_utils tests/test_utils.cpp)
-        target_link_libraries(test_utils mka_core GTest::gtest_main)
-        add_test(NAME test_utils COMMAND test_utils)
+    # Тест State Machine
+    add_executable(test_statemachine tests/test_statemachine.cpp)
+    target_link_libraries(test_statemachine mka_core GTest::gtest_main)
+    add_test(NAME test_statemachine COMMAND test_statemachine)
 
-    else()
-        message(STATUS "Google Test not found, skipping unit tests")
-    endif()
+    # Тест утилит (Result, Callback)
+    add_executable(test_utils tests/test_utils.cpp)
+    target_link_libraries(test_utils mka_core GTest::gtest_main)
+    add_test(NAME test_utils COMMAND test_utils)
 endif()
 
 # ============================================================================

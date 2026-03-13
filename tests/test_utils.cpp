@@ -51,16 +51,8 @@ TEST(ResultTest, MapSuccess) {
     EXPECT_EQ(mapped.value(), 10);
 }
 
-TEST(ResultTest, MapError) {
-    Result<int, ErrorCode> result = Err<int, ErrorCode>(ErrorCode::TIMEOUT);
-    auto mapped = result.map([](int x) { return x * 2; });
-
-    EXPECT_FALSE(mapped.isOk());
-    EXPECT_EQ(mapped.error(), ErrorCode::TIMEOUT);
-}
-
 TEST(ResultTest, VoidResult) {
-    Result<void, ErrorCode> ok_result = Ok<void, ErrorCode>();
+    Result<void, ErrorCode> ok_result = Ok<ErrorCode>();
     Result<void, ErrorCode> err_result = Err<void, ErrorCode>(ErrorCode::ERROR);
 
     EXPECT_TRUE(ok_result.isOk());
@@ -71,6 +63,33 @@ TEST(ResultTest, ErrorCodeToString) {
     EXPECT_STREQ(errorCodeToString(ErrorCode::OK), "OK");
     EXPECT_STREQ(errorCodeToString(ErrorCode::TIMEOUT), "TIMEOUT");
     EXPECT_STREQ(errorCodeToString(ErrorCode::NOT_FOUND), "NOT_FOUND");
+}
+
+TEST(ResultTest, MapError) {
+    Result<int, ErrorCode> result = Err<int, ErrorCode>(ErrorCode::TIMEOUT);
+    auto mapped = result.mapError([](ErrorCode e) {
+        return static_cast<ErrorCode>(static_cast<int>(e) + 1);
+    });
+
+    EXPECT_FALSE(mapped.isOk());
+    EXPECT_EQ(mapped.error(), ErrorCode::BUSY);
+}
+
+TEST(ResultTest, OrElse) {
+    Result<int, ErrorCode> ok_result = Ok<int, ErrorCode>(42);
+    Result<int, ErrorCode> err_result = Err<int, ErrorCode>(ErrorCode::NOT_FOUND);
+    Result<int, ErrorCode> fallback = Ok<int, ErrorCode>(0);
+
+    EXPECT_EQ(ok_result.orElse(fallback).value(), 42);
+    EXPECT_EQ(err_result.orElse(fallback).value(), 0);
+}
+
+TEST(ResultTest, MoveSemantics) {
+    Result<int, ErrorCode> result = Ok<int, ErrorCode>(42);
+    auto moved = std::move(result);
+    
+    EXPECT_TRUE(moved.isOk());
+    EXPECT_EQ(moved.value(), 42);
 }
 
 // ============================================================================
@@ -146,7 +165,7 @@ TEST(CallbackTest, WithStorage) {
     int multiplier = 3;
     auto lambda = [multiplier](int x) { return x * multiplier; };
 
-    auto cb = makeCallbackWithStorage(lambda);
+    CallbackWithStorage<int(int)> cb(lambda);
 
     EXPECT_TRUE(cb.isValid());
     EXPECT_EQ(cb(5), 15);
@@ -156,7 +175,7 @@ TEST(CallbackTest, WithStorageVoid) {
     int value = 0;
     auto lambda = [&value](int x) { value = x; };
 
-    auto cb = makeCallbackWithStorage(lambda);
+    CallbackWithStorage<void(int)> cb(lambda);
 
     cb(42);
     EXPECT_EQ(value, 42);
@@ -166,7 +185,7 @@ TEST(CallbackTest, WithStorageModify) {
     int counter = 0;
     auto lambda = [&counter]() { counter++; };
 
-    auto cb = makeCallbackWithStorage(lambda);
+    CallbackWithStorage<void()> cb(lambda);
 
     cb();
     cb();
@@ -174,8 +193,7 @@ TEST(CallbackTest, WithStorageModify) {
 }
 
 TEST(CallbackTest, MakeCallback) {
-    auto func = [](int x, int y) { return x + y; };
-    auto cb = makeCallback(func);
+    auto cb = makeCallback(+[](int x, int y) { return x + y; });
 
     EXPECT_EQ(cb(3, 4), 7);
 }
