@@ -110,3 +110,6 @@ temp_*.txt
 temp_*
 TempFile*
 *.temp
+
+# Тестовые артефакты
+Testing/
