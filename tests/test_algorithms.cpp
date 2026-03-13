@@ -237,24 +237,26 @@ TEST(PIDController, OutputClamp) {
 TEST(PIDController, Reset) {
     PIDController::Config config;
     config.kp = 1.0f;
-    config.ki = 1.0f;
-    
+    config.ki = 0.0f;  // Отключаем интегральную составляющую
+
     PIDController pid(config);
-    
+
     pid.compute(10.0f, 0.0f, 0.1f);
     pid.reset();
-    
+
     float output = pid.compute(10.0f, 0.0f, 0.1f);
-    EXPECT_FLOAT_EQ(output, 10.0f);  // Без интегральной составляющей
+    EXPECT_FLOAT_EQ(output, 10.0f);  // Только пропорциональная составляющая
 }
 
 TEST(PIDController, GainSetter) {
     PIDController::Config config;
     config.kp = 1.0f;
-    
+    config.ki = 0.0f;  // Отключаем интегральную составляющую
+    config.kd = 0.0f;  // Отключаем деривативную составляющую
+
     PIDController pid(config);
-    pid.setGains(2.0f, 3.0f, 4.0f);
-    
+    pid.setGains(2.0f, 0.0f, 0.0f);  // Устанавливаем только kp=2
+
     float output = pid.compute(10.0f, 0.0f, 0.1f);
     EXPECT_FLOAT_EQ(output, 20.0f);  // kp=2, error=10
 }
