@@ -197,12 +197,7 @@ public:
     }
 
     CallbackWithStorage& operator=(std::nullptr_t) noexcept {
-        if (destroy_) {
-            destroy_(storage_);
-        }
-        invoker_ = nullptr;
-        destroy_ = nullptr;
-        size_ = 0;
+        reset();
         return *this;
     }
 
@@ -210,7 +205,7 @@ public:
         : invoker_(other.invoker_)
         , destroy_(other.destroy_)
         , size_(other.size_) {
-        if (size_ > 0 && invoker_) {
+        if (size_ > 0) {
             for (size_t i = 0; i < size_; ++i) {
                 storage_[i] = other.storage_[i];
             }
@@ -219,13 +214,11 @@ public:
 
     CallbackWithStorage& operator=(const CallbackWithStorage& other) noexcept {
         if (this != &other) {
-            if (destroy_) {
-                destroy_(storage_);
-            }
+            reset();
             invoker_ = other.invoker_;
             destroy_ = other.destroy_;
             size_ = other.size_;
-            if (size_ > 0 && invoker_) {
+            if (size_ > 0) {
                 for (size_t i = 0; i < size_; ++i) {
                     storage_[i] = other.storage_[i];
                 }
@@ -243,9 +236,23 @@ public:
                 storage_[i] = other.storage_[i];
             }
         }
-        other.size_ = 0;
-        other.invoker_ = nullptr;
-        other.destroy_ = nullptr;
+        other.reset();
+    }
+
+    CallbackWithStorage& operator=(CallbackWithStorage&& other) noexcept {
+        if (this != &other) {
+            reset();
+            invoker_ = other.invoker_;
+            destroy_ = other.destroy_;
+            size_ = other.size_;
+            if (size_ > 0) {
+                for (size_t i = 0; i < size_; ++i) {
+                    storage_[i] = other.storage_[i];
+                }
+            }
+            other.reset();
+        }
+        return *this;
     }
 
     ~CallbackWithStorage() {
@@ -324,12 +331,7 @@ public:
     }
 
     CallbackWithStorage& operator=(std::nullptr_t) noexcept {
-        if (destroy_) {
-            destroy_(storage_);
-        }
-        invoker_ = nullptr;
-        destroy_ = nullptr;
-        size_ = 0;
+        reset();
         return *this;
     }
 
@@ -337,7 +339,7 @@ public:
         : invoker_(other.invoker_)
         , destroy_(other.destroy_)
         , size_(other.size_) {
-        if (size_ > 0 && invoker_) {
+        if (size_ > 0) {
             for (size_t i = 0; i < size_; ++i) {
                 storage_[i] = other.storage_[i];
             }
@@ -346,13 +348,11 @@ public:
 
     CallbackWithStorage& operator=(const CallbackWithStorage& other) noexcept {
         if (this != &other) {
-            if (destroy_) {
-                destroy_(storage_);
-            }
+            reset();
             invoker_ = other.invoker_;
             destroy_ = other.destroy_;
             size_ = other.size_;
-            if (size_ > 0 && invoker_) {
+            if (size_ > 0) {
                 for (size_t i = 0; i < size_; ++i) {
                     storage_[i] = other.storage_[i];
                 }
@@ -370,9 +370,23 @@ public:
                 storage_[i] = other.storage_[i];
             }
         }
-        other.size_ = 0;
-        other.invoker_ = nullptr;
-        other.destroy_ = nullptr;
+        other.reset();
+    }
+
+    CallbackWithStorage& operator=(CallbackWithStorage&& other) noexcept {
+        if (this != &other) {
+            reset();
+            invoker_ = other.invoker_;
+            destroy_ = other.destroy_;
+            size_ = other.size_;
+            if (size_ > 0) {
+                for (size_t i = 0; i < size_; ++i) {
+                    storage_[i] = other.storage_[i];
+                }
+            }
+            other.reset();
+        }
+        return *this;
     }
 
     ~CallbackWithStorage() {

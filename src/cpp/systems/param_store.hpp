@@ -16,10 +16,10 @@
 #include <cstddef>
 #include <cstring>
 #include <array>
-#include <span>
 #include <optional>
 
 #include "utils/callback.hpp"
+#include "utils/span.hpp"
 
 namespace mka {
 namespace param {
