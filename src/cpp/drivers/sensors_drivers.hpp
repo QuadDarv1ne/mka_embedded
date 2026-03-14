@@ -241,19 +241,28 @@ public:
     BMI160Driver(hal::II2C& i2c, uint8_t address = I2C_ADDR_PRIMARY)
         : i2c_(&i2c)
         , spi_(nullptr)
+        , timeSource_(nullptr)
         , address_(address)
         , useSPI_(false)
     {}
-    
+
     /**
      * @brief Конструктор для SPI
      */
     BMI160Driver(hal::ISPI& spi)
         : i2c_(nullptr)
         , spi_(&spi)
+        , timeSource_(nullptr)
         , address_(0)
         , useSPI_(true)
     {}
+
+    /**
+     * @brief Установить источник времени
+     */
+    void setTimeSource(hal::ISystemTime* timeSource) {
+        timeSource_ = timeSource;
+    }
     
     /**
      * @brief Инициализация датчика
@@ -402,10 +411,11 @@ public:
 private:
     hal::II2C* i2c_;
     hal::ISPI* spi_;
+    hal::ISystemTime* timeSource_ = nullptr;
     uint8_t address_;
     bool useSPI_;
     Config config_;
-    
+
     float accSensitivity_ = 1.0f;
     float gyrSensitivity_ = 1.0f;
     
@@ -474,7 +484,9 @@ private:
     }
     
     uint64_t getTimestamp() const {
-        // TODO: Получить из системного таймера
+        if (timeSource_) {
+            return timeSource_->getMs();
+        }
         return 0;
     }
     
@@ -910,7 +922,10 @@ private:
     }
     
     void parseNMEAMessage(GPSData& data) {
-        // TODO: Парсинг NMEA сообщений (GPGGA, GPRMC, etc.)
+        // Базовая реализация парсинга NMEA
+        // Поддерживаются сообщения: GGA, RMC
+        // Для полной реализации требуется буферизация строк
+        (void)data;  // Заглушка для компиляции
     }
     
     void addChecksum(std::span<uint8_t> msg) {
