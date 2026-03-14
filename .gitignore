@@ -118,3 +118,8 @@ TempFile*
 
 # Тестовые артефакты
 Testing/
+
+# Doxygen документация (сгенерированная)
+docs/html/
+docs/latex/
+doxygen_warnings.log

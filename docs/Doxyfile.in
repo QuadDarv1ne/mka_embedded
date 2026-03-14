@@ -1,0 +1,174 @@
+# Doxyfile для MKA Embedded Project
+# Генерация документации для C++ кода бортового ПО МКА
+# Версия: 1.0.0
+
+# ============================================================================
+# Project Settings
+# ============================================================================
+
+PROJECT_NAME           = "MKA Embedded"
+PROJECT_NUMBER         = "1.0.0"
+PROJECT_BRIEF          = "Бортовое ПО малого космического аппарата (CubeSat)"
+PROJECT_LOGO           = ""
+
+OUTPUT_DIRECTORY       = "@CMAKE_CURRENT_SOURCE_DIR@/docs"
+
+# ============================================================================
+# Input Files
+# ============================================================================
+
+INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/src/cpp
+INPUT_ENCODING         = UTF-8
+
+FILE_PATTERNS          = *.hpp \
+                         *.h
+
+RECURSIVE              = YES
+
+EXCLUDE                = 
+EXCLUDE_SYMLINKS       = NO
+EXCLUDE_PATTERNS       = 
+EXCLUDE_SYMBOLS        = 
+
+EXAMPLE_PATH           = @CMAKE_CURRENT_SOURCE_DIR@/examples
+EXAMPLE_PATTERNS       = *.cpp \
+                         *.hpp
+EXAMPLE_RECURSIVE      = NO
+
+# ============================================================================
+# Source Browser
+# ============================================================================
+
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = YES
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+VERBATIM_HEADERS       = YES
+
+# ============================================================================
+# Documentation Output
+# ============================================================================
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+HTML_COLORSTYLE        = LIGHT
+HTML_DYNAMIC_MENUS     = YES
+HTML_DYNAMIC_SECTIONS  = YES
+
+GENERATE_LATEX         = NO
+GENERATE_RTF           = NO
+GENERATE_MAN           = NO
+GENERATE_XML           = NO
+GENERATE_DOCBOOK       = NO
+GENERATE_HTMLHELP      = NO
+
+# ============================================================================
+# C++ Specific
+# ============================================================================
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_PRIV_VIRTUAL   = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_LOCAL_METHODS  = NO
+EXTRACT_ANON_NSPACES   = YES
+
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+HIDE_FRIEND_COMPOUNDS  = NO
+HIDE_IN_BODY_DOCS      = NO
+
+INLINE_INHERITED_MEMB  = NO
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = 
+STRIP_FROM_INC_PATH    = 
+
+SHORT_NAMES            = NO
+JAVADOC_AUTOBRIEF      = YES
+JAVADOC_BANNER         = NO
+QT_AUTOBRIEF           = NO
+MULTILINE_CPP_IS_BRIEF = NO
+
+OPTIMIZE_OUTPUT_FOR_C  = NO
+OPTIMIZE_OUTPUT_VHDL   = NO
+OPTIMIZE_FOR_FORTRAN   = NO
+
+# ============================================================================
+# Class Diagrams (Graphviz)
+# ============================================================================
+
+HAVE_DOT               = NO
+DOT_PATH               = 
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+GROUP_GRAPHS           = YES
+UML_LOOK               = NO
+TEMPLATE_RELATIONS     = NO
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+GRAPHICAL_HIERARCHY    = YES
+DIRECTORY_GRAPH        = YES
+
+# ============================================================================
+# Preprocessor
+# ============================================================================
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = NO
+EXPAND_ONLY_PREDEF     = NO
+SEARCH_INCLUDES        = YES
+INCLUDE_PATH           = 
+INCLUDE_FILE_PATTERNS  = 
+PREDEFINED             = HOST_BUILD=1 \
+                         __cplusplus=201703L
+EXPAND_AS_DEFINED      = 
+
+# ============================================================================
+# Custom Aliases
+# ============================================================================
+
+ALIASES                = "attention=@attention" \
+                         "note=@note" \
+                         "todo=@todo" \
+                         "warning=@warning" \
+                         "deprecated=@deprecated" \
+                         "see=@see" \
+                         "par=@par" \
+                         "pre=@pre" \
+                         "post=@post"
+
+# ============================================================================
+# Navigation & Search
+# ============================================================================
+
+SEARCHENGINE           = YES
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+GENERATE_LEGEND        = YES
+
+# ============================================================================
+# Warnings
+# ============================================================================
+
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = YES
+WARN_AS_ERROR          = NO
+WARN_FORMAT            = "$file:$line: $text"
+WARN_LOGFILE           = doxygen_warnings.log
+
+# ============================================================================
+# Miscellaneous
+# ============================================================================
+
+CLANG_ASSISTED_PARSING = NO
+SKIP_FUNCTION_MACROS   = YES
+SHOW_INCLUDE_FILES     = YES
+SHOW_USED_FILES        = YES
