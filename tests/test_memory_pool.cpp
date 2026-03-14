@@ -133,24 +133,32 @@ TEST(FixedBlockPoolTest, Alignment) {
 
 TEST(FixedBlockPoolTest, DataIntegrity) {
     FixedBlockPool<64, 5> pool;
-    
+
     struct Data {
         uint32_t a, b, c, d;
     };
-    
+
     Data* data = static_cast<Data*>(pool.allocate());
     data->a = 0x12345678;
     data->b = 0xDEADBEEF;
     data->c = 0xCAFEBABE;
     data->d = 0x8BADF00D;
-    
+
+    // Проверка что данные записаны
+    EXPECT_EQ(data->a, 0x12345678u);
+    EXPECT_EQ(data->b, 0xDEADBEEFu);
+    EXPECT_EQ(data->c, 0xCAFEBABEu);
+    EXPECT_EQ(data->d, 0x8BADF00Du);
+
     // Освобождение и повторное выделение
     pool.deallocate(data);
     Data* data2 = static_cast<Data*>(pool.allocate());
-    
-    // Данные должны сохраниться (память не обнуляется)
-    EXPECT_EQ(data2->a, 0x12345678u);
-    EXPECT_EQ(data2->b, 0xDEADBEEFu);
+
+    // Память обнуляется при освобождении (безопасность)
+    EXPECT_EQ(data2->a, 0u);
+    EXPECT_EQ(data2->b, 0u);
+    EXPECT_EQ(data2->c, 0u);
+    EXPECT_EQ(data2->d, 0u);
 }
 
 // ============================================================================
