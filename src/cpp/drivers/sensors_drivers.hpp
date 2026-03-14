@@ -21,6 +21,20 @@
 // Предполагаем наличие HAL интерфейсов
 #include "hal_full.hpp"
 
+// ============================================================================
+// Платформенные макросы
+// ============================================================================
+
+// SystemCoreClock может быть определён в CMSIS (stm32f4xx.h и т.д.)
+// Для host build определяем заглушку
+#ifndef SystemCoreClock
+    #ifdef HOST_BUILD
+        #define SystemCoreClock 16000000UL  // 16 MHz для хоста
+    #else
+        #define SystemCoreClock 16000000UL  // Значение по умолчанию, переопределяется в CMSIS
+    #endif
+#endif
+
 namespace mka {
 namespace sensors {
 

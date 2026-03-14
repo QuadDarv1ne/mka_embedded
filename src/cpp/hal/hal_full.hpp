@@ -882,6 +882,19 @@ public:
 };
 
 // ============================================================================
+// Тип прерывания (должен быть определён до IInterrupts)
+// ============================================================================
+
+/**
+ * @brief Тип номера прерывания
+ * Для STM32 определяется в CMSIS, для host build используем int
+ */
+#ifndef IRQn_Type_defined
+    using IRQn_Type = int;
+    #define IRQn_Type_defined
+#endif
+
+// ============================================================================
 // Интерфейс прерываний
 // ============================================================================
 
@@ -891,34 +904,28 @@ public:
 class IInterrupts {
 public:
     virtual ~IInterrupts() = default;
-    
+
     /// Глобальное включение
     virtual void enable() = 0;
-    
+
     /// Глобальное выключение
     virtual void disable() = 0;
-    
+
     /// Получить текущее состояние
     virtual bool isEnabled() const = 0;
-    
+
     /// Установить приоритет
     virtual void setPriority(IRQn_Type irq, uint8_t priority) = 0;
-    
+
     /// Включить прерывание
     virtual void enableIRQ(IRQn_Type irq) = 0;
-    
+
     /// Выключить прерывание
     virtual void disableIRQ(IRQn_Type irq) = 0;
-    
+
     /// Очистить флаг прерывания
     virtual void clearPending(IRQn_Type irq) = 0;
 };
-
-// ============================================================================
-// Интерфейс NVIC (заглушка для IRQn_Type)
-// ============================================================================
-
-using IRQn_Type = int;
 
 } // namespace hal
 } // namespace mka
