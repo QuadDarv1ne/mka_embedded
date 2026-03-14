@@ -54,6 +54,9 @@ public:
     // Конструкторы
     // ========================================================================
 
+    /// Конструктор по умолчанию (создаёт ошибку)
+    constexpr Result() noexcept : ok_(false) {}
+
     /// Конструктор успеха (из значения)
     constexpr Result(const T& value) noexcept(std::is_nothrow_copy_constructible<T>::value)
         : ok_(true) {
@@ -218,7 +221,7 @@ private:
     // Внутренние данные
     // ========================================================================
 
-    bool ok_;
+    bool ok_ = false;
 
     union Storage {
         T value;
@@ -239,7 +242,12 @@ public:
     using ValueType = void;
     using ErrorType = E;
 
-    constexpr Result() noexcept : ok_(true) {}
+    /// Конструктор по умолчанию (создаёт ошибку)
+    constexpr Result() noexcept : ok_(false) {}
+
+    /// Конструктор успеха (для Ok())
+    struct success_tag {};
+    constexpr Result(success_tag) noexcept : ok_(true) {}
 
     constexpr Result(const E& error) noexcept : ok_(false) {
         new (&storage_) E(error);
@@ -257,7 +265,7 @@ public:
     constexpr E&& error() && noexcept { return std::move(storage_); }
 
 private:
-    bool ok_;
+    bool ok_ = false;
 
     union {
         E storage_;
@@ -280,7 +288,7 @@ constexpr Result<T, E> Ok(T&& value) {
 
 template<typename E>
 constexpr Result<void, E> Ok() {
-    return Result<void, E>();
+    return Result<void, E>(typename Result<void, E>::success_tag{});
 }
 
 template<typename T, typename E>
