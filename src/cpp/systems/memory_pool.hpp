@@ -33,12 +33,10 @@ template<size_t BlockSize, size_t NumBlocks>
 class FixedBlockPool {
 public:
     static constexpr size_t ALIGNMENT = 8;
-    static constexpr size_t ALIGNED_BLOCK_SIZE = 
+    static constexpr size_t ALIGNED_BLOCK_SIZE =
         ((BlockSize + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT;
-    
-    FixedBlockPool() {
-        reset();
-    }
+
+    FixedBlockPool() = default;
     
     /**
      * @brief Выделение блока
@@ -109,17 +107,13 @@ private:
     alignas(ALIGNMENT) std::array<uint8_t, NumBlocks * ALIGNED_BLOCK_SIZE> pool_{};
     std::array<bool, NumBlocks> used_{};
     size_t allocatedCount_ = 0;
-    
+
     size_t getIndex(void* ptr) const {
-        if (!ptr || !owns(ptr)) return NumBlocks;  // Возвращаем невалидный индекс
+        if (!ptr || !owns(ptr)) return NumBlocks;
         const uint8_t* p = static_cast<const uint8_t*>(ptr);
         return static_cast<size_t>((p - pool_.data()) / ALIGNED_BLOCK_SIZE);
     }
 };
-
-// ============================================================================
-// Variable-size Pool (Buddy Allocator)
-// ============================================================================
 
 /**
  * @brief Пул переменного размера (аллокатор buddy system)
@@ -130,35 +124,15 @@ class VariablePool {
 public:
     static constexpr size_t MIN_BLOCK_SIZE = 16;
     static constexpr size_t MAX_ORDER = 8;  // До 16 * 2^8 = 4096 байт
-    
+
+    VariablePool() = default;
     explicit VariablePool(size_t totalSize)
         : totalSize_(totalSize) {
-        // Инициализация свободных списков
-        for (auto& list : freeLists_) {
-            list.head = nullptr;
-            list.count = 0;
-        }
-        // Обнуление всей памяти пула
-        std::memset(pool_.data(), 0, pool_.size());
-        // Инициализация всего пула как одного большого свободного блока
-        if (totalSize >= sizeof(BlockHeader) + MIN_BLOCK_SIZE) {
-            uint8_t order = MAX_ORDER;
-            size_t blockSize = MIN_BLOCK_SIZE * (1 << order);
-            if (blockSize > totalSize) {
-                order = 0;
-                blockSize = MIN_BLOCK_SIZE;
-                while (blockSize * 2 <= totalSize && order < MAX_ORDER) {
-                    blockSize *= 2;
-                    order++;
-                }
-            }
-            auto* block = reinterpret_cast<BlockHeader*>(pool_.data());
-            block->order = order;
-            block->allocated = false;
-            block->next = nullptr;
-            freeLists_[order].head = block;
-            freeLists_[order].count = 1;
-        }
+        initPool(totalSize);
+    }
+
+    void init(size_t totalSize) {
+        initPool(totalSize);
     }
     
     void* allocate(size_t size) {
@@ -213,7 +187,7 @@ public:
     }
     
     size_t totalSize() const { return totalSize_; }
-    
+
 private:
     struct BlockHeader {
         BlockHeader* next = nullptr;
@@ -221,15 +195,44 @@ private:
         bool allocated = false;
         uint8_t reserved[6] = {};  // Padding для выравнивания
     };
-    
+
     struct FreeList {
         BlockHeader* head = nullptr;
         size_t count = 0;
     };
-    
-    size_t totalSize_;
+
+    size_t totalSize_ = 0;
     std::array<uint8_t, MAX_ORDER * MIN_BLOCK_SIZE * 256> pool_{};
     FreeList freeLists_[MAX_ORDER + 1];
+
+    void initPool(size_t totalSize) {
+        // Инициализация свободных списков
+        for (auto& list : freeLists_) {
+            list.head = nullptr;
+            list.count = 0;
+        }
+        // Обнуление всей памяти пула
+        std::memset(pool_.data(), 0, pool_.size());
+        // Инициализация всего пула как одного большого свободного блока
+        if (totalSize >= sizeof(BlockHeader) + MIN_BLOCK_SIZE) {
+            uint8_t order = MAX_ORDER;
+            size_t blockSize = MIN_BLOCK_SIZE * (1 << order);
+            if (blockSize > totalSize) {
+                order = 0;
+                blockSize = MIN_BLOCK_SIZE;
+                while (blockSize * 2 <= totalSize && order < MAX_ORDER) {
+                    blockSize *= 2;
+                    order++;
+                }
+            }
+            auto* block = reinterpret_cast<BlockHeader*>(pool_.data());
+            block->order = order;
+            block->allocated = false;
+            block->next = nullptr;
+            freeLists_[order].head = block;
+            freeLists_[order].count = 1;
+        }
+    }
     
     void splitBlock(uint8_t fromOrder, uint8_t toOrder) {
         // Найти блок для разделения

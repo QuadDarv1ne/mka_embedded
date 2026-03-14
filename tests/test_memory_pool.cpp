@@ -237,17 +237,27 @@ TEST(MemoryPoolBoundaryTest, ZeroSize) {
 
 TEST(MemoryPoolBoundaryTest, SingleBlock) {
     FixedBlockPool<32, 1> pool;
-    
+
     void* ptr = pool.allocate();
     EXPECT_NE(ptr, nullptr);
-    
+
     // Второй вызов должен вернуть nullptr
     EXPECT_EQ(pool.allocate(), nullptr);
-    
+
     pool.deallocate(ptr);
-    
+
     // После освобождения снова можно выделить
     EXPECT_NE(pool.allocate(), nullptr);
+}
+
+TEST(MemoryPoolBoundaryTest, DefaultConstructor) {
+    // Проверка конструктора по умолчанию
+    FixedBlockPool<64, 10> pool;
+    
+    // Должен работать после конструктора по умолчанию
+    void* ptr = pool.allocate();
+    EXPECT_NE(ptr, nullptr);
+    EXPECT_TRUE(pool.deallocate(ptr));
 }
 
 TEST(MemoryPoolBoundaryTest, LargeBlock) {
