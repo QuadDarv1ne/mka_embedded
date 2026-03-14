@@ -347,27 +347,28 @@ public:
      * @brief Десериализация параметров
      */
     bool deserialize(const uint8_t* buffer, size_t bufferSize) {
+        if (!buffer || bufferSize < 6) return false;
+
         size_t offset = 0;
 
         // Проверка заголовка
-        if (bufferSize < 6) return false;
         if (buffer[0] != 'P' || buffer[1] != 'A' || buffer[2] != 'R') {
             return false;
         }
-        
+
         offset = 4;
-        
+
         // Количество параметров
         uint16_t count = (buffer[offset] << 8) | buffer[offset + 1];
         offset += 2;
-        
+
         // Загрузка значений
         for (uint16_t i = 0; i < count && offset + 2 <= bufferSize; i++) {
             uint16_t id = (buffer[offset] << 8) | buffer[offset + 1];
             offset += 2;
 
             // Поиск параметра
-            for (size_t j = 0; j < paramCount_; j++) {
+            for (size_t j = 0; j < paramCount_ && offset <= bufferSize; j++) {
                 if (entries_[j].id == id) {
                     if (offset + entries_[j].size <= bufferSize) {
                         std::memcpy(&values_[j], &buffer[offset], entries_[j].size);
@@ -378,7 +379,7 @@ public:
                 }
             }
         }
-        
+
         return true;
     }
     
