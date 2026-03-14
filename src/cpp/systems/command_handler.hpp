@@ -239,21 +239,27 @@ public:
         response.sequenceNumber = cmd.header.sequenceNumber;
         response.resultCode = ResultCode::UNKNOWN_COMMAND;
         response.responseLength = 0;
-        
+        response.executionTimeMs = 0;
+
         // Поиск обработчика
         const CommandRegistration* reg = findRegistration(cmd.header.commandId);
-        
+
         if (!reg) {
             return response;
         }
-        
+
         // Валидация длины параметров
+        if (cmd.header.dataLength > cmd.data.size()) {
+            response.resultCode = ResultCode::INVALID_LENGTH;
+            return response;
+        }
+
         if (cmd.header.dataLength < reg->minParams ||
             cmd.header.dataLength > reg->maxParams) {
             response.resultCode = ResultCode::INVALID_LENGTH;
             return response;
         }
-        
+
         // Валидация параметров
         if (reg->validator) {
             if (!reg->validator(cmd.data.data(), cmd.header.dataLength)) {
@@ -261,18 +267,19 @@ public:
                 return response;
             }
         }
-        
+
         // Выполнение команды
-        uint32_t startTime = getTimestampMs();
-        
-        try {
+        uint32_t startTime = getTimestampMs ? getTimestampMs() : 0;
+
+        if (reg->handler) {
             response.resultCode = reg->handler(cmd, response);
-        } catch (...) {
+        } else {
             response.resultCode = ResultCode::EXECUTION_ERROR;
         }
-        
-        response.executionTimeMs = getTimestampMs() - startTime;
-        
+
+        uint32_t endTime = getTimestampMs ? getTimestampMs() : 0;
+        response.executionTimeMs = endTime - startTime;
+
         return response;
     }
     
@@ -282,7 +289,24 @@ public:
     bool hasCommand(uint16_t commandId) const {
         return findRegistration(commandId) != nullptr;
     }
-    
+
+    /**
+     * @brief unregister обработчика команды
+     */
+    bool unregisterCommand(uint16_t commandId) {
+        for (size_t i = 0; i < commandCount_; i++) {
+            if (registrations_[i].commandId == commandId) {
+                // Сдвиг массива
+                for (size_t j = i; j < commandCount_ - 1; j++) {
+                    registrations_[j] = registrations_[j + 1];
+                }
+                commandCount_--;
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * @brief Получение информации о команде
      */
@@ -290,6 +314,16 @@ public:
         const CommandRegistration* reg = findRegistration(commandId);
         return reg ? reg->name : "UNKNOWN";
     }
+
+    /**
+     * @brief Количество зарегистрированных команд
+     */
+    size_t getCommandCount() const { return commandCount_; }
+
+    /**
+     * @brief Сброс всех команд
+     */
+    void clear() { commandCount_ = 0; }
     
     /**
      * @brief Установка источника времени
