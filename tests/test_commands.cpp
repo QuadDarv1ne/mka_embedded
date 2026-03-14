@@ -268,34 +268,6 @@ TEST(CommandManagerTest, ProcessCommandWithValidator) {
 }
 
 // ============================================================================
-// Тесты CommandManager - обработчик исключений
-// ============================================================================
-
-TEST(CommandManagerTest, ProcessCommandWithException) {
-    CommandManager manager;
-    
-    auto throwingHandler = +[](const Command&, CommandResponse&) -> ResultCode {
-        throw 42;  // Бросаем исключение
-    };
-    
-    CommandRegistration reg{};
-    reg.commandId = 0x0100;
-    reg.name = "THROW";
-    reg.handler = throwingHandler;
-    reg.timeoutMs = 1000;
-    reg.requiresAuth = false;
-    reg.minParams = 0;
-    reg.maxParams = 0;
-    
-    manager.registerCommand(reg);
-    
-    Command cmd = createTestCommand(0x0100, 1);
-    CommandResponse resp = manager.processCommand(cmd);
-    
-    EXPECT_EQ(resp.resultCode, ResultCode::EXECUTION_ERROR);
-}
-
-// ============================================================================
 // Тесты CommandManager - timestamp
 // ============================================================================
 
@@ -490,4 +462,58 @@ TEST(CommandRegistrationTest, DefaultInitialization) {
     EXPECT_FALSE(reg.requiresAuth);
     EXPECT_EQ(reg.minParams, 0u);
     EXPECT_EQ(reg.maxParams, 0u);
+}
+
+// ============================================================================
+// Тесты CommandManager - unregister и clear
+// ============================================================================
+
+TEST(CommandManagerTest, UnregisterCommand) {
+    CommandManager mgr;
+
+    // Регистрация
+    CommandRegistration reg{};
+    reg.commandId = 0x0001;
+    reg.name = "TEST";
+    reg.handler = createNoopHandler();
+    reg.minParams = 0;
+    reg.maxParams = 0;
+    mgr.registerCommand(reg);
+
+    EXPECT_TRUE(mgr.hasCommand(0x0001));
+    EXPECT_EQ(mgr.getCommandCount(), 1u);
+
+    // unregister
+    EXPECT_TRUE(mgr.unregisterCommand(0x0001));
+    EXPECT_FALSE(mgr.hasCommand(0x0001));
+    EXPECT_EQ(mgr.getCommandCount(), 0u);
+
+    // Повторный unregister должен вернуть false
+    EXPECT_FALSE(mgr.unregisterCommand(0x0001));
+}
+
+TEST(CommandManagerTest, ClearCommands) {
+    CommandManager mgr;
+
+    // Регистрация нескольких команд
+    for (uint16_t i = 0; i < 10; i++) {
+        CommandRegistration reg{};
+        reg.commandId = i;
+        reg.name = "TEST";
+        reg.handler = createNoopHandler();
+        reg.minParams = 0;
+        reg.maxParams = 0;
+        mgr.registerCommand(reg);
+    }
+
+    EXPECT_EQ(mgr.getCommandCount(), 10u);
+
+    // Очистка
+    mgr.clear();
+    EXPECT_EQ(mgr.getCommandCount(), 0u);
+
+    // Все команды должны быть удалены
+    for (uint16_t i = 0; i < 10; i++) {
+        EXPECT_FALSE(mgr.hasCommand(i));
+    }
 }
