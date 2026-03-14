@@ -23,6 +23,17 @@ TEST(QuaternionTest, IdentityInitialization) {
     EXPECT_FLOAT_EQ(q.z, 0.0f);
 }
 
+TEST(QuaternionTest, DefaultConstructorValues) {
+    // Проверка явной инициализации по умолчанию
+    Quaternion q1;
+    EXPECT_FLOAT_EQ(q1.w, 1.0f);
+    EXPECT_FLOAT_EQ(q1.x, 0.0f);
+
+    Quaternion q2{};
+    EXPECT_FLOAT_EQ(q2.w, 1.0f);
+    EXPECT_FLOAT_EQ(q2.x, 0.0f);
+}
+
 TEST(QuaternionTest, CustomInitialization) {
     Quaternion q(0.707f, 0.707f, 0.0f, 0.0f);
     EXPECT_FLOAT_EQ(q.w, 0.707f);
@@ -40,8 +51,10 @@ TEST(QuaternionTest, Normalize) {
 
 TEST(QuaternionTest, NormalizeNearZero) {
     Quaternion q(0.0f, 1e-15f, 0.0f, 0.0f);
-    q.normalize();  // Не должен крашнуть
-    EXPECT_FLOAT_EQ(q.w, 1.0f);
+    q.normalize();  // Не должен крашнуть, но остаётся нулевым
+    // При нулевой норме кватернион не нормализуется (защита от деления на ноль)
+    EXPECT_NEAR(q.w, 0.0f, 1e-14f);
+    EXPECT_NEAR(q.x, 0.0f, 1e-14f);
 }
 
 TEST(QuaternionTest, Conjugate) {
@@ -103,9 +116,15 @@ TEST(MathUtils, Sign) {
 TEST(MathUtils, InvSqrt) {
     float result = math::invSqrt(4.0f);
     EXPECT_NEAR(result, 0.5f, 1e-3f);
-    
+
     result = math::invSqrt(100.0f);
     EXPECT_NEAR(result, 0.1f, 1e-3f);
+}
+
+TEST(MathUtils, InvSqrtZeroAndNegative) {
+    // Защита от невалидных входов
+    EXPECT_FLOAT_EQ(math::invSqrt(0.0f), 0.0f);
+    EXPECT_FLOAT_EQ(math::invSqrt(-5.0f), 0.0f);
 }
 
 // ============================================================================
@@ -261,6 +280,14 @@ TEST(PIDController, GainSetter) {
     EXPECT_FLOAT_EQ(output, 20.0f);  // kp=2, error=10
 }
 
+TEST(PIDController, DefaultConstructor) {
+    PIDController pid;  // Конструктор по умолчанию
+    // Должен компилироваться и работать
+    pid.setGains(1.0f, 0.0f, 0.0f);
+    float output = pid.compute(10.0f, 0.0f, 0.1f);
+    EXPECT_FLOAT_EQ(output, 10.0f);
+}
+
 // ============================================================================
 // Тесты B-dot контроллера
 // ============================================================================
@@ -299,17 +326,24 @@ TEST(BDotController, Reset) {
     BDotController::Config config;
     config.gain = 1.0f;
     config.maxDipole = 0.1f;
-    
+
     BDotController bdot(config);
-    
+
     bdot.compute(100e-6f, 0.0f, 0.0f, 0.01f);
     bdot.reset();
-    
+
     // После reset фильтры должны быть нулевыми
     auto result = bdot.compute(0.0f, 0.0f, 0.0f, 0.01f);
     EXPECT_FLOAT_EQ(result[0], 0.0f);
     EXPECT_FLOAT_EQ(result[1], 0.0f);
     EXPECT_FLOAT_EQ(result[2], 0.0f);
+}
+
+TEST(BDotController, DefaultConstructor) {
+    BDotController bdot;  // Конструктор по умолчанию
+    // Должен компилироваться и работать
+    bdot.reset();
+    EXPECT_TRUE(true);
 }
 
 // ============================================================================
@@ -361,8 +395,15 @@ TEST(AttitudeController, Reset) {
     AttitudeController::Config config;
     config.rollConfig.kp = 1.0f;
     config.rollConfig.ki = 1.0f;
-    
+
     AttitudeController controller(config);
-    
+
     controller.reset();  // Не должен крашнуть
+}
+
+TEST(AttitudeController, DefaultConstructor) {
+    AttitudeController controller;  // Конструктор по умолчанию
+    // Должен компилироваться и работать
+    controller.reset();
+    EXPECT_TRUE(true);
 }

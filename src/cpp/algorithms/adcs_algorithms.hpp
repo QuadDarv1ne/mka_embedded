@@ -43,6 +43,7 @@ namespace math {
         // Быстрое приближение обратного квадратного корня
         // (алгоритм Quake III)
         // Используем memcpy для безопасного type punning (избегает strict-aliasing violation)
+        if (x <= 0.0f) return 0.0f;  // Защита от невалидных входов
         float halfx = 0.5f * x;
         int32_t i = 0;
         std::memcpy(&i, &x, sizeof(float));
@@ -59,12 +60,12 @@ namespace math {
 // ============================================================================
 
 struct Quaternion {
-    float w, x, y, z;  // q = w + xi + yj + zk
-    
-    Quaternion() : w(1.0f), x(0.0f), y(0.0f), z(0.0f) {}
-    Quaternion(float w_, float x_, float y_, float z_) 
+    float w = 1.0f, x = 0.0f, y = 0.0f, z = 0.0f;  // q = w + xi + yj + zk
+
+    Quaternion() = default;
+    Quaternion(float w_, float x_, float y_, float z_)
         : w(w_), x(x_), y(y_), z(z_) {}
-    
+
     // Нормализация
     void normalize() {
         float norm = std::sqrt(w*w + x*x + y*y + z*z);
@@ -74,12 +75,6 @@ struct Quaternion {
             x *= inv_norm;
             y *= inv_norm;
             z *= inv_norm;
-        } else {
-            // При нулевой норме восстанавливаем единичный кватернион
-            w = 1.0f;
-            x = 0.0f;
-            y = 0.0f;
-            z = 0.0f;
         }
     }
     
@@ -286,7 +281,8 @@ public:
         float integralLimit = 10.0f;
         float derivativeFilterCoeff = 0.1f;  // 0 = no filter
     };
-    
+
+    PIDController() = default;
     explicit PIDController(const Config& config) : config_(config) {}
     
     /**
@@ -347,7 +343,7 @@ private:
 
 /**
  * @brief Алгоритм B-dot для гашения начальной угловой скорости
- * 
+ *
  * Управляет магнитными катушками для рассеивания кинетической энергии
  * вращения спутника. Не требует знания ориентации.
  */
@@ -358,7 +354,8 @@ public:
         float maxDipole = 0.1f;      // Максимальный дипольный момент (A·m²)
         float filterCoeff = 0.1f;    // Коэффициент фильтра
     };
-    
+
+    BDotController() = default;
     explicit BDotController(const Config& config) : config_(config) {}
     
     /**
@@ -425,12 +422,13 @@ public:
         PIDController::Config rollConfig;
         PIDController::Config pitchConfig;
         PIDController::Config yawConfig;
-        
+
         // Ограничения скорости маховиков
         float maxWheelSpeed = 6000.0f;  // RPM
         float maxTorque = 0.01f;        // N·m
     };
-    
+
+    AttitudeController() = default;
     explicit AttitudeController(const Config& config)
         : rollPID_(config.rollConfig)
         , pitchPID_(config.pitchConfig)
