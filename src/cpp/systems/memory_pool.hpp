@@ -62,23 +62,27 @@ public:
      * @return true если освобождение успешно
      */
     bool deallocate(void* ptr) {
+        if (!ptr) return false;
         if (!owns(ptr)) return false;
-        
+
         size_t index = getIndex(ptr);
-        if (used_[index]) {
-            used_[index] = false;
-            allocatedCount_--;
-            return true;
-        }
-        return false;
+        if (index >= NumBlocks) return false;
+        if (!used_[index]) return false;  // Double free защита
+
+        used_[index] = false;
+        allocatedCount_--;
+        return true;
     }
-    
+
     /**
      * @brief Проверка принадлежности указателя пулу
      */
     bool owns(void* ptr) const {
+        if (!ptr) return false;
         const uint8_t* p = static_cast<const uint8_t*>(ptr);
-        return p >= pool_.data() && p < pool_.data() + NumBlocks * ALIGNED_BLOCK_SIZE;
+        const uint8_t* begin = pool_.data();
+        const uint8_t* end = begin + NumBlocks * ALIGNED_BLOCK_SIZE;
+        return p >= begin && p < end;
     }
     
     /**
@@ -102,8 +106,9 @@ private:
     size_t allocatedCount_ = 0;
     
     size_t getIndex(void* ptr) const {
+        if (!ptr || !owns(ptr)) return NumBlocks;  // Возвращаем невалидный индекс
         const uint8_t* p = static_cast<const uint8_t*>(ptr);
-        return (p - pool_.data()) / ALIGNED_BLOCK_SIZE;
+        return static_cast<size_t>((p - pool_.data()) / ALIGNED_BLOCK_SIZE);
     }
 };
 
@@ -168,10 +173,12 @@ public:
     
     void deallocate(void* ptr) {
         if (!ptr) return;
-        
+
         BlockHeader* block = static_cast<BlockHeader*>(ptr) - 1;
+        if (block->allocated == false) return;  // Double free защита
+
         block->allocated = false;
-        
+
         // Попытка объединения (coalescing)
         uint8_t order = block->order;
         block->next = freeLists_[order].head;

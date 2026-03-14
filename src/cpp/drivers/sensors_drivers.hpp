@@ -832,10 +832,17 @@ private:
         if (uart_.receive({rxBuffer_.data(), len + 2}, 100, 10) != hal::Status::OK) {
             return false;
         }
-        
+
         // Проверка checksum
-        // ...
-        
+        uint8_t ckA = 0, ckB = 0;
+        for (size_t i = 0; i < len; i++) {
+            ckA += rxBuffer_[i];
+            ckB += ckA;
+        }
+        if (ckA != rxBuffer_[len] || ckB != rxBuffer_[len + 1]) {
+            return false;  // Checksum error
+        }
+
         if (cls == UBXClass::CLASS_NAV && id == UBXId::NAV_PVT) {
             parseNavPVT(data, rxBuffer_.data(), len);
             return true;
