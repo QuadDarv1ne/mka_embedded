@@ -68,29 +68,45 @@ enum class TransitionReason : uint8_t {
  * @brief Результат попытки перехода
  */
 struct TransitionResult {
-    bool success;
-    SatelliteMode previousMode;
-    SatelliteMode newMode;
-    TransitionReason reason;
-    const char* errorMessage;
+    bool success = false;
+    SatelliteMode previousMode = SatelliteMode::OFF;
+    SatelliteMode newMode = SatelliteMode::OFF;
+    TransitionReason reason = TransitionReason::COMMAND;
+    const char* errorMessage = nullptr;
+
+    /// Проверка успеха
+    bool isOk() const { return success; }
+    bool isError() const { return !success; }
 };
 
 /**
  * @brief Контекст машины состояний
  */
 struct StateMachineContext {
-    float batteryLevel;         // Уровень заряда батареи (%)
-    float batteryVoltage;       // Напряжение батареи (В)
-    float temperatureOBC;       // Температура OBC (°C)
-    float temperatureExternal;  // Внешняя температура (°C)
-    bool antennaDeployed;       // Антенна развернута
-    bool solarPanelsDeployed;   // Солнечные панели развернуты
-    bool adcsNominal;           // ADCS в норме
-    bool commNominal;           // COMM в норме
-    bool payloadNominal;        // Полезная нагрузка в норме
-    uint32_t uptime;            // Время работы (секунды)
-    uint32_t lastContactTime;   // Время последней связи с НКУ
-    uint8_t errorFlags;         // Флаги ошибок
+    float batteryLevel = 0.0f;         // Уровень заряда батареи (%)
+    float batteryVoltage = 0.0f;       // Напряжение батареи (В)
+    float temperatureOBC = 0.0f;       // Температура OBC (°C)
+    float temperatureExternal = 0.0f;  // Внешняя температура (°C)
+    bool antennaDeployed = false;      // Антенна развернута
+    bool solarPanelsDeployed = false;  // Солнечные панели развернуты
+    bool adcsNominal = false;          // ADCS в норме
+    bool commNominal = false;          // COMM в норме
+    bool payloadNominal = false;       // Полезная нагрузка в норме
+    uint32_t uptime = 0;               // Время работы (секунды)
+    uint32_t lastContactTime = 0;      // Время последней связи с НКУ
+    uint8_t errorFlags = 0;            // Флаги ошибок
+
+    /// Проверка валидности контекста
+    bool isValid() const {
+        return batteryLevel >= 0.0f && batteryLevel <= 100.0f &&
+               batteryVoltage > 0.0f && batteryVoltage < 50.0f &&
+               temperatureOBC > -100.0f && temperatureOBC < 150.0f;
+    }
+
+    /// Сброс контекста
+    void reset() {
+        *this = StateMachineContext{};
+    }
 };
 
 // ============================================================================

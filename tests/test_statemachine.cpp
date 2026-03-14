@@ -281,18 +281,100 @@ TEST(SatelliteStateMachineTest, ModeChangeCallback) {
 
 TEST(SatelliteStateMachineTest, UpdateAndGetContext) {
     SatelliteStateMachine sm;
-    
+
     StateMachineContext ctx{};
     ctx.batteryLevel = 75.0f;
     ctx.batteryVoltage = 7.8f;
     ctx.temperatureOBC = 35.0f;
     ctx.adcsNominal = true;
-    
+
     sm.updateContext(ctx);
-    
+
     const auto& retrieved = sm.getContext();
     EXPECT_FLOAT_EQ(retrieved.batteryLevel, 75.0f);
     EXPECT_FLOAT_EQ(retrieved.batteryVoltage, 7.8f);
     EXPECT_FLOAT_EQ(retrieved.temperatureOBC, 35.0f);
     EXPECT_TRUE(retrieved.adcsNominal);
+}
+
+// ============================================================================
+// Тесты валидации контекста
+// ============================================================================
+
+TEST(SatelliteStateMachineTest, ContextValidation) {
+    StateMachineContext ctx{};
+
+    // Пустой контекст не валиден (batteryLevel = 0)
+    EXPECT_FALSE(ctx.isValid());
+
+    // Валидный контекст
+    ctx.batteryLevel = 50.0f;
+    ctx.batteryVoltage = 7.4f;
+    ctx.temperatureOBC = 25.0f;
+    EXPECT_TRUE(ctx.isValid());
+
+    // Неверный batteryLevel
+    ctx.batteryLevel = 150.0f;
+    EXPECT_FALSE(ctx.isValid());
+
+    ctx.batteryLevel = -10.0f;
+    EXPECT_FALSE(ctx.isValid());
+
+    // Неверное напряжение
+    ctx.batteryLevel = 50.0f;
+    ctx.batteryVoltage = 0.0f;
+    EXPECT_FALSE(ctx.isValid());
+
+    ctx.batteryVoltage = 60.0f;
+    EXPECT_FALSE(ctx.isValid());
+
+    // Неверная температура
+    ctx.batteryVoltage = 7.4f;
+    ctx.temperatureOBC = -150.0f;
+    EXPECT_FALSE(ctx.isValid());
+
+    ctx.temperatureOBC = 200.0f;
+    EXPECT_FALSE(ctx.isValid());
+}
+
+TEST(SatelliteStateMachineTest, ContextReset) {
+    StateMachineContext ctx{};
+    ctx.batteryLevel = 80.0f;
+    ctx.batteryVoltage = 8.0f;
+    ctx.adcsNominal = true;
+
+    ctx.reset();
+
+    EXPECT_FLOAT_EQ(ctx.batteryLevel, 0.0f);
+    EXPECT_FLOAT_EQ(ctx.batteryVoltage, 0.0f);
+    EXPECT_FALSE(ctx.adcsNominal);
+    EXPECT_FALSE(ctx.isValid());
+}
+
+// ============================================================================
+// Тесты TransitionResult
+// ============================================================================
+
+TEST(SatelliteStateMachineTest, TransitionResultDefault) {
+    TransitionResult result{};
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.previousMode, SatelliteMode::OFF);
+    EXPECT_EQ(result.newMode, SatelliteMode::OFF);
+    EXPECT_EQ(result.reason, TransitionReason::COMMAND);
+    EXPECT_EQ(result.errorMessage, nullptr);
+    EXPECT_FALSE(result.isOk());
+    EXPECT_TRUE(result.isError());
+}
+
+TEST(SatelliteStateMachineTest, TransitionResultCheck) {
+    TransitionResult result;
+    result.success = true;
+    result.previousMode = SatelliteMode::SAFE;
+    result.newMode = SatelliteMode::NOMINAL;
+
+    EXPECT_TRUE(result.isOk());
+    EXPECT_FALSE(result.isError());
+    EXPECT_EQ(result.previousMode, SatelliteMode::SAFE);
+    EXPECT_EQ(result.newMode, SatelliteMode::NOMINAL);
 }
