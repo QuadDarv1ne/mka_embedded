@@ -13,7 +13,9 @@
 #define ADCS_ALGORITHMS_HPP
 
 #include <cmath>
+#include <cstdint>
 #include <array>
+#include <cstring>
 
 namespace mka {
 namespace adcs {
@@ -40,10 +42,13 @@ namespace math {
     inline float invSqrt(float x) {
         // Быстрое приближение обратного квадратного корня
         // (алгоритм Quake III)
+        // Используем memcpy для безопасного type punning (избегает strict-aliasing violation)
         float halfx = 0.5f * x;
-        int i = *reinterpret_cast<int*>(&x);
+        int32_t i = 0;
+        std::memcpy(&i, &x, sizeof(float));
         i = 0x5f3759df - (i >> 1);
-        float y = *reinterpret_cast<float*>(&i);
+        float y = 0.0f;
+        std::memcpy(&y, &i, sizeof(float));
         y = y * (1.5f - halfx * y * y);
         return y;
     }
