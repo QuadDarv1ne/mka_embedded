@@ -37,7 +37,7 @@ public:
 
     template<typename F>
     constexpr Callback(F* func) noexcept
-        : context_(reinterpret_cast<void*>(func))
+        : context_(const_cast<void*>(reinterpret_cast<const void*>(func)))
         , invoker_(&invokeFunction<F>) {}
 
     constexpr bool isEmpty() const noexcept { return invoker_ == nullptr; }
@@ -108,7 +108,7 @@ public:
 
     template<typename F>
     constexpr Callback(F* func) noexcept
-        : context_(reinterpret_cast<void*>(func))
+        : context_(const_cast<void*>(reinterpret_cast<const void*>(func)))
         , invoker_(&invokeFunction<F>) {}
 
     constexpr bool isEmpty() const noexcept { return invoker_ == nullptr; }
