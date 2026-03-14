@@ -42,15 +42,15 @@ cd docs && doxygen Doxyfile.in
 
 | Файл | Описание |
 |------|----------|
-| [**doxygen_guide.md**](doxygen_guide.md) | Руководство: установка, синтаксис, настройка |
-| [**doxygen_cheatsheet.md**](doxygen_cheatsheet.md) | Шпаргалка по тегам и синтаксису |
-| [Doxyfile.in](Doxyfile.in) | Конфигурация для CMake |
+| [**doxygen_guide.md**](doxygen_guide.md) | Руководство: установка, синтаксис, примеры |
+| [**doxygen_cheatsheet.md**](doxygen_cheatsheet.md) | Шпаргалка по тегам |
+| [Doxyfile.in](Doxyfile.in) | Конфигурация Doxygen |
 
 ---
 
 ## Стиль документирования
 
-Используется **Javadoc-стиль**:
+Используется **Javadoc-стиль** с тегами:
 
 ```cpp
 /**
@@ -71,7 +71,27 @@ Status init(const Config& config);
 - `@brief` — краткое описание
 - `@param` — параметр
 - `@return` — возвращаемое значение
+- `@retval` — конкретное значение возврата
 - `@note` — примечание
 - `@warning` — предупреждение
 - `@see` — ссылка
 - `@todo` — задача
+
+### Документирование элементов
+
+```cpp
+/// @brief Кратко для функции
+int foo();
+
+/** @brief Структура */
+struct Point {
+    int x;  ///< Координата X
+    int y;  ///< Координата Y
+};
+
+/** @brief Перечисление */
+enum class Status {
+    OK = 0,     ///< Успех
+    ERROR = 1   ///< Ошибка
+};
+```

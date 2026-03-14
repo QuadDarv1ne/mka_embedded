@@ -26,8 +26,8 @@
 @see         // См. также
 @todo        // Задача
 @deprecated  // Устарело
-@pre         // Требование до вызова
-@post        // Гарантия после вызова
+@pre         // Требование до
+@post        // Гарантия после
 ```
 
 ## Примеры
@@ -74,6 +74,19 @@ enum class Status {
 };
 ```
 
+### Структура
+```cpp
+/**
+ * @brief Конфигурация
+ * @member kp Пропорциональный коэффициент
+ * @member ki Интегральный коэффициент
+ */
+struct Config {
+    float kp;  ///< Пропорциональный
+    float ki;  ///< Интегральный
+};
+```
+
 ### Файл
 ```cpp
 /**
@@ -104,7 +117,6 @@ enum class Status {
  * @endcode
  *
  * @ref MyClass "ссылка"
- *
  * @image html diagram.png
  */
 ```
@@ -115,6 +127,16 @@ enum class Status {
 @see OtherClass
 @link MyClass @endlink
 @ref label "текст"
+```
+
+## Пользовательские алиасы
+
+В проекте доступны:
+```cpp
+@threadsafe    // Thread Safety: ...
+@hardware      // Hardware: ...
+@performance   // Performance: ...
+@invariant     // Инвариант
 ```
 
 ## VS Code Snippet

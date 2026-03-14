@@ -42,6 +42,8 @@ cd docs && doxygen Doxyfile.in
 
 ### Формат комментариев
 
+Используется **Javadoc-стиль**:
+
 ```cpp
 /**
  * @brief Краткое описание
@@ -59,32 +61,38 @@ Status init(const Config& config);
 
 ### Основные теги
 
-| Тег | Назначение |
-|-----|------------|
-| `@brief` | Краткое описание |
-| `@param` | Параметр функции |
-| `@return` | Возвращаемое значение |
-| `@retval` | Конкретное значение возврата |
-| `@note` | Примечание |
-| `@warning` | Предупреждение |
-| `@attention` | Важное замечание |
-| `@see` | Ссылка на связанный элемент |
-| `@todo` | Задача на будущее |
-| `@deprecated` | Устаревший элемент |
+| Тег | Назначение | Пример |
+|-----|------------|--------|
+| `@brief` | Краткое описание | `@brief Инициализация` |
+| `@param` | Параметр функции | `@param config Конфигурация` |
+| `@return` | Возвращаемое значение | `@return Статус операции` |
+| `@retval` | Конкретное значение | `@retval OK Успех` |
+| `@note` | Примечание | `@note Требует инициализации I2C` |
+| `@warning` | Предупреждение | `@warning Не вызывать в ISR` |
+| `@attention` | Важное замечание | `@attention Критично для безопасности` |
+| `@see` | Ссылка на связанный элемент | `@see deinit()` |
+| `@todo` | Задача на будущее | `@todo Добавить обработку ошибок` |
+| `@deprecated` | Устаревший элемент | `@deprecated Используйте initV2()` |
+| `@pre` | Требование до вызова | `@pre init() должен быть вызван` |
+| `@post` | Гарантия после вызова | `@post Ресурсы выделены` |
 
 ### Документирование классов
 
 ```cpp
 /**
- * @brief Контроллер ориентации спутника
+ * @brief PID-контроллер для управления маховиками
  *
- * Реализует PID-регулирование для управления маховиками.
+ * Реализует PID-регулирование с anti-windup механизмом.
  *
  * @tparam T Тип данных (float/double)
+ *
+ * @note Требует инициализации перед использованием
+ * @see AttitudeController
  *
  * @example
  * @code{.cpp}
  * PIDController<float> pid(0.1f, 0.01f, 0.05f);
+ * pid.setAntiWindup(1.0f);
  * float control = pid.compute(error, dt);
  * @endcode
  */
@@ -124,6 +132,25 @@ enum class SatelliteMode : uint8_t {
 };
 ```
 
+### Документирование структур
+
+```cpp
+/**
+ * @brief Конфигурация PID-контроллера
+ *
+ * @member kp Пропорциональный коэффициент
+ * @member ki Интегральный коэффициент
+ * @member kd Дифференциальный коэффициент
+ * @member antiWindupLimit Ограничение anti-windup
+ */
+struct PIDConfig {
+    float kp;               ///< Пропорциональный коэффициент
+    float ki;               ///< Интегральный коэффициент
+    float kd;               ///< Дифференциальный коэффициент
+    float antiWindupLimit;  ///< Ограничение anti-windup
+};
+```
+
 ---
 
 ## Настройка Doxyfile
@@ -140,6 +167,9 @@ INPUT = ../src/cpp
 RECURSIVE = YES
 FILE_PATTERNS = *.hpp *.h
 
+# Исключения
+EXCLUDE_PATTERNS = *_test.hpp *_mock.hpp
+
 # Вывод
 GENERATE_HTML = YES
 GENERATE_LATEX = NO
@@ -155,14 +185,14 @@ INCLUDE_GRAPH = YES
 
 # Предупреждения
 WARNINGS = YES
-WARN_IF_UNDOCUMENTED = YES
+WARN_IF_UNDOCUMENTED = NO
 ```
 
 ---
 
 ## Интеграция с CMake
 
-В `CMakeLists.txt`:
+В `CMakeLists.txt` уже настроено:
 
 ```cmake
 option(BUILD_DOCS "Build documentation" OFF)
@@ -170,9 +200,6 @@ option(BUILD_DOCS "Build documentation" OFF)
 if(BUILD_DOCS)
     find_package(Doxygen QUIET)
     if(DOXYGEN_FOUND)
-        set(DOXYGEN_INPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp)
-        set(DOXYGEN_OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/docs)
-        
         doxygen_add_docs(docs
             ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
             COMMENT "Generating documentation"
@@ -190,7 +217,7 @@ endif()
 | `doxygen: command not found` | Добавьте Doxygen в PATH |
 | Нет графов | Установите Graphviz, `HAVE_DOT = YES` |
 | Битые ссылки | Используйте полное имя: `mka::fdir::FDIRManager` |
-| Кракозябры | Сохраняйте файлы в UTF-8, `INPUT_ENCODING = UTF-8` |
+| Кракозябры | Сохраняйте файлы в UTF-8 |
 
 ---
 

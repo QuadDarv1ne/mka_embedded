@@ -14,6 +14,14 @@ PROJECT_LOGO           = ""
 OUTPUT_DIRECTORY       = "@CMAKE_CURRENT_SOURCE_DIR@/docs"
 
 # ============================================================================
+# Build Related
+# ============================================================================
+
+CREATE_SUBDIRS         = NO
+ALLOW_UNICODE_NAMES    = NO
+OUTPUT_LANGUAGE        = Russian
+
+# ============================================================================
 # Input Files
 # ============================================================================
 
@@ -25,14 +33,14 @@ FILE_PATTERNS          = *.hpp \
 
 RECURSIVE              = YES
 
-EXCLUDE                = 
+EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/src/cpp/tests
 EXCLUDE_SYMLINKS       = NO
-EXCLUDE_PATTERNS       = 
+EXCLUDE_PATTERNS       = *_test.hpp \
+                         *_mock.hpp
 EXCLUDE_SYMBOLS        = 
 
-EXAMPLE_PATH           = @CMAKE_CURRENT_SOURCE_DIR@/examples
-EXAMPLE_PATTERNS       = *.cpp \
-                         *.hpp
+EXAMPLE_PATH           = 
+EXAMPLE_PATTERNS       = 
 EXAMPLE_RECURSIVE      = NO
 
 # ============================================================================
@@ -56,6 +64,7 @@ HTML_FILE_EXTENSION    = .html
 HTML_COLORSTYLE        = LIGHT
 HTML_DYNAMIC_MENUS     = YES
 HTML_DYNAMIC_SECTIONS  = YES
+HTML_CODE_FOLDING      = YES
 
 GENERATE_LATEX         = NO
 GENERATE_RTF           = NO
@@ -75,6 +84,7 @@ EXTRACT_STATIC         = YES
 EXTRACT_LOCAL_CLASSES  = YES
 EXTRACT_LOCAL_METHODS  = NO
 EXTRACT_ANON_NSPACES   = YES
+EXTRACT_PACKAGE        = NO
 
 HIDE_UNDOC_MEMBERS     = NO
 HIDE_UNDOC_CLASSES     = NO
@@ -140,7 +150,11 @@ ALIASES                = "attention=@attention" \
                          "see=@see" \
                          "par=@par" \
                          "pre=@pre" \
-                         "post=@post"
+                         "post=@post" \
+                         "invariant=@invariant" \
+                         "threadsafe=@par Thread Safety:\n" \
+                         "hardware=@par Hardware:\n" \
+                         "performance=@par Performance:\n"
 
 # ============================================================================
 # Navigation & Search
@@ -156,10 +170,10 @@ GENERATE_LEGEND        = YES
 # ============================================================================
 
 WARNINGS               = YES
-WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_UNDOCUMENTED   = NO
 WARN_IF_DOC_ERROR      = YES
 WARN_IF_INCOMPLETE_DOC = YES
-WARN_NO_PARAMDOC       = YES
+WARN_NO_PARAMDOC       = NO
 WARN_AS_ERROR          = NO
 WARN_FORMAT            = "$file:$line: $text"
 WARN_LOGFILE           = doxygen_warnings.log
@@ -172,3 +186,6 @@ CLANG_ASSISTED_PARSING = NO
 SKIP_FUNCTION_MACROS   = YES
 SHOW_INCLUDE_FILES     = YES
 SHOW_USED_FILES        = YES
+SORT_BRIEF_DESC        = NO
+SORT_MEMBERS_CTORS_1ST = YES
+FULL_SIDEBAR           = NO
