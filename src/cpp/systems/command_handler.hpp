@@ -354,7 +354,7 @@ inline CommandHandler createGetVersionHandler(uint8_t major, uint8_t minor, uint
  * @brief Парсер команды из байтов
  */
 inline std::optional<Command> parseCommand(const uint8_t* data, size_t dataSize) {
-    if (dataSize < sizeof(CommandHeader)) {
+    if (!data || dataSize < sizeof(CommandHeader)) {
         return std::nullopt;
     }
 
@@ -366,7 +366,7 @@ inline std::optional<Command> parseCommand(const uint8_t* data, size_t dataSize)
         return std::nullopt;
     }
 
-    // Копирование данных
+    // Копирование данных с проверкой границ
     size_t dataLen = std::min<size_t>(cmd.header.dataLength, cmd.data.size());
     std::memcpy(cmd.data.data(), data + sizeof(CommandHeader), dataLen);
 
@@ -378,7 +378,9 @@ inline std::optional<Command> parseCommand(const uint8_t* data, size_t dataSize)
  * @brief Сериализация ответа в байты
  */
 inline size_t serializeResponse(const CommandResponse& resp, uint8_t* buffer, size_t bufferSize) {
-    size_t totalSize = 7 + resp.responseLength;  // Header + data
+    if (!buffer) return 0;
+
+    size_t totalSize = 7 + resp.responseLength;
 
     if (bufferSize < totalSize) {
         return 0;
