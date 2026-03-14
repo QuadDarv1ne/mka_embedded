@@ -50,7 +50,10 @@ public:
             if (!used_[i]) {
                 used_[i] = true;
                 allocatedCount_++;
-                return &pool_[i * ALIGNED_BLOCK_SIZE];
+                void* ptr = &pool_[i * ALIGNED_BLOCK_SIZE];
+                // Обнуление памяти для безопасности
+                std::memset(ptr, 0, ALIGNED_BLOCK_SIZE);
+                return ptr;
             }
         }
         return nullptr;
@@ -69,6 +72,8 @@ public:
         if (index >= NumBlocks) return false;
         if (!used_[index]) return false;  // Double free защита
 
+        // Обнуление памяти перед освобождением (защита от use-after-free)
+        std::memset(&pool_[index * ALIGNED_BLOCK_SIZE], 0, ALIGNED_BLOCK_SIZE);
         used_[index] = false;
         allocatedCount_--;
         return true;
@@ -126,12 +131,33 @@ public:
     static constexpr size_t MIN_BLOCK_SIZE = 16;
     static constexpr size_t MAX_ORDER = 8;  // До 16 * 2^8 = 4096 байт
     
-    explicit VariablePool(size_t totalSize) 
+    explicit VariablePool(size_t totalSize)
         : totalSize_(totalSize) {
         // Инициализация свободных списков
         for (auto& list : freeLists_) {
             list.head = nullptr;
             list.count = 0;
+        }
+        // Обнуление всей памяти пула
+        std::memset(pool_.data(), 0, pool_.size());
+        // Инициализация всего пула как одного большого свободного блока
+        if (totalSize >= sizeof(BlockHeader) + MIN_BLOCK_SIZE) {
+            uint8_t order = MAX_ORDER;
+            size_t blockSize = MIN_BLOCK_SIZE * (1 << order);
+            if (blockSize > totalSize) {
+                order = 0;
+                blockSize = MIN_BLOCK_SIZE;
+                while (blockSize * 2 <= totalSize && order < MAX_ORDER) {
+                    blockSize *= 2;
+                    order++;
+                }
+            }
+            auto* block = reinterpret_cast<BlockHeader*>(pool_.data());
+            block->order = order;
+            block->allocated = false;
+            block->next = nullptr;
+            freeLists_[order].head = block;
+            freeLists_[order].count = 1;
         }
     }
     
@@ -190,42 +216,44 @@ public:
     
 private:
     struct BlockHeader {
-        BlockHeader* next;
-        uint8_t order;
-        bool allocated;
-        uint8_t reserved[6];  // Padding для выравнивания
+        BlockHeader* next = nullptr;
+        uint8_t order = 0;
+        bool allocated = false;
+        uint8_t reserved[6] = {};  // Padding для выравнивания
     };
     
     struct FreeList {
-        BlockHeader* head;
-        size_t count;
+        BlockHeader* head = nullptr;
+        size_t count = 0;
     };
     
     size_t totalSize_;
+    std::array<uint8_t, MAX_ORDER * MIN_BLOCK_SIZE * 256> pool_{};
     FreeList freeLists_[MAX_ORDER + 1];
     
     void splitBlock(uint8_t fromOrder, uint8_t toOrder) {
         // Найти блок для разделения
         BlockHeader* block = freeLists_[fromOrder].head;
         if (!block) return;
-        
+
         // Удалить из списка больших блоков
         freeLists_[fromOrder].head = block->next;
         freeLists_[fromOrder].count--;
-        
+
         // Разделить на два блока меньшего размера
         size_t blockSize = MIN_BLOCK_SIZE * (1 << toOrder);
         BlockHeader* second = reinterpret_cast<BlockHeader*>(
             reinterpret_cast<uint8_t*>(block) + blockSize);
-        
+
         block->order = toOrder;
         block->allocated = false;
         block->next = nullptr;
-        
+
         second->order = toOrder;
         second->allocated = false;
         second->next = freeLists_[toOrder].head;
-        
+        second->reserved[0] = 0;  // Явная инициализация padding
+
         // Добавить в список меньших блоков
         freeLists_[toOrder].head = block;
         freeLists_[toOrder].count += 2;
