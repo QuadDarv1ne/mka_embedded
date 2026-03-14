@@ -59,6 +59,12 @@ TEST(ResultTest, VoidResult) {
     EXPECT_FALSE(err_result.isOk());
 }
 
+TEST(ResultTest, VoidDefaultConstruction) {
+    Result<void, ErrorCode> result;
+    EXPECT_FALSE(result.isOk());
+    EXPECT_TRUE(result.isError());
+}
+
 TEST(ResultTest, ErrorCodeToString) {
     EXPECT_STREQ(errorCodeToString(ErrorCode::OK), "OK");
     EXPECT_STREQ(errorCodeToString(ErrorCode::TIMEOUT), "TIMEOUT");
@@ -82,6 +88,13 @@ TEST(ResultTest, OrElse) {
 
     EXPECT_EQ(ok_result.orElse(fallback).value(), 42);
     EXPECT_EQ(err_result.orElse(fallback).value(), 0);
+}
+
+TEST(ResultTest, DefaultConstruction) {
+    // Result по умолчанию должен быть в состоянии error (ok_ = false)
+    Result<int, ErrorCode> result;
+    EXPECT_FALSE(result.isOk());
+    EXPECT_TRUE(result.isError());
 }
 
 TEST(ResultTest, MoveSemantics) {
