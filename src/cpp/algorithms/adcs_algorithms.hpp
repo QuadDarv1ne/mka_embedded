@@ -228,18 +228,19 @@ public:
         float& q1 = quaternion_.x;
         float& q2 = quaternion_.y;
         float& q3 = quaternion_.z;
-        
+
         // Справочные направления (Earth frame)
-        float h_x = 2.0f * mx * (0.5f - q2*q2 - q3*q3) + 2.0f * my * (q1*q2 - q0*q3) 
+        float h_x = 2.0f * mx * (0.5f - q2*q2 - q3*q3) + 2.0f * my * (q1*q2 - q0*q3)
                   + 2.0f * mz * (q1*q3 + q0*q2);
-        float h_y = 2.0f * mx * (q1*q2 + q0*q3) + 2.0f * my * (0.5f - q1*q1 - q3*q3) 
+        float h_y = 2.0f * mx * (q1*q2 + q0*q3) + 2.0f * my * (0.5f - q1*q1 - q3*q3)
                   + 2.0f * mz * (q2*q3 - q0*q1);
-        float h_z = 2.0f * mx * (q1*q3 - q0*q2) + 2.0f * my * (q2*q3 + q0*q1) 
-                  + 2.0f * mz * (0.5f - q1*q1 - q2*q2);
-        
-        float b_x = std::sqrt(h_x * h_x + h_y * h_y);
-        float b_z = h_z;
-        
+
+        // Нормализация горизонтальных компонент магнитного поля
+        float h_xy_norm = std::sqrt(h_x * h_x + h_y * h_y);
+        if (h_xy_norm < 1e-6f) {
+            h_xy_norm = 1e-6f;  // Защита от деления на ноль
+        }
+
         // Градиентный спуск (упрощённый)
         // ... (полная реализация опущена для краткости)
         
@@ -504,35 +505,39 @@ inline void example_adcs_usage() {
     attConfig.rollConfig.kd = 0.1f;
     attConfig.pitchConfig = attConfig.rollConfig;
     attConfig.yawConfig = attConfig.rollConfig;
-    
+
     AttitudeController attController(attConfig);
-    
+
     // B-dot контроллер для начального режима
-    BDotController bdot({.gain = 1e-8f, .maxDipole = 0.1f});
-    
+    BDotController::Config bdotConfig;
+    bdotConfig.gain = 1e-8f;
+    bdotConfig.maxDipole = 0.1f;
+    BDotController bdot(bdotConfig);
+
     // Симуляция цикла управления
     float dt = 0.01f;  // 10 ms
-    
+
     for (int i = 0; i < 1000; ++i) {
         // Чтение датчиков (симуляция)
         float gx = 0.001f, gy = 0.001f, gz = 0.001f;  // рад/с
         float ax = 0.0f, ay = 0.0f, az = 9.81f;        // м/с²
         float mx = 20000e-9f, my = 0, mz = 40000e-9f;  // T
-        
+
         // Обновление фильтра ориентации
         filter.updateMARG(gx, gy, gz, ax, ay, az, mx, my, mz, dt);
-        
+
         // Получение текущей ориентации
         Quaternion currentQuat = filter.getQuaternion();
-        
+
         // Целевая ориентация (например, наведение на Землю)
         Quaternion targetQuat(1, 0, 0, 0);  // Identity
-        
+
         // Вычисление управления
         std::array<float, 3> omega = {gx, gy, gz};
-        auto torque = attController.compute(targetQuat, currentQuat, omega, dt);
-        
+        attController.compute(targetQuat, currentQuat, omega, dt);
+
         // Применение к маховикам...
+        (void)bdot;  // bdot готов к использованию
     }
 }
 

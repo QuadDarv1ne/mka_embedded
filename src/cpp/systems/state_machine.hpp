@@ -383,11 +383,11 @@ private:
     // ========================================================================
     // Внутренние методы
     // ========================================================================
-    
+
     void initializeDefaultTransitions() {
-        // OFF -> INIT
+        // OFF -> INIT (всегда разрешён)
         addTransition(SatelliteMode::OFF, SatelliteMode::INIT,
-            +[](const StateMachineContext& ctx) { return true; });
+            +[](const StateMachineContext&) { return true; });
 
         // INIT -> SAFE
         addTransition(SatelliteMode::INIT, SatelliteMode::SAFE,

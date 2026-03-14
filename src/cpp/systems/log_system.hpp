@@ -396,13 +396,14 @@ public:
     using WriteFunc = Callback<void(const char*, size_t)>;
 
     UARTLogOutput(WriteFunc write) : write_(write) {}
-    
+
     void write(const LogEntry& entry, const char* formatted) override {
+        (void)entry;  // Форматирование уже выполнено
         size_t len = strlen(formatted);
         write_(formatted, len);
         write_("\r\n", 2);
     }
-    
+
 private:
     WriteFunc write_;
 };
@@ -413,8 +414,9 @@ private:
 class BufferLogOutput : public ILogOutput {
 public:
     static constexpr size_t BUFFER_SIZE = 4096;
-    
+
     void write(const LogEntry& entry, const char* formatted) override {
+        (void)entry;  // Форматирование уже выполнено
         size_t len = strlen(formatted);
         for (size_t i = 0; i < len && count_ < BUFFER_SIZE; i++) {
             buffer_[count_++] = formatted[i];
