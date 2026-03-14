@@ -69,6 +69,11 @@ compile_commands.json
 CMakeLists.txt.user
 *.cmake
 
+# Ninja
+.ninja*
+.ninja_deps
+.ninja_log
+
 # STM32CubeIDE
 .cproject
 .launch
