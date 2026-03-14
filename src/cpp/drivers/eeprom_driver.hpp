@@ -15,7 +15,8 @@
 #include <cstring>
 #include <functional>
 #include <array>
-#include <span>
+
+#include "../utils/span.hpp"
 
 namespace mka {
 namespace nvm {

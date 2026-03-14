@@ -15,7 +15,8 @@
 #include <cstring>
 #include <cmath>
 #include <array>
-#include <span>
+
+#include "../utils/span.hpp"
 
 namespace mka {
 namespace sensors {

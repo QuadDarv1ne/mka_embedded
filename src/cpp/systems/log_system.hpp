@@ -16,9 +16,9 @@
 #include <cstdio>
 #include <cstdarg>
 #include <array>
-#include <span>
 
 #include "utils/callback.hpp"
+#include "utils/span.hpp"
 
 namespace mka {
 namespace log {
