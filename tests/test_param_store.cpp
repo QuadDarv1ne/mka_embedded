@@ -367,15 +367,15 @@ TEST(ParameterStoreTest, ResetAllParameters) {
 
 TEST(ParameterStoreTest, GetEntry) {
     ParameterStore store;
-    
+
     ParamAttributes attrs{true, true, true, false, false, 0};
-    ParamValue def, min, max;
+    ParamValue def{}, min{}, max{};
     def.u8 = 10;
     ParamEntry entry{0x0100, ParamType::UINT8, attrs, 1, def, min, max,
                      "test_name", "test_desc", "unit"};
-    
+
     store.registerParam(entry);
-    
+
     const ParamEntry* retrieved = store.getEntry(0x0100);
     EXPECT_NE(retrieved, nullptr);
     EXPECT_STREQ(retrieved->name, "test_name");
@@ -551,12 +551,9 @@ TEST(ParameterStoreTest, ChangeCallback) {
     
     ParamEntry entry{0x0100, ParamType::UINT8, attrs, 1, def, min, max,
                      "test", "test", "unit"};
-    
+
     store.registerParam(entry);
-    
-    uint16_t callbackId = 0;
-    uint8_t callbackValue = 0;
-    
+
     auto callback = +[](uint16_t id, ParamValue value) {
         // Используем глобальные переменные для хранения состояния
         static uint16_t lastId = 0;
@@ -566,13 +563,13 @@ TEST(ParameterStoreTest, ChangeCallback) {
         // Для теста просто компилируем callback
         (void)lastId; (void)lastValue;
     };
-    
+
     store.setChangeCallback(callback);
-    
+
     ParamValue newValue;
     newValue.u8 = 50;
     store.set(0x0100, newValue);
-    
+
     // Callback без захвата не может изменить внешние переменные
     // Просто проверяем что код компилируется
     EXPECT_TRUE(true);

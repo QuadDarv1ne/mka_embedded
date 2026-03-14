@@ -239,14 +239,13 @@ TEST(WatchdogManagerTest, GetExpireCount) {
 TEST(WatchdogManagerTest, SetExpireCallback) {
     auto& wdt = WatchdogManager::instance();
     wdt.init(nullptr);
-    
-    bool callbackCalled = false;
+
     auto callback = +[](const char* name, uint32_t elapsed) {
         (void)name;
         (void)elapsed;
         // Callback без захвата
     };
-    
+
     EXPECT_NO_THROW(wdt.setExpireCallback(callback));
 }
 
