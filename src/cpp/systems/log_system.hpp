@@ -66,7 +66,7 @@ struct LogEntry {
     const char* file;           // Файл
     const char* function;       // Функция
     char message[128];          // Сообщение
-    uint8_t args[32];           // Бинарные аргументы
+    uint8_t args[16];           // Бинарные аргументы (уменьшено)
     uint8_t argsLen;            // Длина аргументов
 };
 
@@ -423,13 +423,12 @@ public:
             buffer_[count_++] = '\n';
         }
     }
-    
-    std::span<const char> getData() const {
-        return {buffer_.data(), count_};
-    }
-    
+
+    const char* getData() const { return buffer_.data(); }
+    size_t getSize() const { return count_; }
+
     void clear() { count_ = 0; }
-    
+
 private:
     std::array<char, BUFFER_SIZE> buffer_{};
     size_t count_ = 0;

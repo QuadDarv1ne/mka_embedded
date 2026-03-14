@@ -69,6 +69,12 @@ struct Quaternion {
             x *= inv_norm;
             y *= inv_norm;
             z *= inv_norm;
+        } else {
+            // При нулевой норме восстанавливаем единичный кватернион
+            w = 1.0f;
+            x = 0.0f;
+            y = 0.0f;
+            z = 0.0f;
         }
     }
     
@@ -269,8 +275,8 @@ public:
         float kp = 1.0f;
         float ki = 0.0f;
         float kd = 0.0f;
-        float outputMin = -1.0f;
-        float outputMax = 1.0f;
+        float outputMin = -100.0f;
+        float outputMax = 100.0f;
         float integralLimit = 10.0f;
         float derivativeFilterCoeff = 0.1f;  // 0 = no filter
     };

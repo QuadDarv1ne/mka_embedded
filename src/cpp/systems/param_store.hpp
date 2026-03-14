@@ -274,8 +274,8 @@ public:
     /**
      * @brief Получение списка ID всех параметров
      */
-    size_t getParamIds(std::span<uint16_t> ids) const {
-        size_t count = std::min(paramCount_, ids.size());
+    size_t getParamIds(uint16_t* ids, size_t maxCount) const {
+        size_t count = std::min(paramCount_, maxCount);
         for (size_t i = 0; i < count; i++) {
             ids[i] = entries_[i].id;
         }
@@ -301,40 +301,40 @@ public:
     /**
      * @brief Сериализация параметров для сохранения
      */
-    size_t serialize(std::span<uint8_t> buffer) const {
+    size_t serialize(uint8_t* buffer, size_t bufferSize) const {
         size_t offset = 0;
-        
+
         // Заголовок
-        if (offset + 4 > buffer.size()) return 0;
+        if (offset + 4 > bufferSize) return 0;
         buffer[offset++] = 'P';
         buffer[offset++] = 'A';
         buffer[offset++] = 'R';
         buffer[offset++] = 0x01;  // Version
-        
+
         // Количество параметров
-        if (offset + 2 > buffer.size()) return 0;
+        if (offset + 2 > bufferSize) return 0;
         buffer[offset++] = (paramCount_ >> 8) & 0xFF;
         buffer[offset++] = paramCount_ & 0xFF;
         
         // Параметры
         for (size_t i = 0; i < paramCount_; i++) {
             if (entries_[i].attributes.persistent) {
-                if (offset + 2 + entries_[i].size > buffer.size()) {
+                if (offset + 2 + entries_[i].size > bufferSize) {
                     return 0;
                 }
-                
+
                 // ID
                 buffer[offset++] = (entries_[i].id >> 8) & 0xFF;
                 buffer[offset++] = entries_[i].id & 0xFF;
-                
+
                 // Значение
                 std::memcpy(&buffer[offset], &values_[i], entries_[i].size);
                 offset += entries_[i].size;
             }
         }
-        
+
         // CRC32 (placeholder)
-        if (offset + 4 > buffer.size()) return 0;
+        if (offset + 4 > bufferSize) return 0;
         buffer[offset++] = 0;
         buffer[offset++] = 0;
         buffer[offset++] = 0;
@@ -346,11 +346,11 @@ public:
     /**
      * @brief Десериализация параметров
      */
-    bool deserialize(std::span<const uint8_t> buffer) {
+    bool deserialize(const uint8_t* buffer, size_t bufferSize) {
         size_t offset = 0;
-        
+
         // Проверка заголовка
-        if (buffer.size() < 6) return false;
+        if (bufferSize < 6) return false;
         if (buffer[0] != 'P' || buffer[1] != 'A' || buffer[2] != 'R') {
             return false;
         }
@@ -362,14 +362,14 @@ public:
         offset += 2;
         
         // Загрузка значений
-        for (uint16_t i = 0; i < count && offset + 2 <= buffer.size(); i++) {
+        for (uint16_t i = 0; i < count && offset + 2 <= bufferSize; i++) {
             uint16_t id = (buffer[offset] << 8) | buffer[offset + 1];
             offset += 2;
-            
+
             // Поиск параметра
             for (size_t j = 0; j < paramCount_; j++) {
                 if (entries_[j].id == id) {
-                    if (offset + entries_[j].size <= buffer.size()) {
+                    if (offset + entries_[j].size <= bufferSize) {
                         std::memcpy(&values_[j], &buffer[offset], entries_[j].size);
                         offset += entries_[j].size;
                         modified_[j] = false;
@@ -425,29 +425,26 @@ private:
 
 #define PARAM_UINT8(id, name, def, min, max, desc, unit) \
     mka::param::ParamEntry { \
-        .id = id, .type = mka::param::ParamType::UINT8, \
-        .attributes = {true, true, true, false, false, 0}, \
-        .size = 1, .defaultValue = {.u8 = def}, \
-        .minValue = {.u8 = min}, .maxValue = {.u8 = max}, \
-        .name = name, .description = desc, .unit = unit \
+        id, mka::param::ParamType::UINT8, \
+        {true, true, true, false, false, 0}, \
+        1, {{def}}, {{min}}, {{max}}, \
+        name, desc, unit \
     }
 
 #define PARAM_FLOAT(id, name, def, min, max, desc, unit) \
     mka::param::ParamEntry { \
-        .id = id, .type = mka::param::ParamType::FLOAT, \
-        .attributes = {true, true, true, false, false, 0}, \
-        .size = 4, .defaultValue = {.f = def}, \
-        .minValue = {.f = min}, .maxValue = {.f = max}, \
-        .name = name, .description = desc, .unit = unit \
+        id, mka::param::ParamType::FLOAT, \
+        {true, true, true, false, false, 0}, \
+        4, {{def}}, {{min}}, {{max}}, \
+        name, desc, unit \
     }
 
 #define PARAM_READONLY(id, name, def, desc, unit) \
     mka::param::ParamEntry { \
-        .id = id, .type = mka::param::ParamType::UINT32, \
-        .attributes = {true, false, false, false, false, 0}, \
-        .size = 4, .defaultValue = {.u32 = def}, \
-        .minValue = {.u32 = 0}, .maxValue = {.u32 = 0}, \
-        .name = name, .description = desc, .unit = unit \
+        id, mka::param::ParamType::UINT32, \
+        {true, false, false, false, false, 0}, \
+        4, {{def}}, {{0}}, {{0}}, \
+        name, desc, unit \
     }
 
 } // namespace param

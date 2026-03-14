@@ -170,6 +170,36 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_executable(test_utils tests/test_utils.cpp)
     target_link_libraries(test_utils mka_core GTest::gtest_main)
     add_test(NAME test_utils COMMAND test_utils)
+
+    # Тест команд (Command Handler)
+    add_executable(test_commands tests/test_commands.cpp)
+    target_link_libraries(test_commands mka_core GTest::gtest_main)
+    add_test(NAME test_commands COMMAND test_commands)
+
+    # Тест хранилища параметров (Parameter Store)
+    add_executable(test_param_store tests/test_param_store.cpp)
+    target_link_libraries(test_param_store mka_core GTest::gtest_main)
+    add_test(NAME test_param_store COMMAND test_param_store)
+
+    # Тест watchdog менеджера
+    add_executable(test_watchdog tests/test_watchdog.cpp)
+    target_link_libraries(test_watchdog mka_core GTest::gtest_main)
+    add_test(NAME test_watchdog COMMAND test_watchdog)
+
+    # Тест memory pool
+    add_executable(test_memory_pool tests/test_memory_pool.cpp)
+    target_link_libraries(test_memory_pool mka_core GTest::gtest_main)
+    add_test(NAME test_memory_pool COMMAND test_memory_pool)
+
+    # Тест log system
+    add_executable(test_log_system tests/test_log_system.cpp)
+    target_link_libraries(test_log_system mka_core GTest::gtest_main)
+    add_test(NAME test_log_system COMMAND test_log_system)
+
+    # Тест FreeRTOS wrapper - требует реального FreeRTOS для линковки
+    # add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
+    # target_link_libraries(test_freertos_wrapper mka_core GTest::gtest_main)
+    # add_test(NAME test_freertos_wrapper COMMAND test_freertos_wrapper)
 endif()
 
 # ============================================================================
