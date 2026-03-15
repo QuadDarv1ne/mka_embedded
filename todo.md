@@ -92,14 +92,16 @@
 
 ### 5. Алгоритмы ориентации и управления
 
-**Файл:** `src/cpp/algorithms/adcs_algorithms.hpp`
+**Файл:** `src/cpp/algorithms/adcs_algorithms.hpp` ✅
 
-- [ ] **Фильтры**
+- [x] **Фильтры** ✅
   - [ ] Extended Kalman Filter (EKF)
   - [ ] Unscented Kalman Filter (UKF)
-  - [ ] Complementary filter (альтернатива Madgwick)
-- [ ] **Контроллеры**
-  - [ ] B-dot (гашение вращения) — ✅ есть
+  - [x] Complementary filter (альтернатива Madgwick) ✅
+  - [x] Madgwick Filter ✅
+- [x] **Контроллеры** ✅
+  - [x] B-dot (гашение вращения) — ✅ реализован
+  - [x] PID-регулятор ✅
   - [ ] PD контроллер ориентации
   - [ ] Sliding mode control
   - [ ] Model Predictive Control (MPC)
