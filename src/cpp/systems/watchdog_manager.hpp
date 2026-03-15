@@ -107,26 +107,28 @@ public:
         static WatchdogManager instance;
         return instance;
     }
-    
+
+    WatchdogManager() = default;
+
     /**
      * @brief Инициализация менеджера
      */
     bool init(IHardwareWatchdog* hwWdt, uint32_t hwTimeoutMs = DEFAULT_TIMEOUT_MS) {
         hwWdt_ = hwWdt;
-        
+
         if (hwWdt_) {
             if (!hwWdt_->init(hwTimeoutMs)) {
                 return false;
             }
         }
-        
+
         // Сохранение причины сброса
         lastResetReason_ = hwWdt_ ? hwWdt_->getResetReason() : ResetReason::UNKNOWN;
-        
+
         initialized_ = true;
         return true;
     }
-    
+
     /**
      * @brief Регистрация задачи для мониторинга
      * @param name Имя задачи
@@ -134,12 +136,12 @@ public:
      * @return ID виртуального watchdog'а или 0xFF при ошибке
      */
     uint8_t registerTask(const char* name, uint32_t timeoutMs) {
-        if (taskCount_ >= MAX_WATCHDOG_TASKS) {
+        if (!initialized_ || taskCount_ >= MAX_WATCHDOG_TASKS) {
             return 0xFF;
         }
-        
+
         uint8_t id = taskCount_++;
-        
+
         virtualWdts_[id].taskId = id;
         virtualWdts_[id].timeoutMs = timeoutMs;
         virtualWdts_[id].lastKickTime = getTickMs();
@@ -147,7 +149,7 @@ public:
         virtualWdts_[id].enabled = true;
         virtualWdts_[id].expired = false;
         virtualWdts_[id].expireCount = 0;
-        
+
         return id;
     }
     
@@ -316,10 +318,13 @@ public:
         
         return stats;
     }
-    
+
+    /**
+     * @brief Проверка инициализации
+     */
+    bool isInitialized() const { return initialized_; }
+
 private:
-    WatchdogManager() = default;
-    
     IHardwareWatchdog* hwWdt_ = nullptr;
     bool initialized_ = false;
 
