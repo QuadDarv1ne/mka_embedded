@@ -455,7 +455,9 @@ public:
 
     CommandResult processCommand(const uint8_t* data, size_t length,
                                  CommandResult* result = nullptr) {
-        if (length < sizeof(CommandHeader) + CRC_SIZE) {
+        constexpr size_t MIN_COMMAND_SIZE = sizeof(CommandHeader) + CRC_SIZE;
+        
+        if (length < MIN_COMMAND_SIZE) {
             return CommandResult::INVALID_PAYLOAD;
         }
 
@@ -464,7 +466,13 @@ public:
         }
 
         const CommandHeader* header = reinterpret_cast<const CommandHeader*>(data);
-        
+
+        // Validate payload length to prevent buffer overflow
+        const size_t expectedTotalSize = sizeof(CommandHeader) + header->payloadLength + CRC_SIZE;
+        if (expectedTotalSize > length || header->payloadLength > MAX_COMMAND_PAYLOAD) {
+            return CommandResult::INVALID_PAYLOAD;
+        }
+
         CommandHandler handler = findHandler(header->commandId);
         if (!handler) {
             return CommandResult::INVALID_COMMAND;
@@ -478,7 +486,7 @@ public:
         cmd.sourceApId = header->word0 & 0x7FF;
 
         CommandResult execResult = handler(cmd);
-        
+
         if (result) {
             *result = execResult;
         }

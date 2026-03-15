@@ -246,10 +246,36 @@ TEST_F(CommandManagerTest, CRCError) {
 
 TEST_F(CommandManagerTest, InvalidPayload) {
     std::array<uint8_t, 3> shortData = {0x01, 0x02, 0x03};
-    
+
     CommandResult result;
     auto status = cmdManager_.processCommand(shortData.data(), shortData.size(), &result);
-    
+
+    EXPECT_EQ(status, CommandResult::INVALID_PAYLOAD);
+}
+
+TEST_F(CommandManagerTest, PayloadLengthOverflow) {
+    auto handler = [](const Command&) -> CommandResult {
+        return CommandResult::OK;
+    };
+
+    cmdManager_.registerHandler(0x01, handler);
+
+    CommandHeader header;
+    header.set(0x001, 0, 0x01, 250);  // Payload length больше чем данные
+
+    std::memcpy(buffer_.data(), &header, sizeof(header));
+
+    // Заполняем буфер нулями, но длина не соответствует payloadLength
+    std::memset(buffer_.data() + sizeof(header), 0, 10);
+
+    uint16_t crc = CRC16::calculate(buffer_.data(), sizeof(header) + 10);
+    buffer_[sizeof(header) + 10] = (crc >> 8) & 0xFF;
+    buffer_[sizeof(header) + 11] = crc & 0xFF;
+
+    CommandResult result;
+    auto status = cmdManager_.processCommand(buffer_.data(), sizeof(header) + 10 + 2, &result);
+
+    // Должен отклонить из-за несоответствия длины
     EXPECT_EQ(status, CommandResult::INVALID_PAYLOAD);
 }
 
