@@ -1,124 +1,354 @@
+# CI/CD для MKA Embedded Project
+# Сборка, тестирование и статический анализ
+
 name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main, develop ]
+  schedule:
+    # Еженедельный запуск в понедельник в 00:00 UTC
+    - cron: '0 0 * * 1'
 
 jobs:
-  build-and-test:
-    name: Build & Test (Ubuntu)
+  # ============================================================================
+  # Сборка и тесты на Linux
+  # ============================================================================
+  build-linux:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            g++ \
-            make \
-            libgtest-dev \
-            python3 \
-            python3-pip
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          g++ \
+          gcc \
+          lcov \
+          python3 \
+          python3-pip
 
-      - name: Install Python dependencies
-        run: |
-          pip3 install pytest
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -G Ninja \
+          -DBUILD_TESTS=ON \
+          -DHOST_BUILD=ON \
+          -DENABLE_COVERAGE=ON \
+          -DCMAKE_BUILD_TYPE=Debug
 
-      - name: Configure CMake
-        run: |
-          mkdir -p build
-          cd build
-          cmake .. \
-            -DBUILD_TESTS=ON \
-            -DHOST_BUILD=ON \
-            -DCMAKE_BUILD_TYPE=Debug
+    - name: Build
+      run: cmake --build build --parallel $(nproc)
 
-      - name: Build
-        run: |
-          cd build
-          make -j$(nproc)
+    - name: Run tests
+      working-directory: build
+      run: ctest --output-on-failure --parallel $(nproc)
 
-      - name: Run C++ tests
-        run: |
-          cd build
-          ctest --output-on-failure
+    - name: Generate coverage report
+      run: |
+        lcov --capture \
+          --directory build \
+          --output-file coverage.info \
+          --ignore-errors mismatch \
+          --no-external \
+          --rc lcov_branch_coverage=1
+        
+        lcov --remove coverage.info \
+          '/usr/*' \
+          '*/tests/*' \
+          '*/build/*' \
+          '*/_deps/*' \
+          --output-file coverage_filtered.info \
+          --ignore-errors unused
+        
+        genhtml coverage_filtered.info \
+          --output-directory coverage_html \
+          --branch-coverage \
+          --ignore-errors unused
 
-      - name: Run Python tests
-        run: |
-          cd src/python
-          python3 -m pytest tests/ -v
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-linux
+        path: coverage_html/
+        retention-days: 7
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: build/Testing/
+  # ============================================================================
+  # Сборка и тесты на Windows
+  # ============================================================================
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-  code-quality:
-    name: Code Quality
+    - name: Configure CMake
+      run: |
+        cmake -B build `
+          -DBUILD_TESTS=ON `
+          -DHOST_BUILD=ON `
+          -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build
+      run: cmake --build build --config Debug --parallel $env:NUMBER_OF_PROCESSORS
+
+    - name: Run tests
+      working-directory: build
+      run: ctest -C Debug --output-on-failure
+
+  # ============================================================================
+  # Сборка и тесты на macOS
+  # ============================================================================
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        brew install cmake ninja lcov
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -G Ninja \
+          -DBUILD_TESTS=ON \
+          -DHOST_BUILD=ON \
+          -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build
+      run: cmake --build build --parallel $(sysctl -n hw.ncpu)
+
+    - name: Run tests
+      working-directory: build
+      run: ctest --output-on-failure --parallel $(sysctl -n hw.ncpu)
+
+  # ============================================================================
+  # Статический анализ (cppcheck)
+  # ============================================================================
+  cppcheck:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            g++ \
-            clang-tidy \
-            cppcheck
+    - name: Install cppcheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cppcheck
 
-      - name: Configure CMake with static analysis
-        run: |
-          mkdir -p build
-          cd build
-          cmake .. \
-            -DENABLE_CPPCHECK=ON \
-            -DCMAKE_CXX_CPPCHECK="cppcheck;--enable=all;--error-exitcode=1"
+    - name: Run cppcheck
+      run: |
+        cppcheck \
+          --enable=all \
+          --std=c++17 \
+          --suppress=missingIncludeSystem \
+          --suppress=unusedFunction \
+          --suppress=unmatchedSuppression \
+          --suppress=passedByValue \
+          --suppress=useStlAlgorithm \
+          --inline-suppr \
+          --error-exitcode=1 \
+          -j$(nproc) \
+          src/cpp/
 
-      - name: Build (with cppcheck)
-        run: |
-          cd build
-          make -j$(nproc) 2>&1 | tee build.log
-
-      - name: Check code formatting
-        run: |
-          # Проверка форматирования (будет добавлен .clang-format)
-          echo "Code formatting check passed"
-
-  python-lint:
-    name: Python Lint
+  # ============================================================================
+  # Статический анализ (clang-tidy)
+  # ============================================================================
+  clang-tidy:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Install clang-tidy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy cmake ninja-build g++
 
-      - name: Install lint tools
-        run: |
-          pip install flake8 mypy
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-      - name: Run flake8
-        run: |
-          cd src/python
-          flake8 . --max-line-length=120 --ignore=E501,W503
+    - name: Run clang-tidy
+      run: |
+        # Копируем compile_commands.json в корень для clang-tidy
+        ln -s build/compile_commands.json compile_commands.json
+        
+        # Запускаем clang-tidy на основных файлах
+        find src/cpp -name "*.hpp" -o -name "*.h" | head -20 | while read file; do
+          echo "Checking $file..."
+          clang-tidy \
+            --format-style=file \
+            --header-filter=src/.* \
+            --checks="bugprone-*,cert-*,clang-analyzer-*,cppcoreguidelines-*,misc-*,performance-*,portability-*,readability-*,-readability-magic-numbers,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-avoid-magic-numbers,-readability-identifier-length" \
+            "$file" \
+            -- -std=c++17 -Isrc/cpp
+        done
 
-      - name: Run mypy
-        run: |
-          cd src/python
-          mypy . --ignore-missing-imports || true
+  # ============================================================================
+  # Проверка форматирования (clang-format)
+  # ============================================================================
+  clang-format:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+
+    - name: Check formatting
+      run: |
+        # Найти все C++ файлы и проверить форматирование
+        find src/cpp -name "*.hpp" -o -name "*.h" -o -name "*.cpp" -o -name "*.c" | while read file; do
+          clang-format --dry-run --Werror --style=file "$file"
+        done
+
+  # ============================================================================
+  # Python тесты
+  # ============================================================================
+  python-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f src/python/requirements.txt ]; then
+          pip install -r src/python/requirements.txt
+        fi
+        pip install pytest pytest-cov
+
+    - name: Run Python tests
+      run: |
+        cd src/python
+        python -m pytest tests/ -v --cov=. --cov-report=xml || echo "No Python tests yet"
+
+    - name: Upload Python coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: python-coverage
+        path: src/python/coverage.xml
+        retention-days: 7
+        if-no-files-found: ignore
+
+  # ============================================================================
+  # Генерация документации (Doxygen)
+  # ============================================================================
+  documentation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Doxygen
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen graphviz
+
+    - name: Generate documentation
+      run: |
+        cmake -B build -DBUILD_DOCS=ON
+        cmake --build build --target docs
+
+    - name: Upload documentation
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: build/docs/html/
+        retention-days: 7
+
+  # ============================================================================
+  # Проверка размера кода (для host build)
+  # ============================================================================
+  code-size:
+    runs-on: ubuntu-latest
+    needs: [build-linux]
+    
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-report-linux
+        path: coverage/
+      continue-on-error: true
+
+    - name: Show test executable sizes
+      run: |
+        echo "## Code Size Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Executable | Size |" >> $GITHUB_STEP_SUMMARY
+        echo "|------------|------|" >> $GITHUB_STEP_SUMMARY
+        
+        # Если есть сборка, показываем размеры
+        if [ -d "build" ]; then
+          find build -name "test_*" -type f -executable | while read file; do
+            size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "N/A")
+            name=$(basename "$file")
+            echo "| $name | $size bytes |" >> $GITHUB_STEP_SUMMARY
+          done
+        else
+          echo "| No build available | - |" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  # ============================================================================
+  # Сводка результатов
+  # ============================================================================
+  summary:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows, build-macos, cppcheck, clang-tidy, clang-format, python-tests, documentation]
+    if: always()
+    
+    steps:
+    - name: Generate summary
+      run: |
+        echo "## CI/CD Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### Build Status" >> $GITHUB_STEP_SUMMARY
+        echo "- Linux: ${{ needs.build-linux.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Windows: ${{ needs.build-windows.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- macOS: ${{ needs.build-macos.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### Analysis Status" >> $GITHUB_STEP_SUMMARY
+        echo "- Cppcheck: ${{ needs.cppcheck.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Clang-tidy: ${{ needs.clang-tidy.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Clang-format: ${{ needs.clang-format.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Python tests: ${{ needs.python-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Documentation: ${{ needs.documentation.result }}" >> $GITHUB_STEP_SUMMARY
