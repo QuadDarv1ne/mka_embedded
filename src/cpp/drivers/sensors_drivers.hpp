@@ -18,10 +18,20 @@
 #include <array>
 #include <optional>
 
-// Предполагаем наличие HAL интерфейсов
-// Примечание: hal_full.hpp использует std::span (C++20), поэтому для C++17
-// требуется отдельный mock или использование минимальных HAL интерфейсов
-// #include "hal/hal_full.hpp"
+// HAL интерфейсы
+#if __cplusplus >= 202002L
+    #include "hal/hal_full.hpp"
+#else
+    // Для C++17 используем минимальные интерфейсы
+    // Требуется реализовать минимальные HAL интерфейсы для работы драйверов
+    namespace mka { namespace hal {
+        class II2C;
+        class ISPI;
+        class IUART;
+        class ISystemTime;
+        enum class Status : uint8_t;
+    }}
+#endif
 
 // ============================================================================
 // Платформенные макросы
