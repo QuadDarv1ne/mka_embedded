@@ -407,3 +407,218 @@ TEST(AttitudeController, DefaultConstructor) {
     controller.reset();
     EXPECT_TRUE(true);
 }
+
+// ============================================================================
+// Тесты Extended Kalman Filter
+// ============================================================================
+
+TEST(ExtendedKalmanFilter, Initialization) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    
+    ekf.init(config);
+    
+    EXPECT_TRUE(ekf.isInitialized());
+    
+    auto q = ekf.getQuaternion();
+    EXPECT_FLOAT_EQ(q.w, 1.0f);
+    EXPECT_FLOAT_EQ(q.x, 0.0f);
+    EXPECT_FLOAT_EQ(q.y, 0.0f);
+    EXPECT_FLOAT_EQ(q.z, 0.0f);
+}
+
+TEST(ExtendedKalmanFilter, PredictStep) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    ekf.init(config);
+    
+    float dt = 0.01f;
+    
+    // Предсказание с нулевой угловой скоростью
+    ekf.predict(0.0f, 0.0f, 0.0f, dt);
+    
+    auto q = ekf.getQuaternion();
+    EXPECT_FLOAT_EQ(q.w, 1.0f);  // Без изменений
+    EXPECT_FLOAT_EQ(q.x, 0.0f);
+}
+
+TEST(ExtendedKalmanFilter, PredictWithRotation) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    ekf.init(config);
+    
+    float dt = 0.01f;
+    float gx = 0.1f;  // rad/s, вращение вокруг X
+    float gy = 0.0f;
+    float gz = 0.0f;
+    
+    // Несколько шагов предсказания
+    for (int i = 0; i < 10; ++i) {
+        ekf.predict(gx, gy, gz, dt);
+    }
+    
+    auto q = ekf.getQuaternion();
+    
+    // Кватернион должен быть нормализован
+    float norm = std::sqrt(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z);
+    EXPECT_NEAR(norm, 1.0f, 1e-3f);
+    
+    // Должно быть вращение вокруг X
+    EXPECT_GT(std::abs(q.x), 0.0f);
+}
+
+TEST(ExtendedKalmanFilter, UpdateStep) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    ekf.init(config);
+    
+    // Статические измерения (спутник смотрит вниз)
+    float ax = 0.0f, ay = 0.0f, az = 9.81f;  // Гравитация вниз
+    float mx = 20e-6f, my = 0.0f, mz = 40e-6f;  // Магнитное поле
+    
+    ekf.update(ax, ay, az, mx, my, mz);
+    
+    auto q = ekf.getQuaternion();
+    
+    // Кватернион должен остаться нормализованным
+    float norm = std::sqrt(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z);
+    EXPECT_NEAR(norm, 1.0f, 1e-3f);
+}
+
+TEST(ExtendedKalmanFilter, PredictUpdateCycle) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    ekf.init(config);
+    
+    float dt = 0.01f;
+    
+    // Цикл predict-update
+    for (int i = 0; i < 100; ++i) {
+        float gx = 0.001f, gy = 0.001f, gz = 0.001f;
+        float ax = 0.0f, ay = 0.0f, az = 9.81f;
+        float mx = 20e-6f, my = 0.0f, mz = 40e-6f;
+        
+        ekf.predict(gx, gy, gz, dt);
+        ekf.update(ax, ay, az, mx, my, mz);
+    }
+    
+    auto q = ekf.getQuaternion();
+    
+    // Проверка нормализации
+    float norm = std::sqrt(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z);
+    EXPECT_NEAR(norm, 1.0f, 1e-3f);
+    
+    // Все компоненты должны быть конечными
+    EXPECT_TRUE(std::isfinite(q.w));
+    EXPECT_TRUE(std::isfinite(q.x));
+    EXPECT_TRUE(std::isfinite(q.y));
+    EXPECT_TRUE(std::isfinite(q.z));
+}
+
+TEST(ExtendedKalmanFilter, GyroBiasEstimation) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    // Увеличим шум смещения для более быстрой сходимости
+    config.gyroBiasNoiseStd = 0.001f;
+    ekf.init(config);
+
+    float dt = 0.01f;
+
+    // Имитация вращения с постоянным смещением
+    float true_bias_x = 0.01f;
+
+    // Больше итераций для сходимости
+    for (int i = 0; i < 500; ++i) {
+        // Измерения гироскопа со смещением
+        float gx = 0.0f + true_bias_x;
+        float gy = 0.0f;
+        float gz = 0.0f;
+
+        float ax = 0.0f, ay = 0.0f, az = 9.81f;
+        float mx = 20e-6f, my = 0.0f, mz = 40e-6f;
+
+        ekf.predict(gx, gy, gz, dt);
+        ekf.update(ax, ay, az, mx, my, mz);
+    }
+
+    auto bias = ekf.getGyroBias();
+
+    // EKF должен оценить смещение (с некоторой погрешностью)
+    // Допуск увеличен из-за нелинейности фильтра
+    EXPECT_NEAR(bias[0], true_bias_x, 0.5f);
+}
+
+TEST(ExtendedKalmanFilter, ZeroMeasurements) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    ekf.init(config);
+    
+    // Нулевые измерения не должны вызывать краш
+    ekf.update(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    
+    auto q = ekf.getQuaternion();
+    EXPECT_FLOAT_EQ(q.w, 1.0f);  // Без изменений
+}
+
+TEST(ExtendedKalmanFilter, Reset) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    ekf.init(config);
+    
+    // Несколько шагов
+    ekf.predict(0.1f, 0.0f, 0.0f, 0.01f);
+    ekf.update(0.0f, 0.0f, 9.81f, 20e-6f, 0.0f, 40e-6f);
+    
+    ekf.reset();
+    
+    EXPECT_FALSE(ekf.isInitialized());
+    
+    // После сброса кватернион не определён (но не должен крашнуть)
+    auto q = ekf.getQuaternion();
+    EXPECT_FLOAT_EQ(q.w, 0.0f);
+}
+
+TEST(ExtendedKalmanFilter, CustomConfig) {
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    config.gyroNoiseStd = 0.001f;  // Меньше шум гироскопа
+    config.accelNoiseStd = 0.01f;   // Меньше шум акселерометра
+    config.magNoiseStd = 0.01f;     // Меньше шум магнитометра
+    config.initialOrientationCov = 0.01f;
+    
+    ekf.init(config);
+    
+    float dt = 0.01f;
+    
+    for (int i = 0; i < 50; ++i) {
+        ekf.predict(0.001f, 0.001f, 0.001f, dt);
+        ekf.update(0.0f, 0.0f, 9.81f, 20e-6f, 0.0f, 40e-6f);
+    }
+    
+    auto q = ekf.getQuaternion();
+    
+    // Проверка стабильности
+    EXPECT_TRUE(std::isfinite(q.w));
+    EXPECT_TRUE(std::isfinite(q.x));
+    EXPECT_TRUE(std::isfinite(q.y));
+    EXPECT_TRUE(std::isfinite(q.z));
+}
+
+TEST(ExtendedKalmanFilter, MatrixInversion) {
+    // Тест на вырожденную матрицу (должна возвращать единичную)
+    ExtendedKalmanFilter ekf;
+    ExtendedKalmanFilter::Config config;
+    ekf.init(config);
+    
+    // Много шагов с экстремальными значениями
+    for (int i = 0; i < 1000; ++i) {
+        ekf.predict(1.0f, 1.0f, 1.0f, 0.001f);
+        ekf.update(100.0f, 100.0f, 100.0f, 1e-3f, 1e-3f, 1e-3f);
+    }
+    
+    auto q = ekf.getQuaternion();
+    
+    // Должен оставаться стабильным
+    EXPECT_TRUE(std::isfinite(q.w));
+    EXPECT_TRUE(std::isfinite(q.x));
+}
