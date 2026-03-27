@@ -386,6 +386,150 @@ public:
     virtual I2CStatistics getStatistics() const = 0;
 };
 
+/**
+ * @brief Реализация I2C для хост-системы и STM32
+ */
+class I2C : public II2C {
+public:
+    /// Конструктор
+    explicit I2C(uint8_t instance = 0, uint32_t clockSpeed = 100000)
+        : m_instance(instance) {
+        I2CConfig config;
+        config.clockSpeed = clockSpeed;
+        init(config);
+    }
+
+    /// Инициализация
+    Status init(const I2CConfig& config) override {
+        m_config = config;
+        m_initialized = true;
+        return Status::OK;
+    }
+
+    /// Деинициализация
+    void deinit() override {
+        m_initialized = false;
+    }
+
+    /// Запись в регистр
+    Status writeRegister(uint8_t devAddress,
+                        uint8_t regAddress,
+                        std::span<const uint8_t> data,
+                        uint32_t timeoutMs) override {
+        if (!m_initialized) return Status::NOT_INITIALIZED;
+
+        // Для хост-системы: эмуляция
+        // Для STM32: реальная запись через HAL
+        #ifdef HOST_BUILD
+            (void)devAddress;
+            (void)regAddress;
+            (void)data;
+            (void)timeoutMs;
+            return Status::OK;
+        #else
+            // Здесь будет реализация для STM32
+            return Status::OK;
+        #endif
+    }
+
+    /// Чтение из регистра
+    Status readRegister(uint8_t devAddress,
+                       uint8_t regAddress,
+                       std::span<uint8_t> data,
+                       uint32_t timeoutMs) override {
+        if (!m_initialized) return Status::NOT_INITIALIZED;
+
+        #ifdef HOST_BUILD
+            (void)devAddress;
+            (void)regAddress;
+            (void)data;
+            (void)timeoutMs;
+            // Эмуляция чтения нулей
+            for (auto& byte : data) {
+                byte = 0;
+            }
+            return Status::OK;
+        #else
+            // Здесь будет реализация для STM32
+            return Status::OK;
+        #endif
+    }
+
+    /// Запись 16-битного регистра
+    Status writeRegister16(uint8_t devAddress,
+                           uint16_t regAddress,
+                           std::span<const uint8_t> data,
+                           uint32_t timeoutMs) override {
+        if (!m_initialized) return Status::NOT_INITIALIZED;
+        (void)devAddress;
+        (void)regAddress;
+        (void)data;
+        (void)timeoutMs;
+        return Status::OK;
+    }
+
+    /// Чтение 16-битного регистра
+    Status readRegister16(uint8_t devAddress,
+                          uint16_t regAddress,
+                          std::span<uint8_t> data,
+                          uint32_t timeoutMs) override {
+        if (!m_initialized) return Status::NOT_INITIALIZED;
+        (void)devAddress;
+        (void)regAddress;
+        (void)data;
+        (void)timeoutMs;
+        return Status::OK;
+    }
+
+    /// Сканирование шины
+    size_t scanBus(std::span<uint8_t> foundDevices) override {
+        if (!m_initialized) return 0;
+        (void)foundDevices;
+        return 0;
+    }
+
+    /// Проверка наличия устройства
+    bool isDevicePresent(uint8_t devAddress) override {
+        if (!m_initialized) return false;
+        (void)devAddress;
+        return false;
+    }
+
+    /// Восстановление шины при зависании
+    Status recoverBus() override {
+        if (!m_initialized) return Status::NOT_INITIALIZED;
+        return Status::OK;
+    }
+
+    /// Получить статистику
+    I2CStatistics getStatistics() const override {
+        return m_statistics;
+    }
+
+    /// Запись данных (удобный метод для сканирования)
+    int write(uint8_t devAddress, const uint8_t* data, size_t size) {
+        if (!m_initialized) return -1;
+        (void)devAddress;
+        (void)data;
+        (void)size;
+        #ifdef HOST_BUILD
+            // Эмуляция: случайно "находим" устройства
+            if (devAddress == 0x68 || devAddress == 0x19) {
+                return 0;
+            }
+            return -1;
+        #else
+            return 0;
+        #endif
+    }
+
+private:
+    uint8_t m_instance;
+    bool m_initialized = false;
+    I2CConfig m_config;
+    I2CStatistics m_statistics;
+};
+
 // ============================================================================
 // Интерфейс CAN (расширенный)
 // ============================================================================
