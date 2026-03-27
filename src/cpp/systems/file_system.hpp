@@ -185,19 +185,19 @@ public:
      * @param size New size
      * @return Status
      */
-    Result<FSStatus, FSStatus> truncate(size_t size);
+    Result<void, FSStatus> truncate(size_t size);
 
     /**
      * @brief Flush buffers
      * @return Status
      */
-    Result<FSStatus, FSStatus> flush();
+    Result<void, FSStatus> flush();
 
     /**
      * @brief Close file
      * @return Status
      */
-    Result<FSStatus, FSStatus> close();
+    Result<void, FSStatus> close();
 
     /**
      * @brief Check if file is open
@@ -262,7 +262,7 @@ public:
     using BlockDeviceReadFunc = std::function<Result<int, FSStatus>(uint32_t block, void* buffer, size_t size)>;
     using BlockDeviceProgFunc = std::function<Result<int, FSStatus>(uint32_t block, const void* buffer, size_t size)>;
     using BlockDeviceEraseFunc = std::function<Result<int, FSStatus>(uint32_t block)>;
-    using BlockDeviceSyncFunc = std::function<Result<FSStatus, FSStatus>()>;
+    using BlockDeviceSyncFunc = std::function<Result<void, FSStatus>()>;
 
     FileSystem();
     ~FileSystem();
@@ -279,7 +279,7 @@ public:
      * @param sync_func Sync function (optional)
      * @return Status
      */
-    Result<FSStatus, FSStatus> configure(
+    Result<void, FSStatus> configure(
         BlockDeviceReadFunc read_func,
         BlockDeviceProgFunc prog_func,
         BlockDeviceEraseFunc erase_func,
@@ -293,7 +293,7 @@ public:
      * @param block_count Number of blocks
      * @return Status
      */
-    Result<FSStatus, FSStatus> configureFromFlash(
+    Result<void, FSStatus> configureFromFlash(
         hal::IFlash* flash,
         uint32_t start_block,
         size_t block_count
@@ -304,19 +304,19 @@ public:
      * @param config Configuration (optional, uses defaults if nullptr)
      * @return Status
      */
-    Result<FSStatus, FSStatus> format(const FSConfig* config = nullptr);
+    Result<void, FSStatus> format(const FSConfig* config = nullptr);
 
     /**
      * @brief Mount file system
      * @return Status
      */
-    Result<FSStatus, FSStatus> mount();
+    Result<void, FSStatus> mount();
 
     /**
      * @brief Unmount file system
      * @return Status
      */
-    Result<FSStatus, FSStatus> unmount();
+    Result<void, FSStatus> unmount();
 
     /**
      * @brief Check if file system is mounted
@@ -340,14 +340,14 @@ public:
      * @param handle File handle
      * @return Status
      */
-    Result<FSStatus, FSStatus> close(FileHandle& handle);
+    Result<void, FSStatus> close(FileHandle& handle);
 
     /**
      * @brief Remove file
      * @param path File path
      * @return Status
      */
-    Result<FSStatus, FSStatus> remove(const char* path);
+    Result<void, FSStatus> remove(const char* path);
 
     /**
      * @brief Rename/move file
@@ -355,7 +355,7 @@ public:
      * @param new_path New path
      * @return Status
      */
-    Result<FSStatus, FSStatus> rename(const char* old_path, const char* new_path);
+    Result<void, FSStatus> rename(const char* old_path, const char* new_path);
 
     /**
      * @brief Get file statistics
@@ -387,7 +387,7 @@ public:
      * @param size Data size
      * @return Status
      */
-    Result<FSStatus, FSStatus> writeFile(const char* path, const void* buffer, size_t size);
+    Result<void, FSStatus> writeFile(const char* path, const void* buffer, size_t size);
 
     // ========================================================================
     // Directory Operations
@@ -398,14 +398,14 @@ public:
      * @param path Directory path
      * @return Status
      */
-    Result<FSStatus, FSStatus> mkdir(const char* path);
+    Result<void, FSStatus> mkdir(const char* path);
 
     /**
      * @brief Remove empty directory
      * @param path Directory path
      * @return Status
      */
-    Result<FSStatus, FSStatus> rmdir(const char* path);
+    Result<void, FSStatus> rmdir(const char* path);
 
     /**
      * @brief List directory contents
@@ -413,7 +413,7 @@ public:
      * @param callback Callback for each entry (name, is_dir)
      * @return Status
      */
-    Result<FSStatus, FSStatus> listdir(
+    Result<void, FSStatus> listdir(
         const char* path,
         std::function<void(const char* name, bool is_dir)> callback
     );
@@ -424,7 +424,7 @@ public:
      * @param callback Callback for each directory (path, dirs, files)
      * @return Status
      */
-    Result<FSStatus, FSStatus> walk(
+    Result<void, FSStatus> walk(
         const char* path,
         std::function<void(const char* path, const char** dirs, size_t num_dirs,
                           const char** files, size_t num_files)> callback
@@ -442,7 +442,7 @@ public:
      * @param size Value size
      * @return Status
      */
-    Result<FSStatus, FSStatus> setattr(const char* path, const char* name,
+    Result<void, FSStatus> setattr(const char* path, const char* name,
                                         const void* value, size_t size);
 
     /**
@@ -490,7 +490,7 @@ public:
      * @brief Sync file system (flush all buffers)
      * @return Status
      */
-    Result<FSStatus, FSStatus> sync();
+    Result<void, FSStatus> sync();
 
     /**
      * @brief Check and repair file system
@@ -505,8 +505,8 @@ public:
 
 protected:
     // Internal methods for implementation
-    Result<FSStatus, FSStatus> initBlockDevice();
-    Result<FSStatus, FSStatus> deinitBlockDevice();
+    Result<void, FSStatus> initBlockDevice();
+    Result<void, FSStatus> deinitBlockDevice();
 
     int findFreeFileSlot() const;
     void updateStats();

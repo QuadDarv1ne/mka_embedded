@@ -145,15 +145,4 @@ constexpr span<const T> make_span(const std::array<T, N>& arr) noexcept {
 
 } // namespace mka
 
-// ============================================================================
-// Совместимость со std::span если доступен (C++20)
-// ============================================================================
-
-#if defined(__cplusplus) && __cplusplus >= 202002L
-    #include <span>
-    namespace mka {
-        using std::span;
-    }
-#endif
-
 #endif // MKA_SPAN_HPP

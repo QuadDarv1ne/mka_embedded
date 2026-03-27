@@ -10,7 +10,9 @@
 #include <string>
 
 #include "systems/file_system.hpp"
+#include "utils/result.hpp"
 
+using namespace mka;
 using namespace mka::filesystem;
 
 // ============================================================================
@@ -25,34 +27,34 @@ public:
     }
 
     Result<int, FSStatus> read(uint32_t block, void* buffer, size_t size) {
-        if (block >= block_count_) return Result<int, FSStatus>::err(FSStatus::NO_SPACE);
+        if (block >= block_count_) return Err<int, FSStatus>(FSStatus::NO_SPACE);
         if (size > block_size_) size = block_size_;
 
         std::memcpy(buffer, storage_.data() + block * block_size_, size);
         read_count_++;
-        return Result<int, FSStatus>::ok(static_cast<int>(size));
+        return Ok<int, FSStatus>(static_cast<int>(size));
     }
 
     Result<int, FSStatus> prog(uint32_t block, const void* buffer, size_t size) {
-        if (block >= block_count_) return Result<int, FSStatus>::err(FSStatus::NO_SPACE);
+        if (block >= block_count_) return Err<int, FSStatus>(FSStatus::NO_SPACE);
         if (size > block_size_) size = block_size_;
 
         std::memcpy(storage_.data() + block * block_size_, buffer, size);
         write_count_++;
-        return Result<int, FSStatus>::ok(static_cast<int>(size));
+        return Ok<int, FSStatus>(static_cast<int>(size));
     }
 
     Result<int, FSStatus> erase(uint32_t block) {
-        if (block >= block_count_) return Result<int, FSStatus>::err(FSStatus::NO_SPACE);
+        if (block >= block_count_) return Err<int, FSStatus>(FSStatus::NO_SPACE);
 
         std::memset(storage_.data() + block * block_size_, 0xFF, block_size_);
         erase_count_++;
-        return Result<int, FSStatus>::ok(0);
+        return Ok<int, FSStatus>(0);
     }
 
-    Result<FSStatus, FSStatus> sync() {
+    Result<void, FSStatus> sync() {
         sync_count_++;
-        return Result<FSStatus, FSStatus>::ok(FSStatus::OK);
+        return Ok<FSStatus>();
     }
 
     size_t getReadCount() const { return read_count_; }
@@ -90,7 +92,7 @@ protected:
         block_device_.reset();
     }
 
-    Result<FSStatus, FSStatus> setupFileSystem() {
+    Result<void, FSStatus> setupFileSystem() {
         // Configure block device
         auto result = fs_.configure(
             [this](uint32_t block, void* buffer, size_t size) {
@@ -176,7 +178,7 @@ TEST_F(FileSystemTest, ReadNonExistentFile) {
     std::array<char, 64> buffer{};
     auto read_result = fs_.readFile("/nonexistent.txt", buffer.data(), buffer.size());
     EXPECT_FALSE(read_result.isOk());
-    EXPECT_EQ(read_result.err(), FSStatus::NOT_FOUND);
+    EXPECT_EQ(read_result.error(), FSStatus::NOT_FOUND);
 }
 
 TEST_F(FileSystemTest, OverwriteFile) {
@@ -361,7 +363,7 @@ TEST_F(FileSystemTest, RemoveNonEmptyDirectory) {
 
     result = fs_.rmdir("/nonempty_dir");
     EXPECT_FALSE(result.isOk());
-    EXPECT_EQ(result.err(), FSStatus::NOT_EMPTY);
+    EXPECT_EQ(result.error(), FSStatus::NOT_EMPTY);
 }
 
 TEST_F(FileSystemTest, ListDirectory) {

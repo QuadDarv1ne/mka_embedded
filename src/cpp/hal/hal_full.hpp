@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "../utils/callback.hpp"
 #include "../utils/span.hpp"

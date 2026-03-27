@@ -57,7 +57,7 @@ constexpr uint8_t HEADER_VERSION = 0x01;
 constexpr size_t MAX_IMAGE_SIZE = 256 * 1024;  // 256 KB
 
 /// Header size (bytes)
-constexpr size_t HEADER_SIZE = 64;
+constexpr size_t HEADER_SIZE = 96;
 
 /// SHA256 hash size (bytes)
 constexpr size_t SHA256_SIZE = 32;
@@ -154,9 +154,9 @@ struct FirmwareVersion {
     }
 };
 
-/// Firmware image header (64 bytes)
+/// Firmware image header (96 bytes)
 struct ImageHeader {
-    uint8_t magic[8] = MAGIC_BYTES;     ///< Magic number
+    uint8_t magic[8] = {'M', 'K', 'A', '_', 'F', 'W', '0', '1'};  ///< Magic number
     FirmwareVersion version;            ///< Firmware version
     uint32_t timestamp = 0;             ///< Unix timestamp
     uint32_t size = 0;                  ///< Image size (excluding header)
@@ -187,7 +187,7 @@ struct ImageHeader {
     }
 };
 
-static_assert(sizeof(ImageHeader) == HEADER_SIZE, "ImageHeader must be 64 bytes");
+static_assert(sizeof(ImageHeader) == HEADER_SIZE, "ImageHeader must be 96 bytes");
 
 /// OTA statistics
 struct OTAStats {

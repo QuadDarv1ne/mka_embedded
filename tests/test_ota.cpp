@@ -10,7 +10,9 @@
 #include <functional>
 
 #include "systems/ota_updater.hpp"
+#include "utils/result.hpp"
 
+using namespace mka;
 using namespace mka::ota;
 
 // ============================================================================
@@ -28,7 +30,7 @@ public:
     Result<void, OTAError> write(ImageSlot slot, uint32_t offset,
                                   const void* data, size_t size) {
         if (offset + size > slot_size_) {
-            return Result<void, OTAError>::err(OTAError::NOT_ENOUGH_SPACE);
+            return OTAError::NOT_ENOUGH_SPACE;
         }
 
         std::vector<uint8_t>* target = (slot == ImageSlot::SLOT_A) ? &slot_a_ : &slot_b_;
@@ -39,13 +41,13 @@ public:
         }
 
         write_count_++;
-        return Result<void, OTAError>::ok();
+        return Ok<OTAError>();
     }
 
     Result<void, OTAError> read(ImageSlot slot, uint32_t offset,
                                  void* buffer, size_t size) {
         if (offset + size > slot_size_) {
-            return Result<void, OTAError>::err(OTAError::NOT_ENOUGH_SPACE);
+            return OTAError::NOT_ENOUGH_SPACE;
         }
 
         const std::vector<uint8_t>* source = (slot == ImageSlot::SLOT_A) ? &slot_a_ : &slot_b_;
@@ -56,14 +58,14 @@ public:
         }
 
         read_count_++;
-        return Result<void, OTAError>::ok();
+        return Ok<OTAError>();
     }
 
     Result<void, OTAError> erase(ImageSlot slot) {
         std::vector<uint8_t>* target = (slot == ImageSlot::SLOT_A) ? &slot_a_ : &slot_b_;
         std::fill(target->begin(), target->end(), 0xFF);
         erase_count_++;
-        return Result<void, OTAError>::ok();
+        return Ok<OTAError>();
     }
 
     void reset() {
