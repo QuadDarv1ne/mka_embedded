@@ -117,6 +117,7 @@ set(SYSTEM_SOURCES
     src/cpp/systems/log_system.hpp
     src/cpp/systems/memory_pool.hpp
     src/cpp/systems/telemetry.hpp
+    src/cpp/systems/file_system.hpp
 )
 
 # Все заголовочные файлы
@@ -201,6 +202,16 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_executable(test_telemetry tests/test_telemetry.cpp)
     target_link_libraries(test_telemetry mka_core GTest::gtest_main)
     add_test(NAME test_telemetry COMMAND test_telemetry)
+
+    # Тест файловой системы (File System)
+    add_executable(test_file_system tests/test_file_system.cpp)
+    target_link_libraries(test_file_system mka_core GTest::gtest_main)
+    add_test(NAME test_file_system COMMAND test_file_system)
+
+    # Тест OTA обновлений (OTA Updater)
+    add_executable(test_ota tests/test_ota.cpp)
+    target_link_libraries(test_ota mka_core GTest::gtest_main)
+    add_test(NAME test_ota COMMAND test_ota)
 
     # Тест FreeRTOS wrapper - требует реального FreeRTOS для линковки
     # add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
