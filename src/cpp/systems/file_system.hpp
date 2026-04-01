@@ -534,34 +534,228 @@ protected:
 };
 
 // ============================================================================
+// Inline Implementations (Mock for now)
+// ============================================================================
+
+inline FileSystem::FileSystem() = default;
+
+inline FileSystem::~FileSystem() {
+    if (mounted_) {
+        unmount();
+    }
+}
+
+inline Result<void, FSStatus> FileSystem::configure(
+    BlockDeviceReadFunc read_func,
+    BlockDeviceProgFunc prog_func,
+    BlockDeviceEraseFunc erase_func,
+    BlockDeviceSyncFunc sync_func
+) {
+    read_func_ = read_func;
+    prog_func_ = prog_func;
+    erase_func_ = erase_func;
+    sync_func_ = sync_func;
+    return Ok<void, FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::configureFromFlash(
+    hal::IFlash* flash,
+    uint32_t start_block,
+    size_t block_count
+) {
+    // Mock implementation
+    (void)flash;
+    (void)start_block;
+    (void)block_count;
+    return Ok<void, FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::format(const FSConfig* config) {
+    if (config) {
+        config_ = *config;
+    }
+    // Mock format
+    return Ok<void, FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::mount() {
+    if (mounted_) return Ok<void, FSStatus>();
+    // Mock mount
+    mounted_ = true;
+    return Ok<void, FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::unmount() {
+    if (!mounted_) return Ok<void, FSStatus>();
+    // Mock unmount
+    mounted_ = false;
+    return Ok<void, FSStatus>();
+}
+
+inline Result<FileHandle, FSStatus> FileSystem::open(const char* path, FileMode mode) {
+    (void)path;
+    (void)mode;
+    // Mock open
+    if (open_files_ >= MAX_OPEN_FILES) {
+        return Err<FileHandle, FSStatus>(FSStatus::TOO_MANY_OPEN_FILES);
+    }
+    open_files_++;
+    return Ok<FileHandle>({});
+}
+
+inline Result<void, FSStatus> FileSystem::close(FileHandle& handle) {
+    (void)handle;
+    // Mock close
+    if (open_files_ > 0) open_files_--;
+    return Ok();
+}
+
+inline Result<void, FSStatus> FileSystem::remove(const char* path) {
+    (void)path;
+    // Mock remove
+    return Ok<void, FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::rename(const char* old_path, const char* new_path) {
+    (void)old_path;
+    (void)new_path;
+    // Mock rename
+    return Ok<void, FSStatus>();
+}
+
+inline Result<FileStats, FSStatus> FileSystem::stat(const char* path) {
+    (void)path;
+    // Mock stat
+    return Ok<FileStats>({});
+}
+
+inline bool FileSystem::exists(const char* path) {
+    (void)path;
+    // Mock exists
+    return false;
+}
+
+inline Result<int, FSStatus> FileSystem::readFile(const char* path, void* buffer, size_t size) {
+    (void)path;
+    (void)buffer;
+    (void)size;
+    // Mock read
+    return Ok<int, FSStatus>(0);
+}
+
+inline Result<void, FSStatus> FileSystem::writeFile(const char* path, const void* buffer, size_t size) {
+    (void)path;
+    (void)buffer;
+    (void)size;
+    // Mock write
+    return Ok<void, FSStatus>();
+}
+
+// Directory operations mock
+inline Result<DirHandle, FSStatus> FileSystem::opendir(const char* path) {
+    (void)path;
+    return Ok<DirHandle>({});
+}
+
+inline Result<void, FSStatus> FileSystem::closedir(DirHandle& handle) {
+    (void)handle;
+    return Ok<void, FSStatus>();
+}
+
+inline Result<DirEntry, FSStatus> FileSystem::readdir(DirHandle& handle) {
+    (void)handle;
+    return Err<DirEntry, FSStatus>(FSStatus::OK); // End of dir
+}
+
+inline Result<void, FSStatus> FileSystem::mkdir(const char* path) {
+    (void)path;
+    return Ok<void, FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::rmdir(const char* path) {
+    (void)path;
+    return Ok<void, FSStatus>();
+}
+
+// Attributes mock
+inline Result<int, FSStatus> FileSystem::setattr(const char* path, const char* name,
+                                                 const void* buffer, size_t size) {
+    (void)path;
+    (void)name;
+    (void)buffer;
+    (void)size;
+    return Ok<int, FSStatus>(0);
+}
+
+inline Result<int, FSStatus> FileSystem::getattr(const char* path, const char* name,
+                                                 void* buffer, size_t size) {
+    (void)path;
+    (void)name;
+    (void)buffer;
+    (void)size;
+    return Ok<int, FSStatus>(0);
+}
+
+// Stats
+inline FSStats FileSystem::getStats() const {
+    return stats_;
+}
+
+inline WearStats FileSystem::getWearStats() const {
+    return wear_stats_;
+}
+
+// System operations
+inline Result<void, FSStatus> FileSystem::sync() {
+    return Ok<void, FSStatus>();
+}
+
+inline bool FileSystem::checkAndRepair() {
+    return true;
+}
+
+// ============================================================================
 // Convenience Functions
 // ============================================================================
 
-/**
- * @brief Convert FSStatus to string
- */
-const char* fsStatusToString(FSStatus status);
+inline const char* fsStatusToString(FSStatus status) {
+    switch (status) {
+        case FSStatus::OK: return "OK";
+        case FSStatus::ERROR: return "ERROR";
+        case FSStatus::NOT_FOUND: return "NOT_FOUND";
+        case FSStatus::EXISTS: return "EXISTS";
+        case FSStatus::NOT_DIR: return "NOT_DIR";
+        case FSStatus::IS_DIR: return "IS_DIR";
+        case FSStatus::NOT_EMPTY: return "NOT_EMPTY";
+        case FSStatus::NO_SPACE: return "NO_SPACE";
+        case FSStatus::NOT_MOUNTED: return "NOT_MOUNTED";
+        case FSStatus::INVALID_PATH: return "INVALID_PATH";
+        case FSStatus::NAME_TOO_LONG: return "NAME_TOO_LONG";
+        case FSStatus::TOO_MANY_OPEN_FILES: return "TOO_MANY_OPEN_FILES";
+        case FSStatus::CORRUPT: return "CORRUPT";
+        case FSStatus::NOT_SUPPORTED: return "NOT_SUPPORTED";
+        default: return "UNKNOWN";
+    }
+}
 
-/**
- * @brief Normalize file path (remove double slashes, handle relative paths)
- * @param path Input path
- * @param normalized Output normalized path
- * @param size Output buffer size
- * @return true if successful
- */
-bool normalizePath(const char* path, char* normalized, size_t size);
+inline bool normalizePath(const char* path, char* normalized, size_t size) {
+    (void)path;
+    (void)normalized;
+    (void)size;
+    // Mock
+    return true;
+}
 
-/**
- * @brief Split path into directory and filename
- * @param path Full path
- * @param dir_path Output directory path
- * @param dir_size Directory buffer size
- * @param filename Output filename
- * @param fname_size Filename buffer size
- * @return true if successful
- */
-bool splitPath(const char* path, char* dir_path, size_t dir_size,
-               char* filename, size_t fname_size);
+inline bool splitPath(const char* path, char* dir_path, size_t dir_size,
+                      char* filename, size_t fname_size) {
+    (void)path;
+    (void)dir_path;
+    (void)dir_size;
+    (void)filename;
+    (void)fname_size;
+    // Mock
+    return true;
+}
 
 } // namespace filesystem
 } // namespace mka
