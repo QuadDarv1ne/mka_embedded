@@ -134,6 +134,10 @@ struct ParameterConfig {
     uint8_t parameterId;        // Идентификатор параметра
 };
 
+// Валидация: 8 x 4 + 2 + 1 + 1 = 36 байт
+static_assert(sizeof(ParameterConfig) == 36, "ParameterConfig must be 36 bytes");
+static_assert(offsetof(ParameterConfig, nominalValue) == 0, "nominalValue should be first");
+
 /// Статистика параметра для детектора аномалий
 struct ParameterStats {
     float mean = 0.0f;          // Среднее значение
