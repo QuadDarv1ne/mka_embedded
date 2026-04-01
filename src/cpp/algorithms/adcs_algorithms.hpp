@@ -858,6 +858,125 @@ private:
 };
 
 // ============================================================================
+// PD контроллер ориентации
+// ============================================================================
+
+/**
+ * @brief PD контроллер ориентации на кватернионах
+ *
+ * Вычисляет управляющий момент для разворота спутника из текущей
+ * ориентации в целевую. Использует кватернионную ошибку и угловую скорость.
+ *
+ * Закон управления:
+ *   τ = -Kp * q_err - Kd * ω
+ *
+ * где:
+ *   - q_err - векторная часть кватерниона ошибки
+ *   - ω - угловая скорость
+ */
+class PDAttitudeController {
+public:
+    struct Config {
+        float kp = 0.1f;           // Пропорциональный коэффициент
+        float kd = 1.0f;           // Демпфирующий коэффициент
+        float maxTorque = 0.1f;    // Максимальный момент [N·m]
+        float maxOmega = 1.0f;     // Макс. угловая скорость для демпфирования [rad/s]
+    };
+
+    PDAttitudeController() = default;
+    explicit PDAttitudeController(const Config& config) : config_(config) {}
+
+    /**
+     * @brief Вычисление управляющего момента
+     * @param targetQuat Целевой кватернион ориентации (нормализованный)
+     * @param currentQuat Текущий кватернион ориентации (нормализованный)
+     * @param omega Угловая скорость [rad/s] (body frame)
+     * @return Требуемый момент [N·m]
+     */
+    std::array<float, 3> compute(const Quaternion& targetQuat,
+                                  const Quaternion& currentQuat,
+                                  const std::array<float, 3>& omega) {
+        // Кватернион ошибки: q_err = current* ⊗ target
+        Quaternion errorQuat = currentQuat.conjugate() * targetQuat;
+
+        // Выбор кратчайшего пути разворота
+        if (errorQuat.w < 0) {
+            errorQuat.w = -errorQuat.w;
+            errorQuat.x = -errorQuat.x;
+            errorQuat.y = -errorQuat.y;
+            errorQuat.z = -errorQuat.z;
+        }
+
+        // Векторная часть ошибки (пропорциональная составляющая)
+        float q_err[3] = {errorQuat.x, errorQuat.y, errorQuat.z};
+
+        // PD закон управления
+        float torque_x = -config_.kp * q_err[0] - config_.kd * omega[0];
+        float torque_y = -config_.kp * q_err[1] - config_.kd * omega[1];
+        float torque_z = -config_.kp * q_err[2] - config_.kd * omega[2];
+
+        // Ограничение момента
+        float norm = std::sqrt(torque_x*torque_x + torque_y*torque_y + torque_z*torque_z);
+        if (norm > config_.maxTorque && norm > 1e-10f) {
+            float scale = config_.maxTorque / norm;
+            torque_x *= scale;
+            torque_y *= scale;
+            torque_z *= scale;
+        }
+
+        return {torque_x, torque_y, torque_z};
+    }
+
+    /**
+     * @brief Вычисление с нормализацией угловой скорости
+     * @param targetQuat Целевой кватернион
+     * @param currentQuat Текущий кватернион
+     * @param omega Угловая скорость [rad/s]
+     * @param dt Время с предыдущего вызова [s]
+     * @return Требуемый момент [N·m]
+     */
+    std::array<float, 3> computeWithRateLimit(
+            const Quaternion& targetQuat,
+            const Quaternion& currentQuat,
+            const std::array<float, 3>& omega,
+            float dt) {
+        
+        // Ограничение угловой скорости
+        std::array<float, 3> omegaLimited = omega;
+        for (int i = 0; i < 3; ++i) {
+            omegaLimited[i] = math::clamp(omegaLimited[i], 
+                                          -config_.maxOmega, 
+                                          config_.maxOmega);
+        }
+        
+        return compute(targetQuat, currentQuat, omegaLimited);
+    }
+
+    /**
+     * @brief Установка коэффициентов
+     */
+    void setGains(float kp, float kd) {
+        config_.kp = kp;
+        config_.kd = kd;
+    }
+
+    /**
+     * @brief Получить текущие коэффициенты
+     */
+    Config getConfig() const { return config_; }
+
+    /**
+     * @brief Сброс внутреннего состояния
+     */
+    void reset() {
+        // PD контроллер не имеет состояния, но оставляем для совместимости
+    }
+
+private:
+    Config config_;
+};
+
+// ============================================================================
 // Алгоритм B-dot (режим detumbling)
 // ============================================================================
 

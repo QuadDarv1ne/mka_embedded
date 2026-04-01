@@ -832,37 +832,72 @@ private:
         if (uart_.receive({header, sizeof(header)}, 10, received) != hal::Status::OK || received < 6) {
             return false;
         }
-        
+
         uint8_t cls = header[2];
         uint8_t id = header[3];
         uint16_t len = header[4] | (header[5] << 8);
-        
+
         if (len > rxBuffer_.size()) {
-            return false;
-        }
-        
-        if (uart_.receive({rxBuffer_.data(), len + 2}, 100, 10) != hal::Status::OK) {
-            return false;
+            return false;  // Buffer overflow protection
         }
 
-        // Проверка checksum
+        // Чтение payload + checksum (2 байта)
+        if (uart_.receive({rxBuffer_.data(), len + 2}, 100, received) != hal::Status::OK || 
+            received < len + 2) {
+            return false;  // Timeout или неполные данные
+        }
+
+        // Проверка checksum (считается от cls + id + length + payload)
         uint8_t ckA = 0, ckB = 0;
+        ckA += cls; ckB += ckA;
+        ckA += id; ckB += ckA;
+        ckA += header[4]; ckB += ckA;
+        ckA += header[5]; ckB += ckA;
+        
         for (size_t i = 0; i < len; i++) {
             ckA += rxBuffer_[i];
             ckB += ckA;
         }
+        
         if (ckA != rxBuffer_[len] || ckB != rxBuffer_[len + 1]) {
             return false;  // Checksum error
         }
 
-        if (cls == UBXClass::CLASS_NAV && id == UBXId::NAV_PVT) {
-            parseNavPVT(data, rxBuffer_.data(), len);
-            return true;
+        // Обработка различных классов сообщений
+        if (cls == UBXClass::CLASS_NAV) {
+            switch (id) {
+                case UBXId::NAV_PVT:
+                    if (len >= 92) {
+                        parseNavPVT(data, rxBuffer_.data(), len);
+                        return true;
+                    }
+                    break;
+                case UBXId::NAV_POSLLH:
+                    if (len >= 28) {
+                        parseNavPOSLLH(data, rxBuffer_.data(), len);
+                        return true;
+                    }
+                    break;
+                case UBXId::NAV_STATUS:
+                    if (len >= 16) {
+                        parseNavSTATUS(data, rxBuffer_.data(), len);
+                        return true;
+                    }
+                    break;
+                case UBXId::NAV_SOL:
+                    if (len >= 52) {
+                        parseNavSOL(data, rxBuffer_.data(), len);
+                        return true;
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
-        
+
         return false;
     }
-    
+
     void parseNavPVT(GPSData& data, const uint8_t* payload, uint16_t len) {
         // NAV-PVT (92 байта)
         // iTOW: U4 (0-3)
@@ -936,10 +971,83 @@ private:
         
         data.satellites = payload[23];
         lastSatellites_ = data.satellites;
-        
+
         data.timestamp = getTimestamp();
     }
-    
+
+    void parseNavPOSLLH(GPSData& data, const uint8_t* payload, uint16_t len) {
+        // NAV-POSLLH (28 байт)
+        // iTOW: U4 (0-3)
+        // lon: I4 (4-7) - 1e-7 deg
+        // lat: I4 (8-11) - 1e-7 deg
+        // height: I4 (12-15) - mm
+        // hMSL: I4 (16-19) - mm
+        // hAcc: U4 (20-23)
+        // vAcc: U4 (24-27)
+        if (len < 28) return;
+
+        int32_t lon = static_cast<int32_t>(
+            payload[4] | (payload[5] << 8) |
+            (payload[6] << 16) | (payload[7] << 24));
+        int32_t lat = static_cast<int32_t>(
+            payload[8] | (payload[9] << 8) |
+            (payload[10] << 16) | (payload[11] << 24));
+
+        data.longitude = lon * 1e-7;
+        data.latitude = lat * 1e-7;
+
+        int32_t height = static_cast<int32_t>(
+            payload[12] | (payload[13] << 8) |
+            (payload[14] << 16) | (payload[15] << 24));
+        data.altitude = height / 1000.0;  // mm -> m
+
+        data.timestamp = getTimestamp();
+    }
+
+    void parseNavSTATUS(GPSData& data, const uint8_t* payload, uint16_t len) {
+        // NAV-STATUS (16 байт)
+        // iTOW: U4 (0-3)
+        // fixType: U1 (4)
+        // fixStatus: U1 (5)
+        // ...
+        if (len < 16) return;
+
+        data.fixType = payload[4];
+        lastFixValid_ = (data.fixType >= 2);  // 2D или 3D fix
+
+        uint8_t fixStatus = payload[5];
+        lastFixValid_ = lastFixValid_ && ((fixStatus & 0x04) != 0);  // fixOK флаг
+
+        data.satellites = payload[11];  // numSV
+        lastSatellites_ = data.satellites;
+
+        data.timestamp = getTimestamp();
+    }
+
+    void parseNavSOL(GPSData& data, const uint8_t* payload, uint16_t len) {
+        // NAV-SOL (52 байта)
+        // iTOW: U4 (0-3)
+        // gSpeed: I4 (28-31) - cm/s
+        // heading: I4 (32-35) - deg * 1e-5
+        // pDOP: U2 (48-49) - 0.01
+        if (len < 52) return;
+
+        int32_t gSpeed = static_cast<int32_t>(
+            payload[28] | (payload[29] << 8) |
+            (payload[30] << 16) | (payload[31] << 24));
+        data.speed = gSpeed / 100.0f;  // cm/s -> m/s
+
+        int32_t heading = static_cast<int32_t>(
+            payload[32] | (payload[33] << 8) |
+            (payload[34] << 16) | (payload[35] << 24));
+        data.course = heading * 1e-5f;
+
+        uint16_t pDOP = payload[48] | (payload[49] << 8);
+        data.hdop = pDOP * 0.01f;
+
+        data.timestamp = getTimestamp();
+    }
+
     void parseNMEAMessage(GPSData& data) {
         // Базовая реализация парсинга NMEA
         // Поддерживаются сообщения: GGA, RMC

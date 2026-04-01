@@ -22,6 +22,17 @@ namespace mka {
 namespace hal {
 
 // ============================================================================
+// HAL Configuration Constants
+// ============================================================================
+
+namespace HALDefaults {
+    constexpr uint32_t I2C_TIMEOUT_MS = 100;
+    constexpr uint32_t SPI_TIMEOUT_MS = 100;
+    constexpr uint32_t UART_TIMEOUT_MS = 100;
+    constexpr uint32_t UART_RX_TIMEOUT_MS = 10;  // Межбайтовая задержка
+}
+
+// ============================================================================
 // Базовые типы и константы
 // ============================================================================
 
@@ -184,6 +195,8 @@ struct UARTConfig {
     bool dmaEnable = true;
     uint16_t txBufferSize = 512;
     uint16_t rxBufferSize = 512;
+    uint32_t timeoutMs = HALDefaults::UART_TIMEOUT_MS;
+    uint32_t rxTimeoutMs = HALDefaults::UART_RX_TIMEOUT_MS;
 };
 
 struct UARTStatistics {
@@ -270,6 +283,16 @@ struct SPIConfig {
     bool masterMode = true;
     bool dmaEnable = true;
     uint8_t csPin = 0xFF;  // Использовать аппаратный CS
+    bool fifoOverflowCheck = true;  // Проверка переполнения FIFO
+};
+
+/// Статистика SPI
+struct SPIStatistics {
+    uint32_t txBytes = 0;
+    uint32_t rxBytes = 0;
+    uint32_t fifoOverflowCount = 0;  // Счётчик переполнений FIFO
+    uint32_t timeoutCount = 0;
+    uint32_t errorCount = 0;
 };
 
 /**
@@ -280,39 +303,48 @@ public:
     using TransferCallback = Callback<void(std::span<uint8_t> rxData)>;
 
     virtual ~ISPI() = default;
-    
+
     /// Инициализация
     virtual Status init(const SPIConfig& config) = 0;
-    
+
     /// Деинициализация
     virtual void deinit() = 0;
-    
+
     /// Выбрать устройство (CS low)
     virtual Status selectDevice() = 0;
-    
+
     /// Отпустить устройство (CS high)
     virtual void deselectDevice() = 0;
-    
+
     /// Полнодуплексный обмен (блокирующий)
     virtual Status transfer(std::span<const uint8_t> txData,
                            std::span<uint8_t> rxData,
                            uint32_t timeoutMs) = 0;
-    
+
     /// Передача (блокирующая)
     virtual Status transmit(std::span<const uint8_t> data,
                            uint32_t timeoutMs) = 0;
-    
+
     /// Приём (блокирующий)
     virtual Status receive(std::span<uint8_t> data,
                           uint32_t timeoutMs) = 0;
-    
+
     /// Асинхронный обмен
     virtual Status transferAsync(std::span<const uint8_t> txData,
                                  std::span<uint8_t> rxData,
                                  TransferCallback callback) = 0;
-    
+
     /// Установить скорость на лету
     virtual Status setClockSpeed(uint32_t speed) = 0;
+
+    /// Проверка переполнения FIFO
+    virtual bool isFIFOOverflow() const = 0;
+
+    /// Очистка FIFO
+    virtual Status clearFIFO() = 0;
+
+    /// Получить статистику
+    virtual SPIStatistics getStatistics() const = 0;
 };
 
 // ============================================================================
