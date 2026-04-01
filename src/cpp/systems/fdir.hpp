@@ -1,13 +1,14 @@
 /**
  * @file fdir.hpp
  * @brief Fault Detection, Isolation and Recovery (FDIR) System
- * 
+ *
  * Система обнаружения, изоляции и восстановления неисправностей
  * для бортового ПО малого космического аппарата.
- * 
+ *
  * Ключевые компоненты:
  * - Мониторинг параметров с пороговыми значениями
  * - Детектор аномалий на основе статистики
+ * - ML детектор аномалий (Isolation Forest)
  * - Автоматическое восстановление
  * - Журнал событий
  */
@@ -23,6 +24,7 @@
 
 #include "utils/callback.hpp"
 #include "utils/span.hpp"
+#include "../algorithms/anomaly_detector.hpp"
 
 namespace mka {
 namespace fdir {
@@ -74,15 +76,17 @@ enum class ErrorCode : uint16_t {
     COMM_RX_FAILURE = 0x0301,
     COMM_ANTENNA_FAULT = 0x0302,
     COMM_LOW_SIGNAL = 0x0303,
-    
+
     // OBC ошибки (0x00xx)
     OBC_WATCHDOG_RESET = 0x0000,
     OBC_MEMORY_FAULT = 0x0001,
-    OBC_CPU_OVERTEMP = 0x0002,
-    OBC_RTC_FAULT = 0x0003,
-    OBC_FLASH_FAULT = 0x0004,
-    OBC_SD_CARD_FAULT = 0x0005,
-    
+    OBC_CPU_OVERLOAD = 0x0002,
+    OBC_CPU_OVERTEMP = 0x0003,
+    OBC_RTC_FAULT = 0x0004,
+    OBC_FLASH_FAULT = 0x0005,
+    OBC_SD_CARD_FAULT = 0x0006,
+    FDIR_ML_ANOMALY_DETECTED = 0x0010,  // ML детекция аномалии
+
     // Общие ошибки (0xFFxx)
     TIMEOUT = 0xFF00,
     INVALID_DATA = 0xFF01,
@@ -313,17 +317,87 @@ private:
 
 /**
  * @brief Центральный менеджер FDIR
+ *
+ * Интегрирует:
+ * - Пороговый мониторинг параметров
+ * - Статистическую детекцию аномалий
+ * - ML детекцию аномалий (Isolation Forest)
+ * - Автоматическое восстановление
  */
 class FDIRManager {
 public:
     static constexpr size_t MAX_PARAMETERS = 64;
     static constexpr size_t EVENT_LOG_SIZE = 256;
-    
+
     using EventCallback = Callback<void(const EventLogEntry&)>;
     using RecoveryHandler = Callback<bool(ErrorCode, RecoveryAction)>;
     using TimestampSource = Callback<uint32_t()>;
 
     FDIRManager() = default;
+
+    /**
+     * @brief Инициализация ML детектора аномалий
+     * @param config Конфигурация детектора
+     * @param featureNames Имена признаков для телеметрии
+     */
+    void initMLDetector(const ml::AnomalyDetectorConfig& config,
+                        const std::vector<std::string>& featureNames) {
+        mlDetector_.configure(config);
+        featureNames_ = featureNames;
+        mlEnabled_ = true;
+    }
+
+    /**
+     * @brief Обучение ML детектора на исторических данных
+     * @param data Данные телеметрии [n_samples x n_features]
+     * @return true если успешно
+     */
+    bool trainMLDetector(const std::vector<std::vector<float>>& data) {
+        if (!mlEnabled_) return false;
+        return mlDetector_.fit(data);
+    }
+
+    /**
+     * @brief Детекция ML аномалий для телеметрии
+     * @param telemetry Вектор телеметрии
+     * @return Результат детекции
+     */
+    ml::AnomalyResult detectMLAnomaly(const std::vector<float>& telemetry) {
+        if (!mlEnabled_ || !mlDetector_.isReady()) {
+            return {};
+        }
+        return mlDetector_.detect(telemetry);
+    }
+
+    /**
+     * @brief Проверка ML аномалии и генерация события
+     * @param telemetry Вектор телеметрии
+     * @param timestamp Время события
+     */
+    void checkMLAnomaly(const std::vector<float>& telemetry, uint32_t timestamp) {
+        if (!mlEnabled_ || !mlDetector_.isReady()) return;
+
+        auto result = mlDetector_.detect(telemetry);
+        if (result.isAnomaly) {
+            // Генерация события об аномалии
+            logEvent(ErrorCode::FDIR_ML_ANOMALY_DETECTED, Severity::WARNING,
+                     Subsystem::OBC, 0,
+                     static_cast<int16_t>(result.anomalyScore * 100),
+                     static_cast<int16_t>(result.threshold * 100));
+        }
+    }
+
+    /**
+     * @brief Проверка включён ли ML детектор
+     */
+    bool isMLEnabled() const { return mlEnabled_; }
+
+    /**
+     * @brief Получить статистику ML детектора
+     */
+    ml::AnomalyDetector::Statistics getMLStatistics() const {
+        return mlDetector_.getStatistics();
+    }
 
     /// Регистрация параметра для мониторинга
     uint8_t registerParameter(const ParameterConfig& config,
@@ -426,7 +500,12 @@ private:
     EventCallback eventCallback_;
     RecoveryHandler recoveryHandler_;
     TimestampSource timestampSource_;
-    
+
+    // ML детектор аномалий
+    ml::AnomalyDetector mlDetector_;
+    std::vector<std::string> featureNames_;
+    bool mlEnabled_ = false;
+
     void logEvent(ErrorCode code, Severity severity,
                   Subsystem subsystem, uint8_t source,
                   int16_t value, int16_t threshold) {
