@@ -213,10 +213,10 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_ota mka_core GTest::gtest_main)
     add_test(NAME test_ota COMMAND test_ota)
 
-    # Тест FreeRTOS wrapper - требует реального FreeRTOS для линковки
-    # add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
-    # target_link_libraries(test_freertos_wrapper mka_core GTest::gtest_main)
-    # add_test(NAME test_freertos_wrapper COMMAND test_freertos_wrapper)
+    # Тест FreeRTOS wrapper
+    add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
+    target_link_libraries(test_freertos_wrapper mka_core GTest::gtest_main)
+    add_test(NAME test_freertos_wrapper COMMAND test_freertos_wrapper)
 endif()
 
 # ============================================================================
