@@ -1199,6 +1199,486 @@ inline void example_adcs_usage() {
     }
 }
 
+// ============================================================================
+// Unscented Kalman Filter (UKF) для оценки ориентации
+// ============================================================================
+
+/**
+ * @brief Unscented Kalman Filter для оценки ориентации
+ *
+ * Более точная альтернатива EKF для нелинейных систем.
+ * Использует Unscented Transform для распространения статистики
+ * через нелинейные функции без линеаризации.
+ *
+ * Состояние: кватернион ориентации (4) + смещение гироскопа (3) = 7
+ * Измерения: акселерометр (3) + магнитометр (3) = 6
+ *
+ * Преимущества перед EKF:
+ * - Не требует вычисления матриц Якоби
+ * - Более точная аппроксимация нелинейностей
+ * - Лучшая сходимость при больших начальных ошибках
+ */
+class UnscentedKalmanFilter {
+public:
+    // Параметры UKF
+    struct Config {
+        float processNoiseQ = 0.001f;    // Шум процесса
+        float measurementNoiseR = 0.1f;  // Шум измерений
+        float alpha = 0.001f;            // Parameter for sigma points (1e-3 typical)
+        float beta = 2.0f;               // Incorporates prior knowledge (2 is optimal for Gaussian)
+        float kappa = 0.0f;              // Secondary scaling parameter (0 or 3-n_x)
+    };
+
+    UnscentedKalmanFilter() = default;
+
+    explicit UnscentedKalmanFilter(const Config& config)
+        : config_(config) {
+        reset();
+    }
+
+    /**
+     * @brief Инициализация фильтра
+     * @param initialQuat Начальный кватернион ориентации
+     * @param gyroBias Начальное смещение гироскопа
+     */
+    void init(const Quaternion& initialQuat = Quaternion(),
+              const std::array<float, 3>& gyroBias = {0, 0, 0}) {
+        // Инициализация состояния
+        state_ = {
+            initialQuat.w, initialQuat.x, initialQuat.y, initialQuat.z,
+            gyroBias[0], gyroBias[1], gyroBias[2]
+        };
+
+        // Инициализация ковариации (диагональная)
+        for (int i = 0; i < STATE_DIM; i++) {
+            for (int j = 0; j < STATE_DIM; j++) {
+                P_[i * STATE_DIM + j] = (i == j) ? 0.1f : 0.0f;
+            }
+        }
+
+        initialized_ = true;
+    }
+
+    /**
+     * @brief Прогноз состояния (prediction step)
+     * @param gyro Измерение гироскопа [rad/s]
+     * @param dt Время с последнего шага [s]
+     */
+    void predict(const std::array<float, 3>& gyro, float dt) {
+        if (!initialized_) return;
+
+        // Компенсация смещения гироскопа
+        const float omegaX = gyro[0] - state_[4];
+        const float omegaY = gyro[1] - state_[5];
+        const float omegaZ = gyro[2] - state_[6];
+
+        // Генерация sigma points
+        std::array<std::array<float, STATE_DIM>, SIGMA_COUNT> sigmaPoints;
+        generateSigmaPoints(sigmaPoints);
+
+        // Propagate sigma points через кинематическое уравнение
+        for (int i = 0; i < SIGMA_COUNT; i++) {
+            propagateSigmaPoint(sigmaPoints[i], {omegaX, omegaY, omegaZ}, dt);
+        }
+
+        // Вычисление предсказанного среднего состояния
+        computeMeanState(sigmaPoints);
+
+        // Вычисление предсказанной ковариации
+        computeCovariance(sigmaPoints);
+    }
+
+    /**
+     * @brief Коррекция по измерениям (update step)
+     * @param ax, ay, az Акселерометр [g]
+     * @param mx, my, mz Магнитометр [Gauss]
+     */
+    void update(float ax, float ay, float az, float mx, float my, float mz) {
+        if (!initialized_) return;
+
+        // Нормализация измерений
+        float accelNorm = std::sqrt(ax*ax + ay*ay + az*az);
+        float magNorm = std::sqrt(mx*mx + my*my + mz*mz);
+
+        if (accelNorm < 0.1f || magNorm < 0.1f) return;  // Недействительные данные
+
+        ax /= accelNorm; ay /= accelNorm; az /= accelNorm;
+        mx /= magNorm; my /= magNorm; mz /= magNorm;
+
+        // Генерация sigma points из текущего состояния
+        std::array<std::array<float, STATE_DIM>, SIGMA_COUNT> sigmaPoints;
+        generateSigmaPoints(sigmaPoints);
+
+        // Вычисление предсказанных измерений для каждого sigma point
+        std::array<std::array<float, MEAS_DIM>, SIGMA_COUNT> predictedMeasurements;
+        for (int i = 0; i < SIGMA_COUNT; i++) {
+            predictMeasurement(sigmaPoints[i], predictedMeasurements[i]);
+        }
+
+        // Вычисление среднего предсказанного измерения
+        std::array<float, MEAS_DIM> zPred{};
+        for (int i = 0; i < SIGMA_COUNT; i++) {
+            float w = (i == 0) ? Wm_[0] : Wm_[i];
+            for (int j = 0; j < MEAS_DIM; j++) {
+                zPred[j] += w * predictedMeasurements[i][j];
+            }
+        }
+
+        // Вычисление ковариации измерений (S) и кросс-ковариации (Pxz)
+        float S[MEAS_DIM * MEAS_DIM]{};
+        float Pxz[STATE_DIM * MEAS_DIM]{};
+
+        for (int i = 0; i < SIGMA_COUNT; i++) {
+            float w = (i == 0) ? Wc_[0] : Wc_[i];
+
+            // Разница измерений
+            std::array<float, MEAS_DIM> dz{};
+            for (int j = 0; j < MEAS_DIM; j++) {
+                dz[j] = predictedMeasurements[i][j] - zPred[j];
+            }
+
+            // Разница состояния
+            std::array<float, STATE_DIM> dx{};
+            for (int j = 0; j < STATE_DIM; j++) {
+                dx[j] = sigmaPoints[i][j] - state_[j];
+            }
+
+            // S = sum(w * dz * dz^T) + R
+            for (int j = 0; j < MEAS_DIM; j++) {
+                for (int k = 0; k < MEAS_DIM; k++) {
+                    S[j * MEAS_DIM + k] += w * dz[j] * dz[k];
+                }
+            }
+
+            // Pxz = sum(w * dx * dz^T)
+            for (int j = 0; j < STATE_DIM; j++) {
+                for (int k = 0; k < MEAS_DIM; k++) {
+                    Pxz[j * MEAS_DIM + k] += w * dx[j] * dz[k];
+                }
+            }
+        }
+
+        // Добавление шума измерений к S
+        for (int i = 0; i < MEAS_DIM; i++) {
+            S[i * MEAS_DIM + i] += config_.measurementNoiseR;
+        }
+
+        // Вычисление коэффициента Калмана: K = Pxz * S^-1
+        float K[STATE_DIM * MEAS_DIM]{};
+        float Sinv[MEAS_DIM * MEAS_DIM]{};
+        matrixInverse3x3(S, Sinv);  // Упрощённая инверсия для 6x6
+        matrixMultiply(K, Pxz, Sinv, STATE_DIM, MEAS_DIM, MEAS_DIM);
+
+        // Вектор инноваций (разница между измерением и предсказанием)
+        std::array<float, MEAS_DIM> y{};
+        float zMeas[MEAS_DIM] = {ax, ay, az, mx, my, mz};
+        for (int i = 0; i < MEAS_DIM; i++) {
+            y[i] = zMeas[i] - zPred[i];
+        }
+
+        // Обновление состояния: x = x + K * y
+        for (int i = 0; i < STATE_DIM; i++) {
+            for (int j = 0; j < MEAS_DIM; j++) {
+                state_[i] += K[i * MEAS_DIM + j] * y[j];
+            }
+        }
+
+        // Нормализация кватерниона
+        normalizeQuaternion();
+
+        // Обновление ковариации: P = P - K * S * K^T
+        updateCovariance(K, S);
+    }
+
+    /**
+     * @brief Получить текущую оценку ориентации
+     * @return Кватернион ориентации
+     */
+    Quaternion getQuaternion() const {
+        return Quaternion(state_[0], state_[1], state_[2], state_[3]);
+    }
+
+    /**
+     * @brief Получить оценку смещения гироскопа
+     * @return Смещение гироскопа [rad/s]
+     */
+    std::array<float, 3> getGyroBias() const {
+        return {state_[4], state_[5], state_[6]};
+    }
+
+    /**
+     * @brief Проверка инициализации фильтра
+     */
+    bool isInitialized() const { return initialized_; }
+
+    /**
+     * @brief Сброс фильтра
+     */
+    void reset() {
+        state_ = {};
+        for (int i = 0; i < STATE_DIM * STATE_DIM; i++) {
+            P_[i] = 0.0f;
+        }
+        initialized_ = false;
+    }
+
+private:
+    static constexpr int STATE_DIM = 7;   // 4 (quaternion) + 3 (gyro bias)
+    static constexpr int MEAS_DIM = 6;    // 3 (accel) + 3 (mag)
+    static constexpr int SIGMA_COUNT = 2 * STATE_DIM + 1;  // 15 sigma points
+
+    Config config_;
+    bool initialized_ = false;
+
+    // Вектор состояния [qw, qx, qy, qz, bx, by, bz]
+    std::array<float, STATE_DIM> state_{};
+
+    // Матрица ковариации (STATE_DIM x STATE_DIM)
+    std::array<float, STATE_DIM * STATE_DIM> P_{};
+
+    // Веса для sigma points
+    std::array<float, SIGMA_COUNT> Wm_{};  // Weights for mean
+    std::array<float, SIGMA_COUNT> Wc_{};  // Weights for covariance
+
+    // Лямбда параметр
+    float lambda_ = 0.0f;
+
+    /**
+     * @brief Инициализация весов и лямбда
+     */
+    void initWeights() {
+        const float n = static_cast<float>(STATE_DIM);
+        lambda_ = config_.alpha * config_.alpha * (n + config_.kappa) - n;
+
+        // Wm[0] = lambda / (n + lambda)
+        Wm_[0] = lambda_ / (n + lambda_);
+        Wc_[0] = Wm_[0] + (1.0f - config_.alpha * config_.alpha + config_.beta);
+
+        // Wm[i] = Wc[i] = 1 / (2 * (n + lambda)) for i > 0
+        float w = 1.0f / (2.0f * (n + lambda_));
+        for (int i = 1; i < SIGMA_COUNT; i++) {
+            Wm_[i] = w;
+            Wc_[i] = w;
+        }
+    }
+
+    /**
+     * @brief Генерация sigma points
+     */
+    void generateSigmaPoints(std::array<std::array<float, STATE_DIM>, SIGMA_COUNT>& points) {
+        if (lambda_ == 0.0f) initWeights();
+
+        // points[0] = state (mean)
+        points[0] = state_;
+
+        // Вычисление sqrt((n + lambda) * P) через разложение Холецкого
+        float sqrtCov[STATE_DIM * STATE_DIM]{};
+        choleskyDecomposition(P_.data(), sqrtCov, STATE_DIM);
+
+        float scale = std::sqrt(STATE_DIM + lambda_);
+
+        // Sigma points: state +/- scale * column_i of sqrt(P)
+        for (int i = 0; i < STATE_DIM; i++) {
+            for (int j = 0; j < STATE_DIM; j++) {
+                points[i + 1][j] = state_[j] + scale * sqrtCov[j * STATE_DIM + i];
+                points[STATE_DIM + i + 1][j] = state_[j] - scale * sqrtCov[j * STATE_DIM + i];
+            }
+        }
+    }
+
+    /**
+     * @brief Propagate sigma point через кинематическое уравнение
+     */
+    void propagateSigmaPoint(std::array<float, STATE_DIM>& sigma,
+                             const std::array<float, 3>& omega, float dt) {
+        // Извлечение кватерниона из sigma point
+        Quaternion q(sigma[0], sigma[1], sigma[2], sigma[3]);
+
+        // Интегрирование кватерниона: q_dot = 0.5 * q ⊗ omega
+        float qDot[4];
+        qDot[0] = 0.5f * (-q.x * omega[0] - q.y * omega[1] - q.z * omega[2]);
+        qDot[1] = 0.5f * ( q.w * omega[0] + q.y * omega[2] - q.z * omega[1]);
+        qDot[2] = 0.5f * ( q.w * omega[1] - q.x * omega[2] + q.z * omega[0]);
+        qDot[3] = 0.5f * ( q.w * omega[2] + q.x * omega[1] - q.y * omega[0]);
+
+        // Эйлерово интегрирование
+        sigma[0] += qDot[0] * dt;
+        sigma[1] += qDot[1] * dt;
+        sigma[2] += qDot[2] * dt;
+        sigma[3] += qDot[3] * dt;
+
+        // Нормализация кватерниона
+        float norm = std::sqrt(sigma[0]*sigma[0] + sigma[1]*sigma[1] +
+                               sigma[2]*sigma[2] + sigma[3]*sigma[3]);
+        if (norm > 1e-6f) {
+            sigma[0] /= norm; sigma[1] /= norm;
+            sigma[2] /= norm; sigma[3] /= norm;
+        }
+
+        // Смещение гироскопа остаётся постоянным (random walk model)
+        // sigma[4], sigma[5], sigma[6] не меняются
+    }
+
+    /**
+     * @brief Предсказание измерения из sigma point
+     */
+    void predictMeasurement(const std::array<float, STATE_DIM>& sigma,
+                           std::array<float, MEAS_DIM>& measurement) {
+        // Извлечение кватерниона
+        Quaternion q(sigma[0], sigma[1], sigma[2], sigma[3]);
+
+        // Предсказание направления гравитации в body frame
+        // g_body = q* ⊗ [0,0,0,1] ⊗ q (гравитация направлена вниз в NED)
+        float gz[3];
+        q.rotateVector(0.0f, 0.0f, 1.0f, gz[0], gz[1], gz[2]);
+        measurement[0] = gz[0];
+        measurement[1] = gz[1];
+        measurement[2] = gz[2];
+
+        // Предсказание направления магнитного поля
+        // Предполагаем магнитное поле в NED: [magN, 0, magD]
+        constexpr float magN = 0.27f;  // Северная компонента (примерно для средней широты)
+        constexpr float magD = 0.45f;  // Вертикальная компонента
+        float magBody[3];
+        q.rotateVector(magN, 0.0f, magD, magBody[0], magBody[1], magBody[2]);
+        measurement[3] = magBody[0];
+        measurement[4] = magBody[1];
+        measurement[5] = magBody[2];
+    }
+
+    /**
+     * @brief Вычисление среднего состояния из sigma points
+     */
+    void computeMeanState(const std::array<std::array<float, STATE_DIM>, SIGMA_COUNT>& points) {
+        for (int i = 0; i < STATE_DIM; i++) {
+            state_[i] = 0.0f;
+            for (int j = 0; j < SIGMA_COUNT; j++) {
+                state_[i] += Wm_[j] * points[j][i];
+            }
+        }
+
+        // Нормализация кватерниона
+        normalizeQuaternion();
+    }
+
+    /**
+     * @brief Вычисление ковариации из sigma points
+     */
+    void computeCovariance(const std::array<std::array<float, STATE_DIM>, SIGMA_COUNT>& points) {
+        for (int i = 0; i < STATE_DIM * STATE_DIM; i++) {
+            P_[i] = 0.0f;
+        }
+
+        for (int j = 0; j < SIGMA_COUNT; j++) {
+            float diff[STATE_DIM];
+            for (int i = 0; i < STATE_DIM; i++) {
+                diff[i] = points[j][i] - state_[i];
+            }
+
+            // P += Wc * diff * diff^T
+            for (int m = 0; m < STATE_DIM; m++) {
+                for (int n = 0; n < STATE_DIM; n++) {
+                    P_[m * STATE_DIM + n] += Wc_[j] * diff[m] * diff[n];
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Обновление ковариации после коррекции
+     */
+    void updateCovariance(const float* K, const float* S) {
+        // P = P - K * S * K^T
+        float KS[STATE_DIM * MEAS_DIM]{};
+        matrixMultiply(KS, K, S, STATE_DIM, MEAS_DIM, MEAS_DIM);
+
+        float KSKt[STATE_DIM * STATE_DIM]{};
+        matrixMultiplyT2(KSKt, KS, K, STATE_DIM, MEAS_DIM, STATE_DIM);
+
+        for (int i = 0; i < STATE_DIM * STATE_DIM; i++) {
+            P_[i] -= KSKt[i];
+        }
+    }
+
+    /**
+     * @brief Нормализация кватерниона в состоянии
+     */
+    void normalizeQuaternion() {
+        float norm = std::sqrt(state_[0]*state_[0] + state_[1]*state_[1] +
+                               state_[2]*state_[2] + state_[3]*state_[3]);
+        if (norm > 1e-6f) {
+            state_[0] /= norm; state_[1] /= norm;
+            state_[2] /= norm; state_[3] /= norm;
+        }
+    }
+
+    /**
+     * @brief Разложение Холецкого (A = L * L^T)
+     */
+    void choleskyDecomposition(const float* A, float* L, int n) {
+        for (int i = 0; i < n * n; i++) L[i] = 0.0f;
+
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j <= i; j++) {
+                float sum = 0.0f;
+                if (j == i) {
+                    for (int k = 0; k < j; k++) {
+                        sum += L[j * n + k] * L[j * n + k];
+                    }
+                    float val = A[j * n + j] - sum;
+                    L[j * n + j] = (val > 0) ? std::sqrt(val) : 1e-6f;
+                } else {
+                    for (int k = 0; k < j; k++) {
+                        sum += L[i * n + k] * L[j * n + k];
+                    }
+                    L[i * n + j] = (L[j * n + j] > 1e-6f) ?
+                                   (A[i * n + j] - sum) / L[j * n + j] : 0.0f;
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Упрощённая матричная инверсия (для 3x3 блоков)
+     */
+    void matrixInverse3x3(const float* A, float* Ainv) {
+        // Для простоты используваем диагональную аппроксимацию
+        for (int i = 0; i < MEAS_DIM * MEAS_DIM; i++) Ainv[i] = 0.0f;
+        for (int i = 0; i < MEAS_DIM; i++) {
+            float diag = A[i * MEAS_DIM + i];
+            Ainv[i * MEAS_DIM + i] = (diag > 1e-6f) ? 1.0f / diag : 1.0f;
+        }
+    }
+
+    /**
+     * @brief Матричное умножение C = A * B
+     */
+    void matrixMultiply(float* C, const float* A, const float* B, int m, int n, int p) {
+        for (int i = 0; i < m * p; i++) C[i] = 0.0f;
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < p; j++) {
+                for (int k = 0; k < n; k++) {
+                    C[i * p + j] += A[i * n + k] * B[k * p + j];
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Матричное умножение с транспонированием второй матрицы: C = A * B^T
+     */
+    void matrixMultiplyT2(float* C, const float* A, const float* B, int m, int n, int p) {
+        for (int i = 0; i < m * m; i++) C[i] = 0.0f;
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < m; j++) {
+                for (int k = 0; k < n; k++) {
+                    C[i * m + j] += A[i * n + k] * B[j * n + k];
+                }
+            }
+        }
+    }
+};
+
 } // namespace adcs
 } // namespace mka
 
