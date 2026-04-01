@@ -255,9 +255,55 @@ public:
     
     /// Получить статистику
     virtual UARTStatistics getStatistics() const = 0;
-    
+
     /// Сброс статистики
     virtual void resetStatistics() = 0;
+
+    /// Передача с автоматической повторной попыткой
+    default Status transmitWithRetry(std::span<const uint8_t> data,
+                                     uint32_t timeoutMs,
+                                     uint8_t maxRetries = 3) {
+        uint8_t attempts = 0;
+        while (attempts < maxRetries) {
+            Status status = transmit(data, timeoutMs);
+            
+            if (status == Status::OK) {
+                return Status::OK;
+            }
+            
+            // Повтор при timeout или перегрузке
+            if (status == Status::TIMEOUT || status == Status::BUSY) {
+                attempts++;
+                continue;
+            }
+            
+            return status;
+        }
+        return Status::TIMEOUT;
+    }
+
+    /// Приём с автоматической повторной попыткой
+    default Status receiveWithRetry(std::span<uint8_t> buffer,
+                                    uint32_t timeoutMs,
+                                    size_t& received,
+                                    uint8_t maxRetries = 3) {
+        uint8_t attempts = 0;
+        while (attempts < maxRetries) {
+            Status status = receive(buffer, timeoutMs, received);
+            
+            if (status == Status::OK && received > 0) {
+                return Status::OK;
+            }
+            
+            if (status == Status::TIMEOUT) {
+                attempts++;
+                continue;
+            }
+            
+            return status;
+        }
+        return Status::TIMEOUT;
+    }
 };
 
 // ============================================================================
@@ -345,6 +391,55 @@ public:
 
     /// Получить статистику
     virtual SPIStatistics getStatistics() const = 0;
+
+    /// Передача с автоматической обработкой переполнения FIFO
+    default Status transferWithRetry(std::span<const uint8_t> txData,
+                                     std::span<uint8_t> rxData,
+                                     uint32_t timeoutMs,
+                                     uint8_t maxRetries = 3) {
+        uint8_t attempts = 0;
+        while (attempts < maxRetries) {
+            Status status = transfer(txData, rxData, timeoutMs);
+            
+            if (status == Status::OK) {
+                return Status::OK;
+            }
+            
+            // Проверка на переполнение FIFO
+            if (isFIFOOverflow()) {
+                clearFIFO();
+                attempts++;
+                continue;
+            }
+            
+            // Другая ошибка — возвращаем сразу
+            return status;
+        }
+        return Status::TIMEOUT;  // Превышено количество попыток
+    }
+
+    /// Приём с автоматической обработкой переполнения FIFO
+    default Status receiveWithRetry(std::span<uint8_t> data,
+                                    uint32_t timeoutMs,
+                                    uint8_t maxRetries = 3) {
+        uint8_t attempts = 0;
+        while (attempts < maxRetries) {
+            Status status = receive(data, timeoutMs);
+            
+            if (status == Status::OK) {
+                return Status::OK;
+            }
+            
+            if (isFIFOOverflow()) {
+                clearFIFO();
+                attempts++;
+                continue;
+            }
+            
+            return status;
+        }
+        return Status::TIMEOUT;
+    }
 };
 
 // ============================================================================
@@ -410,12 +505,63 @@ public:
     
     /// Проверка наличия устройства
     virtual bool isDevicePresent(uint8_t devAddress) = 0;
-    
+
     /// Восстановление шины при зависании
     virtual Status recoverBus() = 0;
-    
+
     /// Получить статистику
     virtual I2CStatistics getStatistics() const = 0;
+
+    /// Запись в регистр с автоматической повторной попыткой
+    default Status writeRegisterWithRetry(uint8_t devAddress,
+                                          uint8_t regAddress,
+                                          std::span<const uint8_t> data,
+                                          uint32_t timeoutMs,
+                                          uint8_t maxRetries = 3) {
+        uint8_t attempts = 0;
+        while (attempts < maxRetries) {
+            Status status = writeRegister(devAddress, regAddress, data, timeoutMs);
+            
+            if (status == Status::OK) {
+                return Status::OK;
+            }
+            
+            // Попытка восстановления шины при ошибке
+            if (status == Status::BUS || status == Status::TIMEOUT) {
+                recoverBus();
+                attempts++;
+                continue;
+            }
+            
+            return status;
+        }
+        return Status::TIMEOUT;
+    }
+
+    /// Чтение из регистра с автоматической повторной попыткой
+    default Status readRegisterWithRetry(uint8_t devAddress,
+                                         uint8_t regAddress,
+                                         std::span<uint8_t> data,
+                                         uint32_t timeoutMs,
+                                         uint8_t maxRetries = 3) {
+        uint8_t attempts = 0;
+        while (attempts < maxRetries) {
+            Status status = readRegister(devAddress, regAddress, data, timeoutMs);
+            
+            if (status == Status::OK) {
+                return Status::OK;
+            }
+            
+            if (status == Status::BUS || status == Status::TIMEOUT) {
+                recoverBus();
+                attempts++;
+                continue;
+            }
+            
+            return status;
+        }
+        return Status::TIMEOUT;
+    }
 };
 
 /**
