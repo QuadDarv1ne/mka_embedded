@@ -120,6 +120,47 @@ struct EventLogEntry {
 
 static_assert(sizeof(EventLogEntry) == 16, "EventLogEntry must be 16 bytes");
 
+/// Компактная запись журнала (для хранения в FRAM/EEPROM)
+struct CompactEventLogEntry {
+    uint32_t timestamp;     // Время (секунды от запуска)
+    uint16_t code;          // Код ошибки
+    uint8_t severity_subsystem;  // Severity (4 бита) + Subsystem (4 бита)
+    uint8_t source;         // Источник внутри подсистемы
+    int8_t value_scaled;    // Нормализованное значение (-128..127)
+    int8_t threshold_scaled; // Нормализованный порог
+    uint8_t recovery;       // Принятое действие
+
+    CompactEventLogEntry() = default;
+
+    // Конвертация из полной записи
+    explicit CompactEventLogEntry(const EventLogEntry& entry)
+        : timestamp(entry.timestamp)
+        , code(static_cast<uint16_t>(entry.code))
+        , severity_subsystem((static_cast<uint8_t>(entry.severity) << 4) |
+                             static_cast<uint8_t>(entry.subsystem))
+        , source(entry.source)
+        , value_scaled(static_cast<int8_t>(entry.value / 10))
+        , threshold_scaled(static_cast<int8_t>(entry.threshold / 10))
+        , recovery(entry.recoveryTaken) {}
+
+    // Конвертация в полную запись
+    EventLogEntry toFull() const {
+        EventLogEntry full;
+        full.timestamp = timestamp;
+        full.code = static_cast<ErrorCode>(code);
+        full.severity = static_cast<Severity>((severity_subsystem >> 4) & 0x0F);
+        full.subsystem = static_cast<Subsystem>(severity_subsystem & 0x0F);
+        full.source = source;
+        full.value = value_scaled * 10;
+        full.threshold = threshold_scaled * 10;
+        full.recoveryTaken = recovery;
+        return full;
+    }
+};
+
+// Валидация: 4 + 2 + 1 + 1 + 1 + 1 + 1 = 11 байт (экономия 31% по сравнению с 16)
+static_assert(sizeof(CompactEventLogEntry) == 11, "CompactEventLogEntry must be 11 bytes");
+
 /// Конфигурация монитора параметра
 struct ParameterConfig {
     float nominalValue;         // Номинальное значение
@@ -133,6 +174,10 @@ struct ParameterConfig {
     uint8_t subsystem;          // Подсистема
     uint8_t parameterId;        // Идентификатор параметра
 };
+
+// Валидация: 8 x 4 + 2 + 1 + 1 = 36 байт
+static_assert(sizeof(ParameterConfig) == 36, "ParameterConfig must be 36 bytes");
+static_assert(offsetof(ParameterConfig, nominalValue) == 0, "nominalValue should be first");
 
 /// Статистика параметра для детектора аномалий
 struct ParameterStats {

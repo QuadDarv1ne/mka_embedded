@@ -22,6 +22,19 @@ namespace mka {
 namespace hal {
 
 // ============================================================================
+// Compile-time validations (static assertions)
+// ============================================================================
+
+// Проверка размеров базовых типов
+static_assert(sizeof(uint8_t) == 1, "uint8_t must be 1 byte");
+static_assert(sizeof(uint16_t) == 2, "uint16_t must be 2 bytes");
+static_assert(sizeof(uint32_t) == 4, "uint32_t must be 4 bytes");
+static_assert(sizeof(uint64_t) == 8, "uint64_t must be 8 bytes");
+
+// Проверка размеров Status enum (должен быть 1 байт)
+static_assert(sizeof(Status) == 1, "Status must be 1 byte for efficient packing");
+
+// ============================================================================
 // HAL Configuration Constants
 // ============================================================================
 
@@ -199,6 +212,10 @@ struct UARTConfig {
     uint32_t rxTimeoutMs = HALDefaults::UART_RX_TIMEOUT_MS;
 };
 
+// Валидация UARTConfig
+static_assert(sizeof(UARTConfig) <= 32, "UARTConfig should be compact for efficient copying");
+static_assert(offsetof(UARTConfig, baudRate) == 0, "baudRate should be first for initialization");
+
 struct UARTStatistics {
     uint32_t txBytes = 0;
     uint32_t rxBytes = 0;
@@ -208,6 +225,9 @@ struct UARTStatistics {
     uint32_t framingErrors = 0;
     uint32_t overrunErrors = 0;
 };
+
+// Валидация UARTStatistics (все поля 32-бит, должно быть 28 байт)
+static_assert(sizeof(UARTStatistics) == 28, "UARTStatistics must be 28 bytes (7 x 4-byte counters)");
 
 /**
  * @brief Интерфейс UART
@@ -330,7 +350,13 @@ struct SPIConfig {
     bool dmaEnable = true;
     uint8_t csPin = 0xFF;  // Использовать аппаратный CS
     bool fifoOverflowCheck = true;  // Проверка переполнения FIFO
+    uint8_t maxRetries = 3;  // Максимальное количество попыток при переполнении
+    bool autoRecoverFromOverflow = true;  // Автоматическое восстановление при переполнении
 };
+
+// Валидация SPIConfig
+static_assert(sizeof(SPIConfig) <= 24, "SPIConfig should be compact");
+static_assert(offsetof(SPIConfig, clockSpeed) == 0, "clockSpeed should be first");
 
 /// Статистика SPI
 struct SPIStatistics {
@@ -340,6 +366,9 @@ struct SPIStatistics {
     uint32_t timeoutCount = 0;
     uint32_t errorCount = 0;
 };
+
+// Валидация SPIStatistics (5 x 4-byte = 20 байт)
+static_assert(sizeof(SPIStatistics) == 20, "SPIStatistics must be 20 bytes (5 x 4-byte counters)");
 
 /**
  * @brief Интерфейс SPI
@@ -454,6 +483,9 @@ struct I2CConfig {
     uint8_t maxRetries = 3;
 };
 
+// Валидация I2CConfig
+static_assert(sizeof(I2CConfig) <= 16, "I2CConfig should be compact");
+
 struct I2CStatistics {
     uint32_t txBytes = 0;
     uint32_t rxBytes = 0;
@@ -462,6 +494,9 @@ struct I2CStatistics {
     uint32_t busErrors = 0;
     uint32_t arbitrationLost = 0;
 };
+
+// Валидация I2CStatistics (6 x 4-byte = 24 байта)
+static_assert(sizeof(I2CStatistics) == 24, "I2CStatistics must be 24 bytes (6 x 4-byte counters)");
 
 /**
  * @brief Интерфейс I2C
