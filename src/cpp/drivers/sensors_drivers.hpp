@@ -21,6 +21,7 @@
 // HAL интерфейсы
 #if __cplusplus >= 202002L
     #include "hal/hal_full.hpp"
+    #include "utils/result.hpp"
 #else
     // Для C++17 используем минимальные интерфейсы
     // Требуется реализовать минимальные HAL интерфейсы для работы драйверов
@@ -102,6 +103,31 @@ struct SelfTestResult {
     uint8_t errorCode;
     const char* errorMessage;
 };
+
+// ============================================================================
+// Ошибки драйверов
+// ============================================================================
+
+/// Коды ошибок драйверов
+enum class DriverError : uint8_t {
+    OK = 0,
+    NOT_INITIALIZED = 1,
+    INVALID_PARAM = 2,
+    TIMEOUT = 3,
+    COMM_ERROR = 4,         // Ошибка связи (I2C/SPI/UART)
+    CHECKSUM_ERROR = 5,     // Ошибка контрольной суммы
+    DEVICE_NOT_FOUND = 6,   // Устройство не найдено
+    DEVICE_BUSY = 7,        // Устройство занято
+    FIFO_OVERFLOW = 8,      // Переполнение FIFO
+    INVALID_CHIP_ID = 9,    // Неверный ID чипа
+    CONFIG_ERROR = 10,      // Ошибка конфигурации
+    CALIBRATION_ERROR = 11, // Ошибка калибровки
+    BUFFER_EXCEEDED = 12,   // Превышен размер буфера
+    UNSUPPORTED_FEATURE = 13 // Функция не поддерживается
+};
+
+// Валидация: DriverError должен быть 1 байт для эффективной упаковки
+static_assert(sizeof(DriverError) == 1, "DriverError must be 1 byte");
 
 // ============================================================================
 // BMI160 - 6-осевой IMU
