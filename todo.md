@@ -443,31 +443,17 @@
 - [x] 3 примера кода ✅
 
 ### Milestone 4: v1.4.0 (Апрель 2026) ✅ ВЫПОЛНЕНО
-- [x] FreeRTOS wrapper (задачи, очереди, семафоры, мьютексы) ✅
+- [x] FreeRTOS wrapper ✅
 - [x] Mock HAL для тестирования ✅
-- [x] PD контроллер ориентации (улучшенный) ✅
-- [x] Улучшения HAL (таймауты, проверка FIFO) ✅
-- [x] Улучшения GPS драйвера (NAV-PVT, NAV-POSLLH) ✅
+- [x] PD контроллер ориентации ✅
 - [x] 4 дополнительных примера кода ✅
-  - [x] `04_imu_reader` — чтение BMI160 ✅
-  - [x] `05_gps_logger` — логирование GPS ✅
-  - [x] `06_freeRTOS_tasks` — многозадажность ✅
-  - [x] `07_fdir_demo` — мониторинг параметров ✅
 
 ### Milestone 5: v1.5.0 (Июль 2026) ✅ ВЫПОЛНЕНО
 - [x] 3 дополнительных примера кода ✅
-  - [x] `08_sd_card_logger` — запись на SD карту через SPI ✅
-  - [x] `09_low_power_mode` — режимы энергосбережения (Sleep/Stop/Standby) ✅
-  - [x] `10_can_comm` — CAN коммуникация (передача/приём/фильтры) ✅
 - [x] Улучшения HAL — retry механизмы ✅
-  - [x] UART: transmitWithRetry(), receiveWithRetry() ✅
-  - [x] I2C: writeRegisterWithRetry(), readRegisterWithRetry() ✅
-  - [x] SPI: transferWithRetry(), receiveWithRetry() ✅
-- [x] Обработка SPI FIFO — autoRecoverFromOverflow, maxRetries ✅
-  - [x] transferWithRetry() — автоматическая обработка переполнения ✅
-  - [x] receiveWithRetry() — повтор при ошибках ✅
-- [x] Blocking вызовы — все методы имеют timeout и retry логику ✅
-- [x] Static assertions — валидация размеров на этапе компиляции ✅
+- [x] Обработка SPI FIFO ✅
+- [x] Blocking вызовы — timeout и retry логика ✅
+- [x] Static assertions — валидация размеров ✅
 
 ### Milestone 6: v2.0.0 (Декабрь 2026) — ✅ ГОТОВ К ВЫПУСКУ
 - [x] Полная система ориентации ✅
