@@ -80,18 +80,22 @@ struct CommandHeader {
     uint16_t dataLength;       // Длина данных
 };
 
+static_assert(sizeof(CommandHeader) == 8, "CommandHeader must be 8 bytes");
+
 /**
  * @brief Полная команда
  */
 struct Command {
     CommandHeader header;
     std::array<uint8_t, 240> data{};  // MAX_COMMAND_SIZE - sizeof(CommandHeader) = 256 - 16 = 240
-    
+
     // Метаданные
     uint32_t timestamp;        // Время получения
     uint8_t source;            // Источник команды
     bool valid;                // Валидность
 };
+
+static_assert(sizeof(Command) <= 256, "Command must fit in MAX_COMMAND_SIZE");
 
 /**
  * @brief Ответ на команду
@@ -395,7 +399,11 @@ inline std::optional<Command> parseCommand(const uint8_t* data, size_t dataSize)
     Command cmd{};
     std::memcpy(&cmd.header, data, sizeof(CommandHeader));
 
-    // Проверка длины
+    // Проверка длины данных
+    if (cmd.header.dataLength > cmd.data.size()) {
+        return std::nullopt;  // Данные превышают размер буфера
+    }
+
     if (dataSize < sizeof(CommandHeader) + cmd.header.dataLength) {
         return std::nullopt;
     }
@@ -412,11 +420,16 @@ inline std::optional<Command> parseCommand(const uint8_t* data, size_t dataSize)
  * @brief Сериализация ответа в байты
  */
 inline size_t serializeResponse(const CommandResponse& resp, uint8_t* buffer, size_t bufferSize) {
-    if (!buffer) return 0;
+    if (!buffer || bufferSize < 7) return 0;
 
     size_t totalSize = 7 + resp.responseLength;
 
     if (bufferSize < totalSize) {
+        return 0;
+    }
+
+    // Проверка responseLength не превышает буфер ответа
+    if (resp.responseLength > MAX_RESPONSE_SIZE) {
         return 0;
     }
 

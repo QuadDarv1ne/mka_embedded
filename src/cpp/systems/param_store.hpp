@@ -116,6 +116,9 @@ union ParamValue {
     uint8_t bytes[8];
 };
 
+static_assert(sizeof(ParamValue) == 8, "ParamValue must be 8 bytes for efficient storage");
+static_assert(sizeof(ParamAttributes) == 1, "ParamAttributes must be 1 byte");
+
 // ============================================================================
 // Запись параметра
 // ============================================================================
@@ -193,23 +196,29 @@ public:
     bool set(uint16_t id, ParamValue value) {
         for (size_t i = 0; i < paramCount_; i++) {
             if (entries_[i].id == id) {
+                // Проверка прав доступа
                 if (!entries_[i].attributes.writable) {
                     return false;
                 }
-                
+
+                // Проверка readOnlyAfterInit
+                if (entries_[i].attributes.readOnlyAfterInit && modified_[i]) {
+                    return false;
+                }
+
                 // Валидация диапазона
                 if (!validateRange(entries_[i], value)) {
                     return false;
                 }
-                
+
                 values_[i] = value;
                 modified_[i] = true;
-                
+
                 // Уведомление
                 if (changeCallback_) {
                     changeCallback_(id, value);
                 }
-                
+
                 return true;
             }
         }
@@ -302,6 +311,8 @@ public:
      * @brief Сериализация параметров для сохранения
      */
     size_t serialize(uint8_t* buffer, size_t bufferSize) const {
+        if (!buffer || bufferSize < 6) return 0;
+
         size_t offset = 0;
 
         // Заголовок
@@ -358,23 +369,33 @@ public:
 
         offset = 4;
 
+        // Проверка версии
+        uint8_t version = buffer[3];
+        if (version != 0x01) {
+            return false;  // Неподдерживаемая версия
+        }
+
         // Количество параметров
+        if (offset + 2 > bufferSize) return false;
         uint16_t count = (buffer[offset] << 8) | buffer[offset + 1];
         offset += 2;
 
         // Загрузка значений
         for (uint16_t i = 0; i < count && offset + 2 <= bufferSize; i++) {
+            if (offset + 2 > bufferSize) break;  // Защита от переполнения
+
             uint16_t id = (buffer[offset] << 8) | buffer[offset + 1];
             offset += 2;
 
             // Поиск параметра
             for (size_t j = 0; j < paramCount_ && offset <= bufferSize; j++) {
                 if (entries_[j].id == id) {
-                    if (offset + entries_[j].size <= bufferSize) {
-                        std::memcpy(&values_[j], &buffer[offset], entries_[j].size);
-                        offset += entries_[j].size;
-                        modified_[j] = false;
+                    if (entries_[j].size == 0 || offset + entries_[j].size > bufferSize) {
+                        return false;  // Невалидный размер или переполнение
                     }
+                    std::memcpy(&values_[j], &buffer[offset], entries_[j].size);
+                    offset += entries_[j].size;
+                    modified_[j] = false;
                     break;
                 }
             }

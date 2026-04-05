@@ -130,6 +130,41 @@ enum class DriverError : uint8_t {
 static_assert(sizeof(DriverError) == 1, "DriverError must be 1 byte");
 
 // ============================================================================
+// Retry helper для I2C/SPI операций
+// ============================================================================
+
+namespace detail {
+
+/**
+ * @brief Выполнить операцию с retry логикой
+ * @param func Функция возвращающая hal::Status
+ * @param maxRetries Максимальное количество попыток (1-255)
+ * @param delayMs Задержка между попытками (мс)
+ * @return hal::Status последней попытки
+ */
+template<typename Func>
+inline hal::Status withRetry(Func&& func, uint8_t maxRetries = 3, uint8_t delayMs = 5) {
+    hal::Status status = hal::Status::ERROR;
+
+    for (uint8_t attempt = 0; attempt < maxRetries; ++attempt) {
+        status = func();
+        if (status == hal::Status::OK) {
+            return hal::Status::OK;
+        }
+
+        // Задержка между попытками (busy-wait для embedded)
+        if (delayMs > 0 && attempt < maxRetries - 1) {
+            volatile uint32_t count = delayMs * (SystemCoreClock / 1000 / 4);
+            while (count--) {}
+        }
+    }
+
+    return status;
+}
+
+} // namespace detail
+
+// ============================================================================
 // BMI160 - 6-осевой IMU
 // ============================================================================
 
@@ -456,18 +491,34 @@ private:
 
     float accSensitivity_ = 1.0f;
     float gyrSensitivity_ = 1.0f;
-    
+
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
+
     hal::Status readRegister(uint8_t reg, uint8_t* data, size_t len) {
         if (useSPI_) {
             // SPI: CS low, read with bit 7 set
             spi_->selectDevice();
             uint8_t txData = reg | 0x80;
-            spi_->transmit({&txData, 1}, 10);
-            hal::Status status = spi_->receive({data, len}, 10);
+            hal::Status status = spi_->transmit({&txData, 1}, 10);
+            if (status == hal::Status::OK) {
+                status = spi_->receive({data, len}, 10);
+            }
             spi_->deselectDevice();
+
+            if (status != hal::Status::OK) {
+                errorCount_++;
+                if (status == hal::Status::TIMEOUT) timeoutCount_++;
+            }
             return status;
         } else {
-            return i2c_->readRegister(address_, reg, data, len, 100);
+            hal::Status status = i2c_->readRegister(address_, reg, data, len, 100);
+            if (status != hal::Status::OK) {
+                errorCount_++;
+                if (status == hal::Status::TIMEOUT) timeoutCount_++;
+            }
+            return status;
         }
     }
     
@@ -533,6 +584,28 @@ private:
         // В реальной системе использовать HAL_Delay или FreeRTOS vTaskDelay
         volatile uint32_t count = ms * (SystemCoreClock / 1000 / 4);
         while (count--) {}
+    }
+
+    // ========================================================================
+    // Health monitoring
+    // ========================================================================
+
+    /**
+     * @brief Получить количество ошибок связи
+     */
+    uint32_t getErrorCount() const { return errorCount_; }
+
+    /**
+     * @brief Получить количество timeout ошибок
+     */
+    uint32_t getTimeoutCount() const { return timeoutCount_; }
+
+    /**
+     * @brief Сбросить счётчики ошибок
+     */
+    void resetErrorCounters() {
+        errorCount_ = 0;
+        timeoutCount_ = 0;
     }
 };
 
