@@ -359,10 +359,10 @@ public:
         }
         readCount_++;
 
-        // Парсинг
-        int16_t rawX = (data[0] << 8) | data[1];
-        int16_t rawY = (data[2] << 8) | data[3];
-        uint16_t rawIntensity = (data[4] << 8) | data[5];
+        // Парсинг с защитой от signed overflow
+        int16_t rawX = static_cast<int16_t>((static_cast<uint16_t>(data[0]) << 8) | data[1]);
+        int16_t rawY = static_cast<int16_t>((static_cast<uint16_t>(data[2]) << 8) | data[3]);
+        uint16_t rawIntensity = (static_cast<uint16_t>(data[4]) << 8) | data[5];
 
         // Конвертация
         result.angleX = rawX * (3.14159f / 32768.0f);  // ±π range
@@ -391,8 +391,8 @@ public:
         if (!i2c_.readRegister(address_, REG_TEMPERATURE, data)) {
             return false;
         }
-        
-        int16_t rawTemp = (data[0] << 8) | data[1];
+
+        int16_t rawTemp = static_cast<int16_t>((static_cast<uint16_t>(data[0]) << 8) | data[1]);
         temp = rawTemp * 0.1f;  // 0.1°C per LSB
         return true;
     }

@@ -364,14 +364,19 @@ public:
     bool deserialize(const uint8_t* buffer, size_t bufferSize) {
         if (!buffer || bufferSize < 8) return false;  // Минимум: 4 header + 2 count + 2 CRC
 
-        size_t offset = 0;
+        // ПРОВЕРКА CRC ПЕРЕД ЗАПИСЬЮ ДАННЫХ
+        uint16_t storedCRC = (buffer[bufferSize - 2] << 8) | buffer[bufferSize - 1];
+        uint16_t calculatedCRC = calculateCRC16(buffer, bufferSize - 2);
+        if (storedCRC != calculatedCRC) {
+            return false;  // CRC не совпадает — данные повреждены
+        }
+
+        size_t offset = 4;  // Пропускаем header и CRC проверку
 
         // Проверка заголовка
         if (buffer[0] != 'P' || buffer[1] != 'A' || buffer[2] != 'R') {
             return false;
         }
-
-        offset = 4;
 
         // Проверка версии
         uint8_t version = buffer[3];
@@ -384,7 +389,7 @@ public:
         uint16_t count = (buffer[offset] << 8) | buffer[offset + 1];
         offset += 2;
 
-        // Загрузка значений
+        // Загрузка значений (только после проверки CRC)
         size_t dataEnd = bufferSize - 2;  // Последние 2 байта - CRC
         for (uint16_t i = 0; i < count && offset < dataEnd; i++) {
             if (offset + 2 > dataEnd) break;  // Защита от переполнения
@@ -404,13 +409,6 @@ public:
                     break;
                 }
             }
-        }
-
-        // Проверка CRC
-        uint16_t storedCRC = (buffer[bufferSize - 2] << 8) | buffer[bufferSize - 1];
-        uint16_t calculatedCRC = calculateCRC16(buffer, bufferSize - 2);
-        if (storedCRC != calculatedCRC) {
-            return false;  // CRC не совпадает
         }
 
         return true;

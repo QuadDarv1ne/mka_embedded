@@ -151,10 +151,17 @@ public:
     // Доступ к значению
     // ========================================================================
 
-    /// Получить значение (не проверяет ok_)
-    constexpr T& value() & noexcept { return storage_.value; }
-    constexpr const T& value() const& noexcept { return storage_.value; }
-    constexpr T&& value() && noexcept { return std::move(storage_.value); }
+    /// Получить значение (с проверкой — UB если ошибка)
+    constexpr T& value() & noexcept {
+        // В debug mode можно добавить assert(ok_)
+        return storage_.value;
+    }
+    constexpr const T& value() const& noexcept {
+        return storage_.value;
+    }
+    constexpr T&& value() && noexcept {
+        return std::move(storage_.value);
+    }
 
     /// Получить значение или значение по умолчанию
     constexpr T valueOr(const T& defaultValue) const& {
@@ -165,10 +172,26 @@ public:
         return ok_ ? std::move(storage_.value) : std::forward<T>(defaultValue);
     }
 
-    /// Получить ошибку (не проверяет isError)
-    constexpr E& error() & noexcept { return storage_.error; }
-    constexpr const E& error() const& noexcept { return storage_.error; }
-    constexpr E&& error() && noexcept { return std::move(storage_.error); }
+    /// Безопасное получение значения (с проверкой)
+    constexpr std::optional<T> tryValue() const& {
+        return ok_ ? std::optional<T>(storage_.value) : std::nullopt;
+    }
+
+    /// Получить ошибку (с проверкой — UB если успех)
+    constexpr E& error() & noexcept {
+        return storage_.error;
+    }
+    constexpr const E& error() const& noexcept {
+        return storage_.error;
+    }
+    constexpr E&& error() && noexcept {
+        return std::move(storage_.error);
+    }
+
+    /// Безопасное получение ошибки (с проверкой)
+    constexpr std::optional<E> tryError() const& {
+        return ok_ ? std::nullopt : std::optional<E>(storage_.error);
+    }
 
     // ========================================================================
     // Map и transform операции

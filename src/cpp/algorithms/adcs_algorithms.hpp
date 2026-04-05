@@ -276,32 +276,30 @@ public:
         float half_dt = 0.5f * dt;
         F_ = {};
 
-        // ∂q/∂q (матрица вращения)
+        // ∂q/∂q (матрица вращения) + ∂q/∂bias (комбинированная установка)
+        // Строка 0 (q0): ∂q0/∂q0=1, ∂q0/∂q1=-hdt*wx, ∂q0/∂q2=-hdt*wy, ∂q0/∂q3=-hdt*wz, ∂q0/∂bx=0.5*dt*q1
         F_[0] = 1.0f;
         F_[1] = -half_dt * wx;
         F_[2] = -half_dt * wy;
-        F_[3] = -half_dt * wz;
+        F_[3] = -half_dt * wz + 0.5f * dt * q1;  // ∂q0/∂q3 + ∂q0/∂bx
 
+        // Строка 1 (q1): ∂q1/∂q0=hdt*wx, ∂q1/∂q1=1, ∂q1/∂q2=hdt*wz, ∂q1/∂q3=-hdt*wy, ∂q1/∂by=-0.5*dt*q0
         F_[7] = half_dt * wx;
         F_[8] = 1.0f;
         F_[9] = half_dt * wz;
-        F_[10] = -half_dt * wy;
+        F_[10] = -half_dt * wy - 0.5f * dt * q0;  // ∂q1/∂q3 + ∂q1/∂by
 
+        // Строка 2 (q2): ∂q2/∂q0=hdt*wy, ∂q2/∂q1=-hdt*wz, ∂q2/∂q2=1, ∂q2/∂q3=hdt*wx, ∂q2/∂bz=-0.5*dt*q0
         F_[14] = half_dt * wy;
         F_[15] = -half_dt * wz;
         F_[16] = 1.0f;
-        F_[17] = half_dt * wx;
+        F_[17] = half_dt * wx - 0.5f * dt * q0;  // ∂q2/∂q3 + ∂q2/∂bz
 
+        // Строка 3 (q3): ∂q3/∂q0=hdt*wz, ∂q3/∂q1=hdt*wy, ∂q3/∂q2=-hdt*wx, ∂q3/∂q3=1
         F_[21] = half_dt * wz;
         F_[22] = half_dt * wy;
         F_[23] = -half_dt * wx;
         F_[24] = 1.0f;
-
-        // ∂q/∂bias (правильные производные)
-        // dq/dbias = 0.5 * dt * ∂(q⊗ω)/∂bias
-        F_[3] = 0.5f * dt * q1;   // ∂q0/∂bx
-        F_[10] = -0.5f * dt * q0; // ∂q1/∂by
-        F_[17] = -0.5f * dt * q0; // ∂q2/∂bz
 
         // ∂bias/∂bias (identity)
         F_[28] = 1.0f;
@@ -367,28 +365,50 @@ public:
         y[5] = mz - expectedMz;
 
         // Матрица Якоби H (6x7): H = ∂h/∂x
+        // Индексация row-major: H[row*7 + col]
         H_ = {};
 
-        // ∂accel/∂q
-        H_[2] = -2.0f * q2;  H_[3] = 2.0f * q1;   H_[6] = -2.0f * q0;  H_[7] = 2.0f * q3;
-        H_[8] = 2.0f * q1;   H_[9] = 2.0f * q0;   H_[12] = 2.0f * q3; H_[13] = 2.0f * q2;
-        H_[14] = 2.0f * q0;  H_[15] = -2.0f * q1; H_[18] = 2.0f * q2; H_[19] = -2.0f * q3;
+        // Строка 0: ∂ax/∂q (индексы 0-6)
+        H_[0] = -2.0f * q2;  // ∂ax/∂q0
+        H_[1] = 2.0f * q3;   // ∂ax/∂q1
+        H_[2] = -2.0f * q0;  // ∂ax/∂q2
+        H_[3] = 2.0f * q1;   // ∂ax/∂q3
+        // H_[4], H_[5], H_[6] = 0 (∂ax/∂bias)
 
-        // ∂mag/∂q
-        H_[20] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
-        H_[21] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q1;
-        H_[22] = -2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
-        H_[23] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q2;
+        // Строка 1: ∂ay/∂q (индексы 7-13)
+        H_[7] = 2.0f * q1;   // ∂ay/∂q0
+        H_[8] = 2.0f * q0;   // ∂ay/∂q1
+        H_[9] = 2.0f * q3;   // ∂ay/∂q2
+        H_[10] = 2.0f * q2;  // ∂ay/∂q3
+        // H_[11], H_[12], H_[13] = 0
 
-        H_[26] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1;
-        H_[27] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
-        H_[28] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
-        H_[29] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q2;
+        // Строка 2: ∂az/∂q (индексы 14-20)
+        H_[14] = 2.0f * q0;  // ∂az/∂q0
+        H_[15] = -2.0f * q1; // ∂az/∂q1
+        H_[16] = -2.0f * q2; // ∂az/∂q2
+        H_[17] = 2.0f * q3;  // ∂az/∂q3
+        // H_[18], H_[19], H_[20] = 0
 
-        H_[32] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
-        H_[33] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1;
-        H_[34] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q2;
-        H_[35] = -2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
+        // Строка 3: ∂mx/∂q (индексы 21-27)
+        H_[21] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
+        H_[22] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q1;
+        H_[23] = -2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
+        H_[24] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q2;
+        // H_[25], H_[26], H_[27] = 0 (∂mx/∂bias)
+
+        // Строка 4: ∂my/∂q (индексы 28-34)
+        H_[28] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1;
+        H_[29] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
+        H_[30] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
+        H_[31] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q2;
+        // H_[32], H_[33], H_[34] = 0
+
+        // Строка 5: ∂mz/∂q (индексы 35-41)
+        H_[35] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
+        H_[36] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1;
+        H_[37] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q2;
+        H_[38] = -2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
+        // H_[39], H_[40], H_[41] = 0
 
         // Kalman gain: K = P * H^T * (H * P * H^T + R)^(-1)
         computeKalmanGain();
@@ -859,19 +879,6 @@ public:
         // Пропорциональная составляющая
         float p_term = config_.kp * error;
 
-        // Интегральная составляющая с anti-windup (conditional integration)
-        // Интегрируем только если выход не насыщен
-        float outputUnclamped = p_term + config_.ki * integral_ + config_.kd * (error - prevError_) / dt;
-        float output = math::clamp(outputUnclamped, config_.outputMin, config_.outputMax);
-
-        // Conditional integration - накапливаем только если не в насыщении
-        bool notSaturated = (outputUnclamped > config_.outputMin && outputUnclamped < config_.outputMax);
-        if (notSaturated || (error >= 0 && outputUnclamped <= config_.outputMin) ||
-            (error <= 0 && outputUnclamped >= config_.outputMax)) {
-            integral_ += error * dt;
-            integral_ = math::clamp(integral_, -config_.integralLimit, config_.integralLimit);
-        }
-
         // Деривативная составляющая с фильтрацией
         float derivative = (error - prevError_) / dt;
         if (config_.derivativeFilterCoeff > 0) {
@@ -879,6 +886,18 @@ public:
                                    (derivative - filteredDerivative_);
             derivative = filteredDerivative_;
         }
+
+        // Интегральная составляющая с anti-windup (conditional integration)
+        // Интегрируем только если выход не насыщен или ошибка уменьшается
+        bool notSaturated = (integral_ > -config_.integralLimit && integral_ < config_.integralLimit);
+        if (notSaturated || (error >= 0 && integral_ < 0) || (error <= 0 && integral_ > 0)) {
+            integral_ += error * dt;
+            integral_ = math::clamp(integral_, -config_.integralLimit, config_.integralLimit);
+        }
+
+        // Вычисляем выход после обновления integral
+        float outputUnclamped = p_term + config_.ki * integral_ + config_.kd * derivative;
+        float output = math::clamp(outputUnclamped, config_.outputMin, config_.outputMax);
 
         prevError_ = error;
 

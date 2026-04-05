@@ -83,8 +83,14 @@ public:
         return data_[idx];
     }
 
-    constexpr reference front() const noexcept { return data_[0]; }
-    constexpr reference back() const noexcept { return data_[size_ - 1]; }
+    constexpr reference front() const noexcept {
+        // UB если empty() — как в std::span
+        return data_[0];
+    }
+    constexpr reference back() const noexcept {
+        // UB если empty() — как в std::span
+        return data_[size_ - 1];
+    }
     constexpr pointer data() const noexcept { return data_; }
 
     // ========================================================================
@@ -96,19 +102,23 @@ public:
     constexpr bool empty() const noexcept { return size_ == 0; }
 
     // ========================================================================
-    // Subspan операции
+    // Subspan операции (с проверками границ)
     // ========================================================================
 
     constexpr span first(size_type count) const noexcept {
-        return span(data_, count);
+        return span(data_, count <= size_ ? count : size_);
     }
 
     constexpr span last(size_type count) const noexcept {
-        return span(data_ + size_ - count, count);
+        size_type actualCount = count <= size_ ? count : size_;
+        return span(data_ + size_ - actualCount, actualCount);
     }
 
     constexpr span subspan(size_type offset, size_type count = static_cast<size_type>(-1)) const noexcept {
-        if (count == static_cast<size_type>(-1)) {
+        if (offset >= size_) {
+            return span(nullptr, 0);  // Пустой span если offset за пределами
+        }
+        if (count == static_cast<size_type>(-1) || count > size_ - offset) {
             count = size_ - offset;
         }
         return span(data_ + offset, count);

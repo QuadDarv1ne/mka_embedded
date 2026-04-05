@@ -253,11 +253,11 @@ private:
             std::array<uint8_t, 4> buf{};
             entry->onRead(buf.data(), size);
             for (size_t i = 0; i < size; ++i) {
-                data |= (buf[i] << (i * 8));
+                data |= (static_cast<uint32_t>(buf[i]) << (i * 8));
             }
         } else {
             for (size_t i = 0; i < size; ++i) {
-                data |= (entry->data[i] << (i * 8));
+                data |= (static_cast<uint32_t>(entry->data[i]) << (i * 8));
             }
         }
 

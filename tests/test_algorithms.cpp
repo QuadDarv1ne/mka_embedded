@@ -212,15 +212,16 @@ TEST(PIDController, IntegralTerm) {
     PIDController pid(config);
 
     // Интеграл: sum(error * dt)
-    // Первый вызов: integral ещё 0, output = 0
-    pid.compute(10.0f, 0.0f, 0.1f);
-    // Второй вызов: integral = 10*0.1 = 1.0, output = 1.0 * 1.0 = 1.0
+    // Первый вызов: integral = 10*0.1 = 1.0, output = 1.0 * 1.0 = 1.0
     float output = pid.compute(10.0f, 0.0f, 0.1f);
-    // Третий вызов: integral = 1.0 + 1.0 = 2.0, output = 2.0
+    // Второй вызов: integral = 1.0 + 1.0 = 2.0, output = 2.0
     float output2 = pid.compute(10.0f, 0.0f, 0.1f);
+    // Третий вызов: integral = 2.0 + 1.0 = 3.0, output = 3.0
+    float output3 = pid.compute(10.0f, 0.0f, 0.1f);
 
     EXPECT_FLOAT_EQ(output, 1.0f);
     EXPECT_FLOAT_EQ(output2, 2.0f);
+    EXPECT_FLOAT_EQ(output3, 3.0f);
 }
 
 TEST(PIDController, IntegralLimit) {

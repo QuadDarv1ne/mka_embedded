@@ -637,6 +637,109 @@
 - ✅ **SHA256** (ota_updater.cpp) — полная реализация с 64 константами и трансформацией
 - ✅ **CMakeLists.txt** — добавлен ota_updater.cpp в сборку
 
+#### Статус
+- ✅ **Коммит:** `cf20461` на ветке `dev` (локально)
+- ⚠️ **Push:** отложен (проблема с подключением к GitHub)
+- ✅ **Сборка:** проходит без ошибок и предупреждений
+- ✅ **Тесты:** 11/11 проходят (100%)
+
+---
+
+## 🔍 Глубокая проверка качества (5 апреля 2026 — ТРЕТЬЯ ИТЕРАЦИЯ)
+
+### Результаты полной проверки всех модулей
+
+#### КРИТИЧЕСКИЕ ПРОБЛЕМЫ (требуют исправления)
+
+**1. EKF — матрица F перезаписывается** (adcs_algorithms.hpp:256-278)
+- Элементы `F_[3]`, `F_[10]`, `F_[17]` устанавливаются дважды
+- Матрица Якоби некорректна — фильтр даёт неправильные результаты
+
+**2. EKF — матрица H с перемешанными индексами** (adcs_algorithms.hpp:335-339)
+- Индексация для row-major 6x7 неправильная
+- Измерения смешиваются — обновление состояния некорректно
+
+**3. PID — output не пересчитывается после anti-windup** (adcs_algorithms.hpp:810-824)
+- integral_ обновляется после вычисления output
+- Anti-windup логика не применяется к финальному выходу
+
+**4. constexpr std::sqrt** (sgp4.hpp:45)
+- `std::sqrt` не является constexpr в C++17
+- Ошибка компиляции на строгих компиляторах
+
+**5. Сдвиги без static_cast<uint32_t>** (canopen.hpp:269, 271)
+- `buf[i] << 24` — потенциальное UB при signed integer overflow
+
+**6. param_store.hpp — запись до проверки CRC** (param_store.hpp:276-284)
+- Данные записываются в values_ до проверки CRC
+- Повреждённые данные применяются к состоянию
+
+**7. Integer overflow в EEPROM** (eeprom_driver.hpp:110)
+- `address + data.size()` может переполниться uint16_t
+
+**8. Signed конвертация в sun_sensor** (sun_sensor.hpp:270, 292)
+- `data[0] << 8` при `data[0] >= 0x80` — implementation-defined поведение
+
+**9. Timer callback пустой** (freertos_wrapper.hpp:340)
+- Пользовательский callback никогда не вызывается
+
+**10. Buffer overflow в FreeRTOS wrapper** (freertos_wrapper.hpp:160-161, 236, 256, 272, 292)
+- Placeholder буферы не проверены через static_assert
+- Если реальные структуры больше — buffer overflow
+
+**11. Bitwise copy для нетривиальных типов** (callback.hpp:207-213)
+- Побайтовое копирование не вызывает конструктор копирования
+- Для лямбд с std::string — double-free
+
+**12. value()/error() без проверки** (result.hpp:138-151)
+- Доступ к неактивному члену union — UB
+- Нет assert или std::terminate
+
+**13. front()/back() на пустом span** (span.hpp:89-90)
+- Разыменование nullptr — UB
+- `size_ - 1` при size_=0 — переполнение
+
+### СРЕДНИЕ ПРОБЛЕМЫ (требуют внимания)
+
+**Драйверы:**
+- BMI160, LIS3MDL, LSM6DSO — игнорирование результатов записи при инициализации
+- BMP388 — потенциальное деление на ноль в компенсации давления
+- GPS — целочисленное переполнение при парсинге координат
+- Radio — бесконечный цикл при getTickMs() = 0
+- Все драйверы — отсутствие thread-safety
+
+**Системные модули:**
+- telemetry.hpp — strict aliasing violation при сериализации float/double
+- file_system.hpp — FileHandle::close() не декрементирует счётчик
+- watchdog_manager.hpp — getTickMs() = 0, watchdog не работает
+- fdir.hpp — callback с неправильным threshold
+- state_machine.hpp — нет debounce для температуры
+
+**Алгоритмы:**
+- UKF — diagonal approximation matrix inverse (стр. 1633)
+- SGP4 — все методы заглушки
+- AnomalyDetector — все методы заглушки
+
+### ПЛАН ИСПРАВЛЕНИЙ (ТРЕТЬЯ ИТЕРАЦИЯ)
+
+**Приоритет 1 — Критические баги алгоритмов:**
+1. Исправить матрицу F в EKF
+2. Исправить индексы матрицы H в EKF
+3. Исправить PID anti-windup
+4. Исправить constexpr std::sqrt
+
+**Приоритет 2 — Безопасность данных:**
+5. Исправить param_store — проверка CRC до записи
+6. Исправить integer overflow в EEPROM
+7. Исправить signed конвертацию в sun_sensor
+8. Исправить сдвиги в canopen
+
+**Приоритет 3 — Утилиты:**
+9. Исправить result.hpp — проверка в value()/error()
+10. Исправить span.hpp — проверка в front()/back()
+11. Исправить callback.hpp — проверка bitwise copy
+12. Добавить static_assert в freertos_wrapper.hpp
+
 ---
 
 ## 🔍 Аудит качества кода (5 апреля 2026)

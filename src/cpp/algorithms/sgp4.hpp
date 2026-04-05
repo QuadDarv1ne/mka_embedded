@@ -38,9 +38,10 @@ namespace Constants {
     constexpr double J4 = -1.65597e-6;          // Четвёртый зональный коэффициент
 
     // Производные константы
-    constexpr double XKE = std::sqrt(MU_EARTH / (R_EARTH * R_EARTH * R_EARTH));
-    constexpr double CK2 = 0.5 * J2 * R_EARTH * R_EARTH;
-    constexpr double CK4 = -0.375 * J4 * R_EARTH * R_EARTH * R_EARTH * R_EARTH;
+    // Примечание: std::sqrt не constexpr в C++17, вычисляем при инициализации
+    static inline const double XKE = std::sqrt(MU_EARTH / (R_EARTH * R_EARTH * R_EARTH));
+    static inline const double CK2 = 0.5 * J2 * R_EARTH * R_EARTH;
+    static inline const double CK4 = -0.375 * J4 * R_EARTH * R_EARTH * R_EARTH * R_EARTH;
 }
 
 // ============================================================================

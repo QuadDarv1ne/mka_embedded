@@ -97,17 +97,19 @@ public:
      * @brief Чтение массива данных
      */
     bool read(uint16_t address, std::span<uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow: используем безопасную проверку
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
         return i2c_.read(address_, address, data);
     }
-    
+
     /**
      * @brief Запись массива данных (с учётом границ страниц)
      */
     bool write(uint16_t address, std::span<const uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
         
@@ -293,7 +295,8 @@ public:
      * @brief Чтение массива данных
      */
     bool read(uint16_t address, std::span<uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
 
@@ -319,7 +322,8 @@ public:
      * @brief Быстрое чтение (с dummy byte)
      */
     bool fastRead(uint16_t address, std::span<uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
 
@@ -345,7 +349,8 @@ public:
      * @brief Запись массива данных
      */
     bool write(uint16_t address, std::span<const uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
 
