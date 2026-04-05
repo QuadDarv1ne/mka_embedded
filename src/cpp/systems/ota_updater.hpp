@@ -283,6 +283,39 @@ private:
     static bool tableInitialized;
 };
 
+// Inline реализации CRC32
+inline void CRC32::initTable() {
+    if (tableInitialized) return;
+    const uint32_t polynomial = 0xEDB88320;
+    for (uint32_t i = 0; i < 256; i++) {
+        uint32_t crc = i;
+        for (int j = 0; j < 8; j++) {
+            crc = (crc >> 1) ^ ((crc & 1) ? polynomial : 0);
+        }
+        table[i] = crc;
+    }
+    tableInitialized = true;
+}
+
+inline uint32_t CRC32::calculate(const void* data, size_t size) {
+    initTable();
+    const uint8_t* bytes = static_cast<const uint8_t*>(data);
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t i = 0; i < size; i++) {
+        uint8_t index = (crc ^ bytes[i]) & 0xFF;
+        crc = (crc >> 8) ^ table[index];
+    }
+    return crc ^ 0xFFFFFFFF;
+}
+
+inline bool CRC32::verify(const void* data, size_t size, uint32_t expected) {
+    return calculate(data, size) == expected;
+}
+
+// Статические члены CRC32
+inline uint32_t CRC32::table[256] = {0};
+inline bool CRC32::tableInitialized = false;
+
 // ============================================================================
 // SHA256 (simplified interface)
 // ============================================================================
@@ -290,10 +323,8 @@ private:
 /**
  * @brief SHA256 hash calculation
  *
- * Note: Full implementation is large. For production use, consider:
- * - mbedTLS
- * - WolfSSL
- * - TinyCrypt
+ * Упрощённая реализация для OTA проверок.
+ * Для production использования рекомендуется mbedTLS или WolfSSL.
  */
 class SHA256 {
 public:
@@ -309,7 +340,12 @@ public:
         const void* data,
         size_t size,
         const uint8_t* expected  // SHA256_SIZE bytes
-    );
+    ) {
+        uint8_t hash[SHA256_SIZE];
+        auto result = calculate(data, size, hash);
+        if (!result.hasValue()) return false;
+        return std::memcmp(hash, expected, SHA256_SIZE) == 0;
+    }
 };
 
 // ============================================================================

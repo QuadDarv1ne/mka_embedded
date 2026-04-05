@@ -70,6 +70,7 @@ struct TLE {
     double meanMotion = 0.0;        // Среднее движение [rev/day]
     int orbitNumber = 0;            // Номер витка на эпоху
 };
+static_assert(sizeof(TLE) >= 96, "TLE structure must be large enough");
 
 /// Положение и скорость спутника
 struct ECIState {
@@ -91,16 +92,17 @@ struct ECIState {
         return std::sqrt(x*x + y*y + z*z);
     }
 
-    /// Получить высоту над поверхностью Земли [km]
-    double altitude() const {
-        return radius() - Constants::R_EARTH;
-    }
-
     /// Получить скорость [km/s]
     double velocity() const {
         return std::sqrt(vx*vx + vy*vy + vz*vz);
     }
+
+    /// Получить высоту над поверхностью Земли [km]
+    double altitude() const {
+        return radius() - Constants::R_EARTH;
+    }
 };
+static_assert(sizeof(ECIState) == 112, "ECIState must be 112 bytes (14 doubles)");
 
 /// Географические координаты (LLA)
 struct LLACoords {

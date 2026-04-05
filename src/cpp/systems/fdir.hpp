@@ -198,12 +198,15 @@ struct ParameterStats {
     
     void update(float value) {
         // Онлайн алгоритм Welford для дисперсии
+        // Защита от невалидного count
+        if (count == UINT32_MAX) return;  // Переполнение счётчика
+        
         count++;
         float delta = value - mean;
-        mean += delta / count;
+        mean += delta / count;  // count >= 1, деление безопасно
         float delta2 = value - mean;
         variance += delta * delta2;
-        
+
         if (value < min || count == 1) min = value;
         if (value > max || count == 1) max = value;
     }

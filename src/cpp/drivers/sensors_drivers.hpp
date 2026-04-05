@@ -88,6 +88,7 @@ struct GPSData {
     uint8_t second;
     uint64_t timestamp;
 };
+static_assert(sizeof(GPSData) == 56, "GPSData must be 56 bytes");
 
 /// Данные солнечного датчика
 struct SunSensorData {

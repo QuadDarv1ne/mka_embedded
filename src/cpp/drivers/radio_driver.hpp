@@ -138,6 +138,7 @@ struct RadioPacket {
     int8_t snr;
     std::array<uint8_t, 256> data;
 };
+static_assert(sizeof(RadioPacket) == 260, "RadioPacket must be 260 bytes");
 
 // ============================================================================
 // Интерфейс SPI (абстракция)

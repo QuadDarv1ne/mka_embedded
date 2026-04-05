@@ -78,7 +78,7 @@ struct Quaternion {
             z *= inv_norm;
         }
     }
-    
+
     // Сопряжение
     Quaternion conjugate() const {
         return Quaternion(w, -x, -y, -z);
@@ -124,6 +124,7 @@ struct Quaternion {
         return angles;
     }
 };
+static_assert(sizeof(Quaternion) == 16, "Quaternion must be 16 bytes (4 floats)");
 
 // ============================================================================
 // Extended Kalman Filter (EKF) для оценки ориентации
