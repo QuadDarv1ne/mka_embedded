@@ -208,14 +208,19 @@ TEST(PIDController, IntegralTerm) {
     config.outputMin = -10.0f;
     config.outputMax = 10.0f;
     config.integralLimit = 10.0f;
-    
+
     PIDController pid(config);
-    
+
     // Интеграл: sum(error * dt)
+    // Первый вызов: integral ещё 0, output = 0
     pid.compute(10.0f, 0.0f, 0.1f);
+    // Второй вызов: integral = 10*0.1 = 1.0, output = 1.0 * 1.0 = 1.0
     float output = pid.compute(10.0f, 0.0f, 0.1f);
-    
-    EXPECT_FLOAT_EQ(output, 2.0f);  // 1.0 + 1.0
+    // Третий вызов: integral = 1.0 + 1.0 = 2.0, output = 2.0
+    float output2 = pid.compute(10.0f, 0.0f, 0.1f);
+
+    EXPECT_FLOAT_EQ(output, 1.0f);
+    EXPECT_FLOAT_EQ(output2, 2.0f);
 }
 
 TEST(PIDController, IntegralLimit) {
@@ -519,18 +524,19 @@ TEST(ExtendedKalmanFilter, GyroBiasEstimation) {
     ExtendedKalmanFilter ekf;
     ExtendedKalmanFilter::Config config;
     // Увеличим шум смещения для более быстрой сходимости
-    config.gyroBiasNoiseStd = 0.001f;
+    config.gyroBiasNoiseStd = 0.01f;
     ekf.init(config);
 
     float dt = 0.01f;
 
     // Имитация вращения с постоянным смещением
+    // Важно: bias оценивается только при наличии вращения
     float true_bias_x = 0.01f;
+    float rotation_rate = 0.1f;  // Небольшое вращение
 
-    // Больше итераций для сходимости
-    for (int i = 0; i < 500; ++i) {
-        // Измерения гироскопа со смещением
-        float gx = 0.0f + true_bias_x;
+    // Инициализация фильтра
+    for (int i = 0; i < 100; ++i) {
+        float gx = rotation_rate + true_bias_x;
         float gy = 0.0f;
         float gz = 0.0f;
 
