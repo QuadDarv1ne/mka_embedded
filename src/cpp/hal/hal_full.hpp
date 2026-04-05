@@ -31,9 +31,6 @@ static_assert(sizeof(uint16_t) == 2, "uint16_t must be 2 bytes");
 static_assert(sizeof(uint32_t) == 4, "uint32_t must be 4 bytes");
 static_assert(sizeof(uint64_t) == 8, "uint64_t must be 8 bytes");
 
-// Проверка размеров Status enum (должен быть 1 байт)
-static_assert(sizeof(Status) == 1, "Status must be 1 byte for efficient packing");
-
 // ============================================================================
 // HAL Configuration Constants
 // ============================================================================
@@ -61,6 +58,9 @@ enum class Status : uint8_t {
     CRC_ERROR = 7,
     NOT_SUPPORTED = 8
 };
+
+// Проверка размеров Status enum (должен быть 1 байт)
+static_assert(sizeof(Status) == 1, "Status must be 1 byte for efficient packing");
 
 /// Режим энергопотребления
 enum class PowerMode : uint8_t {
@@ -280,7 +280,7 @@ public:
     virtual void resetStatistics() = 0;
 
     /// Передача с автоматической повторной попыткой
-    default Status transmitWithRetry(std::span<const uint8_t> data,
+    virtual Status transmitWithRetry(std::span<const uint8_t> data,
                                      uint32_t timeoutMs,
                                      uint8_t maxRetries = 3) {
         uint8_t attempts = 0;
@@ -303,7 +303,7 @@ public:
     }
 
     /// Приём с автоматической повторной попыткой
-    default Status receiveWithRetry(std::span<uint8_t> buffer,
+    virtual Status receiveWithRetry(std::span<uint8_t> buffer,
                                     uint32_t timeoutMs,
                                     size_t& received,
                                     uint8_t maxRetries = 3) {
@@ -422,7 +422,7 @@ public:
     virtual SPIStatistics getStatistics() const = 0;
 
     /// Передача с автоматической обработкой переполнения FIFO
-    default Status transferWithRetry(std::span<const uint8_t> txData,
+    virtual Status transferWithRetry(std::span<const uint8_t> txData,
                                      std::span<uint8_t> rxData,
                                      uint32_t timeoutMs,
                                      uint8_t maxRetries = 3) {
@@ -448,7 +448,7 @@ public:
     }
 
     /// Приём с автоматической обработкой переполнения FIFO
-    default Status receiveWithRetry(std::span<uint8_t> data,
+    virtual Status receiveWithRetry(std::span<uint8_t> data,
                                     uint32_t timeoutMs,
                                     uint8_t maxRetries = 3) {
         uint8_t attempts = 0;
@@ -548,7 +548,7 @@ public:
     virtual I2CStatistics getStatistics() const = 0;
 
     /// Запись в регистр с автоматической повторной попыткой
-    default Status writeRegisterWithRetry(uint8_t devAddress,
+    virtual Status writeRegisterWithRetry(uint8_t devAddress,
                                           uint8_t regAddress,
                                           std::span<const uint8_t> data,
                                           uint32_t timeoutMs,
@@ -562,7 +562,7 @@ public:
             }
             
             // Попытка восстановления шины при ошибке
-            if (status == Status::BUS || status == Status::TIMEOUT) {
+            if (status == Status::BUSY || status == Status::TIMEOUT) {
                 recoverBus();
                 attempts++;
                 continue;
@@ -574,7 +574,7 @@ public:
     }
 
     /// Чтение из регистра с автоматической повторной попыткой
-    default Status readRegisterWithRetry(uint8_t devAddress,
+    virtual Status readRegisterWithRetry(uint8_t devAddress,
                                          uint8_t regAddress,
                                          std::span<uint8_t> data,
                                          uint32_t timeoutMs,
@@ -587,7 +587,7 @@ public:
                 return Status::OK;
             }
             
-            if (status == Status::BUS || status == Status::TIMEOUT) {
+            if (status == Status::BUSY || status == Status::TIMEOUT) {
                 recoverBus();
                 attempts++;
                 continue;
