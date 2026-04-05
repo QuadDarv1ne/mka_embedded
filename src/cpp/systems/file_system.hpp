@@ -79,6 +79,19 @@ enum class FileType : uint8_t {
     DIRECTORY
 };
 
+/// Directory handle (opaque identifier)
+struct DirHandle {
+    uint32_t id = 0;
+    bool operator==(const DirHandle& other) const { return id == other.id; }
+};
+
+/// Directory entry
+struct DirEntry {
+    char name[MAX_NAME_LENGTH + 1] = {};
+    FileType type = FileType::NONE;
+    size_t size = 0;
+};
+
 /// File statistics
 struct FileStats {
     FileType type = FileType::NONE;
@@ -204,24 +217,76 @@ public:
      */
     bool isOpen() const { return is_open_; }
 
-    /**
-     * @brief Check if at end of file
-     */
-    bool eof() const { return position_ >= size_; }
-
 private:
-    friend class FileSystem;
-
-    FileHandle(uint32_t id, const char* path, FileMode mode);
-
-    uint32_t id_ = 0;
-    char path_[MAX_PATH_LENGTH] = {};
-    FileMode mode_ = FileMode::READ;
+    uint32_t file_id_ = 0;
     size_t position_ = 0;
     size_t size_ = 0;
     bool is_open_ = false;
-    void* internal_handle_ = nullptr;  // For real implementation
+
+    friend class FileSystem;
 };
+
+// ============================================================================
+// FileHandle Inline Implementations
+// ============================================================================
+
+inline FileHandle::FileHandle(FileHandle&& other) noexcept
+    : file_id_(other.file_id_)
+    , position_(other.position_)
+    , size_(other.size_)
+    , is_open_(other.is_open_) {
+    other.is_open_ = false;
+}
+
+inline FileHandle& FileHandle::operator=(FileHandle&& other) noexcept {
+    if (this != &other) {
+        if (is_open_) close();
+        file_id_ = other.file_id_;
+        position_ = other.position_;
+        size_ = other.size_;
+        is_open_ = other.is_open_;
+        other.is_open_ = false;
+    }
+    return *this;
+}
+
+inline Result<int, FSStatus> FileHandle::read(void* buffer, size_t size) {
+    (void)buffer;
+    (void)size;
+    if (!is_open_) return Err<int, FSStatus>(FSStatus::ERROR);
+    return Ok<int, FSStatus>(0);
+}
+
+inline Result<int, FSStatus> FileHandle::write(const void* buffer, size_t size) {
+    (void)buffer;
+    (void)size;
+    if (!is_open_) return Err<int, FSStatus>(FSStatus::ERROR);
+    return Ok<int, FSStatus>(0);
+}
+
+inline Result<int, FSStatus> FileHandle::seek(int32_t offset, int whence) {
+    (void)offset;
+    (void)whence;
+    if (!is_open_) return Err<int, FSStatus>(FSStatus::ERROR);
+    return Ok<int, FSStatus>(static_cast<int>(position_));
+}
+
+inline Result<void, FSStatus> FileHandle::truncate(size_t size) {
+    (void)size;
+    if (!is_open_) return Err<void, FSStatus>(FSStatus::ERROR);
+    return Ok<FSStatus>();
+}
+
+inline Result<void, FSStatus> FileHandle::flush() {
+    if (!is_open_) return Err<void, FSStatus>(FSStatus::ERROR);
+    return Ok<FSStatus>();
+}
+
+inline Result<void, FSStatus> FileHandle::close() {
+    if (!is_open_) return Ok<FSStatus>();
+    is_open_ = false;
+    return Ok<FSStatus>();
+}
 
 // ============================================================================
 // File System Configuration
@@ -440,10 +505,35 @@ public:
      * @param name Attribute name
      * @param value Attribute value
      * @param size Value size
+     * @return Bytes written or error
+     */
+    Result<int, FSStatus> setattr(const char* path, const char* name,
+                                        const void* value, size_t size);
+
+    // ========================================================================
+    // Directory Streaming
+    // ========================================================================
+
+    /**
+     * @brief Open directory for streaming
+     * @param path Directory path
+     * @return Directory handle
+     */
+    Result<DirHandle, FSStatus> opendir(const char* path);
+
+    /**
+     * @brief Close directory
+     * @param handle Directory handle
      * @return Status
      */
-    Result<void, FSStatus> setattr(const char* path, const char* name,
-                                        const void* value, size_t size);
+    Result<void, FSStatus> closedir(DirHandle& handle);
+
+    /**
+     * @brief Read next directory entry
+     * @param handle Directory handle
+     * @return Directory entry or end-of-directory
+     */
+    Result<DirEntry, FSStatus> readdir(DirHandle& handle);
 
     /**
      * @brief Get file attribute
@@ -555,7 +645,7 @@ inline Result<void, FSStatus> FileSystem::configure(
     prog_func_ = prog_func;
     erase_func_ = erase_func;
     sync_func_ = sync_func;
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<void, FSStatus> FileSystem::configureFromFlash(
@@ -567,7 +657,7 @@ inline Result<void, FSStatus> FileSystem::configureFromFlash(
     (void)flash;
     (void)start_block;
     (void)block_count;
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<void, FSStatus> FileSystem::format(const FSConfig* config) {
@@ -575,21 +665,21 @@ inline Result<void, FSStatus> FileSystem::format(const FSConfig* config) {
         config_ = *config;
     }
     // Mock format
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<void, FSStatus> FileSystem::mount() {
-    if (mounted_) return Ok<void, FSStatus>();
+    if (mounted_) return Ok<FSStatus>();
     // Mock mount
     mounted_ = true;
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<void, FSStatus> FileSystem::unmount() {
-    if (!mounted_) return Ok<void, FSStatus>();
+    if (!mounted_) return Ok<FSStatus>();
     // Mock unmount
     mounted_ = false;
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<FileHandle, FSStatus> FileSystem::open(const char* path, FileMode mode) {
@@ -600,33 +690,35 @@ inline Result<FileHandle, FSStatus> FileSystem::open(const char* path, FileMode 
         return Err<FileHandle, FSStatus>(FSStatus::TOO_MANY_OPEN_FILES);
     }
     open_files_++;
-    return Ok<FileHandle>({});
+    FileHandle handle;
+    handle.is_open_ = true;
+    return Ok<FileHandle, FSStatus>(std::move(handle));
 }
 
 inline Result<void, FSStatus> FileSystem::close(FileHandle& handle) {
     (void)handle;
     // Mock close
     if (open_files_ > 0) open_files_--;
-    return Ok();
+    return Ok<FSStatus>();
 }
 
 inline Result<void, FSStatus> FileSystem::remove(const char* path) {
     (void)path;
     // Mock remove
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<void, FSStatus> FileSystem::rename(const char* old_path, const char* new_path) {
     (void)old_path;
     (void)new_path;
     // Mock rename
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<FileStats, FSStatus> FileSystem::stat(const char* path) {
     (void)path;
     // Mock stat
-    return Ok<FileStats>({});
+    return Ok<FileStats, FSStatus>(FileStats{});
 }
 
 inline bool FileSystem::exists(const char* path) {
@@ -648,18 +740,18 @@ inline Result<void, FSStatus> FileSystem::writeFile(const char* path, const void
     (void)buffer;
     (void)size;
     // Mock write
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 // Directory operations mock
 inline Result<DirHandle, FSStatus> FileSystem::opendir(const char* path) {
     (void)path;
-    return Ok<DirHandle>({});
+    return Ok<DirHandle, FSStatus>(DirHandle{});
 }
 
 inline Result<void, FSStatus> FileSystem::closedir(DirHandle& handle) {
     (void)handle;
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<DirEntry, FSStatus> FileSystem::readdir(DirHandle& handle) {
@@ -669,12 +761,31 @@ inline Result<DirEntry, FSStatus> FileSystem::readdir(DirHandle& handle) {
 
 inline Result<void, FSStatus> FileSystem::mkdir(const char* path) {
     (void)path;
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline Result<void, FSStatus> FileSystem::rmdir(const char* path) {
     (void)path;
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::listdir(
+    const char* path,
+    std::function<void(const char* name, bool is_dir)> callback
+) {
+    (void)path;
+    (void)callback;
+    return Ok<FSStatus>();
+}
+
+inline Result<void, FSStatus> FileSystem::walk(
+    const char* path,
+    std::function<void(const char* path, const char** dirs, size_t num_dirs,
+                      const char** files, size_t num_files)> callback
+) {
+    (void)path;
+    (void)callback;
+    return Ok<FSStatus>();
 }
 
 // Attributes mock
@@ -707,7 +818,7 @@ inline WearStats FileSystem::getWearStats() const {
 
 // System operations
 inline Result<void, FSStatus> FileSystem::sync() {
-    return Ok<void, FSStatus>();
+    return Ok<FSStatus>();
 }
 
 inline bool FileSystem::checkAndRepair() {

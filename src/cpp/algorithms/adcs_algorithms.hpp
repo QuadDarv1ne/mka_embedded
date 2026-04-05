@@ -959,15 +959,16 @@ public:
             const Quaternion& currentQuat,
             const std::array<float, 3>& omega,
             float dt) {
-        
+        (void)dt; // Reserved for future rate limiting dynamics
+
         // Ограничение угловой скорости
         std::array<float, 3> omegaLimited = omega;
         for (int i = 0; i < 3; ++i) {
-            omegaLimited[i] = math::clamp(omegaLimited[i], 
-                                          -config_.maxOmega, 
+            omegaLimited[i] = math::clamp(omegaLimited[i],
+                                          -config_.maxOmega,
                                           config_.maxOmega);
         }
-        
+
         return compute(targetQuat, currentQuat, omegaLimited);
     }
 
@@ -1221,14 +1222,17 @@ inline void example_adcs_usage() {
         Quaternion currentQuat = ekf.getQuaternion();
 
         // Получение оценки смещения гироскопа из EKF
+        // Используется для компенсации дрейфа гироскопа
         auto gyroBias = ekf.getGyroBias();
-        // Можно использовать для компенсации: gx_compensated = gx - gyroBias[0]
+        float gx_compensated = gx - gyroBias[0];
+        float gy_compensated = gy - gyroBias[1];
+        float gz_compensated = gz - gyroBias[2];
 
         // Целевая ориентация (например, наведение на Землю)
         Quaternion targetQuat(1, 0, 0, 0);  // Identity
 
-        // Вычисление управления
-        std::array<float, 3> omega = {gx, gy, gz};
+        // Вычисление управления с компенсированными значениями
+        std::array<float, 3> omega = {gx_compensated, gy_compensated, gz_compensated};
         attController.compute(targetQuat, currentQuat, omega, dt);
 
         // Применение к маховикам...
@@ -1566,8 +1570,7 @@ private:
 
         // Предсказание направления гравитации в body frame
         // g_body = q* ⊗ [0,0,0,1] ⊗ q (гравитация направлена вниз в NED)
-        float gz[3];
-        q.rotateVector(0.0f, 0.0f, 1.0f, gz[0], gz[1], gz[2]);
+        auto gz = q.rotateVector({0.0f, 0.0f, 1.0f});
         measurement[0] = gz[0];
         measurement[1] = gz[1];
         measurement[2] = gz[2];
@@ -1576,8 +1579,7 @@ private:
         // Предполагаем магнитное поле в NED: [magN, 0, magD]
         constexpr float magN = 0.27f;  // Северная компонента (примерно для средней широты)
         constexpr float magD = 0.45f;  // Вертикальная компонента
-        float magBody[3];
-        q.rotateVector(magN, 0.0f, magD, magBody[0], magBody[1], magBody[2]);
+        auto magBody = q.rotateVector({magN, 0.0f, magD});
         measurement[3] = magBody[0];
         measurement[4] = magBody[1];
         measurement[5] = magBody[2];
@@ -1705,6 +1707,7 @@ private:
      * @brief Матричное умножение с транспонированием второй матрицы: C = A * B^T
      */
     void matrixMultiplyT2(float* C, const float* A, const float* B, int m, int n, int p) {
+        (void)p; // Используется только для документации, фактически m x m результат
         for (int i = 0; i < m * m; i++) C[i] = 0.0f;
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < m; j++) {

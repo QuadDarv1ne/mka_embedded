@@ -523,16 +523,24 @@ private:
     }
     
     hal::Status writeRegister(uint8_t reg, const uint8_t* data, size_t len) {
+        hal::Status status;
         if (useSPI_) {
             spi_->selectDevice();
             uint8_t txData = reg & 0x7F;
-            spi_->transmit({&txData, 1}, 10);
-            hal::Status status = spi_->transmit({data, len}, 10);
+            status = spi_->transmit({&txData, 1}, 10);
+            if (status == hal::Status::OK) {
+                status = spi_->transmit({data, len}, 10);
+            }
             spi_->deselectDevice();
-            return status;
         } else {
-            return i2c_->writeRegister(address_, reg, data, len, 100);
+            status = i2c_->writeRegister(address_, reg, data, len, 100);
         }
+        
+        if (status != hal::Status::OK) {
+            errorCount_++;
+            if (status == hal::Status::TIMEOUT) timeoutCount_++;
+        }
+        return status;
     }
     
     void writeCommand(uint8_t cmd) {
@@ -2082,10 +2090,11 @@ public:
     /**
      * @brief Получить количество образцов в FIFO
      */
-    uint16_t getFIFOLevel() const {
+    uint16_t getFIFOLevel() {
         uint8_t status[2];
-        const_cast<LSM6DSODriver*>(this)->readRegister(
-            Register::FIFO_STATUS1, status, 2);
+        if (readRegister(Register::FIFO_STATUS1, status, 2) != hal::Status::OK) {
+            return 0;
+        }
         return status[0] | ((status[1] & 0x3F) << 8);
     }
 

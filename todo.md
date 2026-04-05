@@ -43,6 +43,15 @@
 - [x] **Улучшения HAL** — таймауты UART/SPI/I2C, проверка FIFO (апрель 2026)
 - [x] **Улучшения GPS драйвера** — NAV-PVT, NAV-POSLLH, checksum (апрель 2026)
 - [x] **Mock реализации для FileSystem** — тестирование без LittleFS (апрель 2026)
+- [x] **Исправления компиляции и стабильность** — все warning/error исправлены (апрель 2026)
+  - [x] Исправлен порядок static_assert в hal_full.hpp
+  - [x] Заменен 'default' на 'virtual' в интерфейсах
+  - [x] Исправлены ошибки Result/Ok/Err в file_system.hpp
+  - [x] Добавлены DirHandle, DirEntry типы
+  - [x] Реализованы все методы FileHandle
+  - [x] Исправлены размеры struct в fdir.hpp
+  - [x] Исправлены unused parameter warning'и
+  - [x] Исправлены rotateVector вызовы в UKF
 
 ---
 

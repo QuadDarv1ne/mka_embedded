@@ -162,8 +162,8 @@ struct CompactEventLogEntry {
     }
 };
 
-// Валидация: 4 + 2 + 1 + 1 + 1 + 1 + 1 = 11 байт (экономия 31% по сравнению с 16)
-static_assert(sizeof(CompactEventLogEntry) == 11, "CompactEventLogEntry must be 11 bytes");
+// Валидация: 4 + 2 + 1 + 1 + 1 + 1 + 1 = 11 байт, но с выравниванием 12
+static_assert(sizeof(CompactEventLogEntry) == 12, "CompactEventLogEntry must be 12 bytes");
 
 /// Конфигурация монитора параметра
 struct ParameterConfig {
@@ -179,8 +179,8 @@ struct ParameterConfig {
     uint8_t parameterId;        // Идентификатор параметра
 };
 
-// Валидация: 8 x 4 + 2 + 1 + 1 = 36 байт
-static_assert(sizeof(ParameterConfig) == 36, "ParameterConfig must be 36 bytes");
+// Валидация: 7 x 4 + 2 + 1 + 1 = 32 байта (с выравниванием)
+static_assert(sizeof(ParameterConfig) == 32, "ParameterConfig must be 32 bytes");
 static_assert(offsetof(ParameterConfig, nominalValue) == 0, "nominalValue should be first");
 
 /// Статистика параметра для детектора аномалий
@@ -375,6 +375,7 @@ public:
      * @param timestamp Время события
      */
     void checkMLAnomaly(const std::vector<float>& telemetry, uint32_t timestamp) {
+        (void)timestamp; // Reserved for future event timestamping
         if (!mlEnabled_ || !mlDetector_.isReady()) return;
 
         auto result = mlDetector_.detect(telemetry);
