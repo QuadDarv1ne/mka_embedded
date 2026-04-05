@@ -757,26 +757,55 @@ public:
         float& q3 = quaternion_.z;
 
         // Справочные направления (Earth frame)
-        float h_x = 2.0f * mx * (0.5f - q2*q2 - q3*q3) + 2.0f * my * (q1*q2 - q0*q3)
+        float b_x = 2.0f * mx * (0.5f - q2*q2 - q3*q3) + 2.0f * my * (q1*q2 - q0*q3)
                   + 2.0f * mz * (q1*q3 + q0*q2);
-        float h_y = 2.0f * mx * (q1*q2 + q0*q3) + 2.0f * my * (0.5f - q1*q1 - q3*q3)
+        float b_y = 2.0f * mx * (q1*q2 + q0*q3) + 2.0f * my * (0.5f - q1*q1 - q3*q3)
                   + 2.0f * mz * (q2*q3 - q0*q1);
+        float b_z = 2.0f * mx * (q1*q3 - q0*q2) + 2.0f * my * (q2*q3 + q0*q1)
+                  + 2.0f * mz * (0.5f - q1*q1 - q2*q2);
 
-        // Нормализация горизонтальных компонент магнитного поля
-        float h_xy_norm = std::sqrt(h_x * h_x + h_y * h_y);
-        if (h_xy_norm < 1e-6f) {
-            h_xy_norm = 1e-6f;  // Защита от деления на ноль
+        // Ошибка между измеренными и ожидаемыми направлениями
+        float v_x = 2.0f * b_z * (q1*q3 - q0*q2) - 2.0f * b_y * (0.5f - q1*q1 - q3*q3)
+                  - 2.0f * b_x * (q1*q2 + q0*q3) - ax;
+        float v_y = 2.0f * b_x * (0.5f - q2*q2 - q3*q3) + 2.0f * b_z * (q0*q1 + q2*q3)
+                  - 2.0f * b_y * (q2*q3 - q0*q1) - ay;
+        float v_z = 2.0f * b_x * (q1*q2 - q0*q3) + 2.0f * b_y * (q0*q1 + q2*q3)
+                  + 2.0f * b_z * (0.5f - q1*q1 - q2*q2) - az;
+
+        // Градиент (Jacobian transpose * error)
+        float grad_x = -2.0f * q2 * v_x + 2.0f * q1 * v_y - 2.0f * q0 * v_z;
+        float grad_y = -2.0f * q3 * v_x + 2.0f * q0 * v_y + 2.0f * q1 * v_z;
+        float grad_z = -2.0f * q0 * v_x - 2.0f * q3 * v_y + 2.0f * q2 * v_z;
+        float grad_w = -2.0f * q1 * v_x + 2.0f * q2 * v_y + 2.0f * q3 * v_z;
+
+        // Нормализация градиента
+        float grad_norm = std::sqrt(grad_w*grad_w + grad_x*grad_x + grad_y*grad_y + grad_z*grad_z);
+        if (grad_norm > 1e-6f) {
+            float inv_norm = 1.0f / grad_norm;
+            grad_w *= inv_norm;
+            grad_x *= inv_norm;
+            grad_y *= inv_norm;
+            grad_z *= inv_norm;
         }
 
-        // Градиентный спуск (упрощённый)
-        // ... (полная реализация опущена для краткости)
-        
-        // Интегрирование
-        q0 += (-q1 * gx - q2 * gy - q3 * gz) * (0.5f * dt);
-        q1 += (q0 * gx + q2 * gz - q3 * gy) * (0.5f * dt);
-        q2 += (q0 * gy - q1 * gz + q3 * gx) * (0.5f * dt);
-        q3 += (q0 * gz + q1 * gy - q2 * gx) * (0.5f * dt);
-        
+        // Применение коррекции с коэффициентом beta
+        float q0_corr = q0 - beta_ * grad_w * dt;
+        float q1_corr = q1 - beta_ * grad_x * dt;
+        float q2_corr = q2 - beta_ * grad_y * dt;
+        float q3_corr = q3 - beta_ * grad_z * dt;
+
+        // Сохраняем старые значения для интегрирования гироскопа
+        float q0_old = q0;
+        float q1_old = q1;
+        float q2_old = q2;
+        float q3_old = q3;
+
+        // Интегрирование гироскопа с коррекцией от магнитометра/акселерометра
+        q0 = q0_corr + (-q1_old * gx - q2_old * gy - q3_old * gz) * (0.5f * dt);
+        q1 = q1_corr + ( q0_old * gx + q2_old * gz - q3_old * gy) * (0.5f * dt);
+        q2 = q2_corr + ( q0_old * gy - q1_old * gz + q3_old * gx) * (0.5f * dt);
+        q3 = q3_corr + ( q0_old * gz + q1_old * gy - q2_old * gx) * (0.5f * dt);
+
         quaternion_.normalize();
     }
     
@@ -1296,6 +1325,9 @@ public:
                 P_[i * STATE_DIM + j] = (i == j) ? 0.1f : 0.0f;
             }
         }
+
+        // Инициализация весов sigma points
+        initWeights();
 
         initialized_ = true;
     }

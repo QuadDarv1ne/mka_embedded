@@ -67,6 +67,7 @@ class OTAErrorCode(IntEnum):
     SIZE_MISMATCH = 7
     TIMEOUT = 8
     ABORTED = 9
+    INVALID_CHUNK = 10
 
 
 class ImageSlot(IntEnum):
@@ -351,8 +352,14 @@ class OTAManager:
         # Проверка порядка чанков
         expected_chunk = self.metadata.received_chunks
         if chunk_num != expected_chunk:
-            # TODO: Возможна повторная передача
-            pass
+            if chunk_num < expected_chunk:
+                # Повторная передача уже полученного чанка - игнорируем
+                return True
+            else:
+                # Пропущен чанк - ошибка порядка
+                self._set_error(OTAErrorCode.INVALID_CHUNK,
+                                f"Expected chunk {expected_chunk}, got {chunk_num}")
+                return False
         
         # Запись в буфер
         offset = chunk_num * self.CHUNK_SIZE

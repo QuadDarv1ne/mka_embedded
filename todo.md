@@ -505,7 +505,7 @@
 - [x] Добавить health monitoring во все драйверы ✅ — BMI160, LIS3MDL, GPS, BMP388, LSM6DSO
 - [ ] Интегрировать health monitoring с FDIR для автоматической детекции сбоев
 
-### Выполнено (v2.0.0-dev — 5 апреля 2026)
+### Выполнено (v2.0.0-dev — 5 апреля 2026 — вторая итерация)
 - ✅ **CMakeLists.txt** — все файлы добавлены, новые библиотеки (mka_systems, mka_utils, mka_rtos)
 - ✅ **BMP388 OSR регистр** — исправлен (перенесён из bmp388::RegisterExt в основной enum)
 - ✅ **PID контроллер** — защита от dt=0, conditional integration anti-windup
@@ -521,6 +521,13 @@
   - errorCount_ и timeoutCount_ счётчики
   - Методы getErrorCount(), getTimeoutCount(), resetErrorCounters()
   - Автоматический инкремент при ошибках I2C/SPI/UART
+- ✅ **Madgwick фильтр** — исправлена реализация градиентного спуска, корректное использование магнитного поля, исправлена ошибка с порядком обновления кватерниона (сохранение старых значений для интегрирования гироскопа)
+- ✅ **UKF** — добавлена инициализация весов sigma points (initWeights)
+- ✅ **Anomaly Detector** — улучшена обработка buffer overflow при partialFit
+- ✅ **FDIR** — добавлены недостающие include (<vector>, <string>)
+- ✅ **Memory Pool** — реализован buddy allocation coalescing, проверка границ ptr, исправлен порядок проверок (isValidPointer перед обращением к block->allocated)
+- ✅ **OTA Updater** — улучшена сериализация версий (writeDecimal), защита от buffer overflow в toString()
+- ✅ **Python OTA** — добавлена обработка INVALID_CHUNK, корректная обработка повторных чанков
 
 ### Выполнено (v2.0.0)
 - ✅ **10 примеров кода** — полный набор
@@ -562,7 +569,7 @@
 
 ---
 
-*Последнее обновление: 5 апреля 2026 (v2.0.0-dev — CMake улучшения, критические фиксы, улучшения безопасности, health monitoring)*
+*Последнее обновление: 5 апреля 2026 (v2.0.0-dev — CMake улучшения, критические фиксы, улучшения безопасности, health monitoring, улучшения алгоритмов Madgwick/UKF/AnomalyDetector/MemoryPool/OTA)*
 
 ---
 
