@@ -173,14 +173,43 @@ public:
     
     void deallocate(void* ptr) {
         if (!ptr) return;
+        if (!isValidPointer(ptr)) return;  // Проверка границ пула
 
         BlockHeader* block = static_cast<BlockHeader*>(ptr) - 1;
         if (block->allocated == false) return;  // Double free защита
 
         block->allocated = false;
 
-        // Попытка объединения (coalescing)
+        // Попытка объединения (coalescing) с соседними блоками
         uint8_t order = block->order;
+        while (order < MAX_ORDER) {
+            // Находим buddy блок
+            size_t blockSize = MIN_BLOCK_SIZE * (1 << order);
+            uintptr_t blockAddr = reinterpret_cast<uintptr_t>(block);
+            uintptr_t poolStart = reinterpret_cast<uintptr_t>(pool_.data());
+            uintptr_t offset = blockAddr - poolStart;
+            uintptr_t buddyOffset = offset ^ blockSize;  // XOR для нахождения buddy
+            uintptr_t buddyAddr = poolStart + buddyOffset;
+
+            // Проверяем, что buddy существует и свободен
+            BlockHeader* buddy = reinterpret_cast<BlockHeader*>(buddyAddr);
+            if (buddy->order != order || buddy->allocated ||
+                !isInPool(buddy) || buddy == block) {
+                break;  // Не можем объединить
+            }
+
+            // Удаляем buddy из свободного списка
+            removeBlockFromFreeList(buddy, order);
+
+            // Объединяем: делаем блок с меньшим адресом новым объединённым блоком
+            BlockHeader* newBlock = (offset < buddyOffset) ? block : buddy;
+            newBlock->order = order + 1;
+            newBlock->allocated = false;
+            block = newBlock;
+            order++;
+        }
+
+        // Добавляем в свободный список
         block->next = freeLists_[order].head;
         freeLists_[order].head = block;
         freeLists_[order].count++;
@@ -238,28 +267,73 @@ private:
         // Найти блок для разделения
         BlockHeader* block = freeLists_[fromOrder].head;
         if (!block) return;
+        if (toOrder >= fromOrder) return;  // Нельзя разделить
 
         // Удалить из списка больших блоков
         freeLists_[fromOrder].head = block->next;
         freeLists_[fromOrder].count--;
 
         // Разделить на два блока меньшего размера
-        size_t blockSize = MIN_BLOCK_SIZE * (1 << toOrder);
+        size_t halfSize = MIN_BLOCK_SIZE * (1 << (fromOrder - 1));
         BlockHeader* second = reinterpret_cast<BlockHeader*>(
-            reinterpret_cast<uint8_t*>(block) + blockSize);
+            reinterpret_cast<uint8_t*>(block) + halfSize);
 
+        // Инициализируем второй блок
+        second->order = fromOrder - 1;
+        second->allocated = false;
+        second->next = nullptr;
+
+        // Рекурсивно делим, пока не достигнем нужного размера
+        if (fromOrder - 1 > toOrder) {
+            // Добавляем второй блок во временный список и делим дальше
+            block->order = fromOrder - 1;
+            block->allocated = false;
+            block->next = nullptr;
+            
+            // Рекурсивная проверка
+            splitBlock(fromOrder - 1, toOrder);
+            return;
+        }
+
+        // Оба блока теперь нужного размера
         block->order = toOrder;
         block->allocated = false;
-        block->next = nullptr;
-
-        second->order = toOrder;
-        second->allocated = false;
-        second->next = freeLists_[toOrder].head;
-        second->reserved[0] = 0;  // Явная инициализация padding
-
-        // Добавить в список меньших блоков
+        block->next = freeLists_[toOrder].head;
+        
         freeLists_[toOrder].head = block;
-        freeLists_[toOrder].count += 2;
+        freeLists_[toOrder].count++;
+        
+        second->next = freeLists_[toOrder].head;
+        freeLists_[toOrder].head = second;
+        freeLists_[toOrder].count++;
+    }
+
+    bool isValidPointer(const void* ptr) const {
+        uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+        uintptr_t start = reinterpret_cast<uintptr_t>(pool_.data());
+        uintptr_t end = start + pool_.size();
+        return (addr >= start && addr < end);
+    }
+
+    bool isInPool(const BlockHeader* block) const {
+        uintptr_t addr = reinterpret_cast<uintptr_t>(block);
+        uintptr_t start = reinterpret_cast<uintptr_t>(pool_.data());
+        uintptr_t end = start + pool_.size();
+        return (addr >= start && addr + sizeof(BlockHeader) <= end);
+    }
+
+    void removeBlockFromFreeList(BlockHeader* block, uint8_t order) {
+        if (!block || !isInPool(block)) return;
+        
+        BlockHeader** curr = &freeLists_[order].head;
+        while (*curr) {
+            if (*curr == block) {
+                *curr = block->next;
+                freeLists_[order].count--;
+                return;
+            }
+            curr = &(*curr)->next;
+        }
     }
 };
 

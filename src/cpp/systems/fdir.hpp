@@ -21,6 +21,8 @@
 #include <cstring>
 #include <array>
 #include <cmath>
+#include <vector>
+#include <string>
 
 #include "utils/callback.hpp"
 #include "utils/span.hpp"

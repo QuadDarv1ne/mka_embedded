@@ -295,10 +295,6 @@ bool AnomalyDetector::fit(const std::vector<std::vector<float>>& data) {
 
     bool success = forest_.fit(data);
 
-    if (success) {
-        buffer_.clear();
-    }
-
     return success;
 }
 
@@ -308,7 +304,17 @@ void AnomalyDetector::partialFit(const std::vector<float>& sample) {
 
     // Переобучение при заполнении буфера
     if (buffer_.size() >= MAX_BUFFER_SIZE) {
-        fit(buffer_);
+        bool success = fit(buffer_);
+        // Очищаем буфер независимо от результата, чтобы предотвратить переполнение
+        if (success) {
+            buffer_.clear();
+        } else {
+            // При ошибке оставляем последние MAX_BUFFER_SIZE/2 образцов
+            if (buffer_.size() > MAX_BUFFER_SIZE / 2) {
+                buffer_.erase(buffer_.begin(),
+                             buffer_.begin() + (buffer_.size() - MAX_BUFFER_SIZE / 2));
+            }
+        }
     }
 }
 

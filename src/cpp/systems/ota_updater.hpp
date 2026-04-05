@@ -138,20 +138,70 @@ struct FirmwareVersion {
     /// Convert to string (returns pointer to static buffer)
     const char* toString() const {
         static char buffer[32];
-        // Simple conversion - in real code use snprintf
-        buffer[0] = '0' + major;
-        buffer[1] = '.';
-        buffer[2] = '0' + minor;
-        buffer[3] = '.';
-        buffer[4] = '0' + patch;
-        buffer[5] = '.';
-        buffer[6] = '0' + (build / 1000) % 10;
-        buffer[7] = '0' + (build / 100) % 10;
-        buffer[8] = '0' + (build / 10) % 10;
-        buffer[9] = '0' + build % 10;
-        buffer[10] = '\0';
+        int pos = 0;
+        int remaining = sizeof(buffer) - 1;
+
+        // Format: major.minor.patch.build
+        if (remaining > 0) {
+            int written = writeDecimal(major, buffer + pos, remaining);
+            pos += written;
+            remaining -= written;
+        }
+        if (remaining > 0) {
+            buffer[pos++] = '.';
+            remaining--;
+        }
+        if (remaining > 0) {
+            int written = writeDecimal(minor, buffer + pos, remaining);
+            pos += written;
+            remaining -= written;
+        }
+        if (remaining > 0) {
+            buffer[pos++] = '.';
+            remaining--;
+        }
+        if (remaining > 0) {
+            int written = writeDecimal(patch, buffer + pos, remaining);
+            pos += written;
+            remaining -= written;
+        }
+        if (remaining > 0) {
+            buffer[pos++] = '.';
+            remaining--;
+        }
+        if (remaining > 0) {
+            int written = writeDecimal(build, buffer + pos, remaining);
+            pos += written;
+        }
+        buffer[pos] = '\0';
         return buffer;
     }
+
+private:
+    /// Write decimal number to buffer, returns number of characters written
+    static int writeDecimal(uint32_t value, char* buffer, int maxLen) {
+        if (maxLen <= 0) return 0;
+        if (value == 0) {
+            buffer[0] = '0';
+            return 1;
+        }
+        // Count digits
+        uint32_t temp = value;
+        int digits = 0;
+        while (temp > 0) {
+            temp /= 10;
+            digits++;
+        }
+        if (digits >= maxLen) digits = maxLen - 1;
+        // Write digits
+        for (int i = digits - 1; i >= 0; i--) {
+            buffer[i] = '0' + (value % 10);
+            value /= 10;
+        }
+        return digits;
+    }
+
+public:
 };
 
 /// Firmware image header (96 bytes)
