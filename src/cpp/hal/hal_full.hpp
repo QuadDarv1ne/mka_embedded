@@ -631,13 +631,14 @@ public:
                         uint32_t timeoutMs) override {
         if (!m_initialized) return Status::NOT_INITIALIZED;
 
+        (void)devAddress;
+        (void)regAddress;
+        (void)data;
+        (void)timeoutMs;
+
         // Для хост-системы: эмуляция
         // Для STM32: реальная запись через HAL
         #ifdef HOST_BUILD
-            (void)devAddress;
-            (void)regAddress;
-            (void)data;
-            (void)timeoutMs;
             return Status::OK;
         #else
             // Здесь будет реализация для STM32
@@ -652,11 +653,12 @@ public:
                        uint32_t timeoutMs) override {
         if (!m_initialized) return Status::NOT_INITIALIZED;
 
+        (void)devAddress;
+        (void)regAddress;
+        (void)data;
+        (void)timeoutMs;
+
         #ifdef HOST_BUILD
-            (void)devAddress;
-            (void)regAddress;
-            (void)data;
-            (void)timeoutMs;
             // Эмуляция чтения нулей
             for (auto& byte : data) {
                 byte = 0;
