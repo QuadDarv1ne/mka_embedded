@@ -103,6 +103,9 @@ set(HAL_SOURCES
 # Драйверы
 set(DRIVER_SOURCES
     src/cpp/drivers/sensors_drivers.hpp
+    src/cpp/drivers/eeprom_driver.hpp
+    src/cpp/drivers/radio_driver.hpp
+    src/cpp/drivers/sun_sensor.hpp
 )
 
 # Алгоритмы
