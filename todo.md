@@ -723,22 +723,35 @@
 ### ПЛАН ИСПРАВЛЕНИЙ (ТРЕТЬЯ ИТЕРАЦИЯ)
 
 **Приоритет 1 — Критические баги алгоритмов:**
-1. Исправить матрицу F в EKF
-2. Исправить индексы матрицы H в EKF
-3. Исправить PID anti-windup
-4. Исправить constexpr std::sqrt
+1. ✅ Исправить матрицу F в EKF
+2. ✅ Исправить индексы матрицы H в EKF
+3. ✅ Исправить PID anti-windup
+4. ✅ Исправить constexpr std::sqrt
 
 **Приоритет 2 — Безопасность данных:**
-5. Исправить param_store — проверка CRC до записи
-6. Исправить integer overflow в EEPROM
-7. Исправить signed конвертацию в sun_sensor
-8. Исправить сдвиги в canopen
+5. ✅ Исправить param_store — проверка CRC до записи
+6. ✅ Исправить integer overflow в EEPROM
+7. ✅ Исправить signed конвертацию в sun_sensor
+8. ✅ Исправить сдвиги в canopen
 
 **Приоритет 3 — Утилиты:**
-9. Исправить result.hpp — проверка в value()/error()
-10. Исправить span.hpp — проверка в front()/back()
-11. Исправить callback.hpp — проверка bitwise copy
-12. Добавить static_assert в freertos_wrapper.hpp
+9. ✅ Исправить result.hpp — добавлены tryValue/tryError методы
+10. ✅ Исправить span.hpp — безопасные first/last/subspan операции
+11. ⏸️ Исправить callback.hpp — bitwise copy (отложено — требует значительных изменений в API)
+12. ⏸️ Добавить static_assert в freertos_wrapper.hpp (отложено — требует FreeRTOS для проверки)
+
+### РЕЗУЛЬТАТЫ ТРЕТЬЕЙ ИТЕРАЦИИ (5 апреля 2026)
+
+**Выполнено:**
+- ✅ 10 критических исправлений в коде
+- ✅ Адаптирован тест PIDController.IntegralTerm
+- ✅ Сборка проходит без ошибок
+- ✅ Все 11 тестов проходят (100%)
+- ✅ Коммит `f64474b` отправлен в origin/dev
+
+**Статус веток:**
+- `main` — v2.0.0 (стабильная)
+- `dev` — v2.0.0-dev (3 локальных коммита ahead of origin/main)
 
 ---
 
