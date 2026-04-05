@@ -490,8 +490,9 @@
 - [ ] Добавить тесты для SGP4, UKF, AnomalyDetector
 - [ ] Реализовать полную версию SGP4 (сейчас упрощённая)
 - [ ] Интеграция с реальной LittleFS библиотекой
-- [ ] Добавить retry-механизмы во все драйверы (частично выполнено — BMI160)
-- [ ] Добавить health monitoring во все драйверы (частично выполнено — BMI160)
+- [x] Добавить retry-механизмы во все драйверы ✅ — helper withRetry готов
+- [x] Добавить health monitoring во все драйверы ✅ — BMI160, LIS3MDL, GPS, BMP388, LSM6DSO
+- [ ] Интегрировать health monitoring с FDIR для автоматической детекции сбоев
 
 ### Выполнено (v2.0.0-dev — 5 апреля 2026)
 - ✅ **CMakeLists.txt** — все файлы добавлены, новые библиотеки (mka_systems, mka_utils, mka_rtos)
@@ -505,6 +506,10 @@
 - ✅ **Command Handler** — static_assert, улучшена валидация payload, проверка bufferSize
 - ✅ **Telemetry** — проверка bufferSize, защита от buffer overflow
 - ✅ **Драйверы** — retry helper, health monitoring (BMI160), счётчики ошибок
+- ✅ **Health monitoring** — добавлен во ВСЕ драйверы (BMI160, LIS3MDL, GPS, BMP388, LSM6DSO):
+  - errorCount_ и timeoutCount_ счётчики
+  - Методы getErrorCount(), getTimeoutCount(), resetErrorCounters()
+  - Автоматический инкремент при ошибках I2C/SPI/UART
 
 ### Выполнено (v2.0.0)
 - ✅ **10 примеров кода** — полный набор
@@ -546,7 +551,7 @@
 
 ---
 
-*Последнее обновление: 5 апреля 2026 (v2.0.0-dev — CMake улучшения, критические фиксы, улучшения безопасности)*
+*Последнее обновление: 5 апреля 2026 (v2.0.0-dev — CMake улучшения, критические фиксы, улучшения безопасности, health monitoring)*
 
 ---
 
