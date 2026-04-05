@@ -713,30 +713,48 @@ public:
     
     hal::Status readData(MagData& data) {
         uint8_t status;
-        i2c_.readRegister(address_, Register::STATUS_REG, &status, 1, 100);
-        
+        hal::Status st = i2c_.readRegister(address_, Register::STATUS_REG, &status, 1, 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+
         if (!(status & 0x08)) {  // ZYXDA - new data available
             return hal::Status::BUSY;
         }
-        
+
         uint8_t buffer[6];
         // Чтение с auto-increment (bit 7 = 1)
-        if (i2c_.readRegister(address_, Register::OUT_X_L | 0x80, buffer, 6, 100)
-            != hal::Status::OK) {
-            return hal::Status::ERROR;
+        st = i2c_.readRegister(address_, Register::OUT_X_L | 0x80, buffer, 6, 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
         }
-        
+
         int16_t x = static_cast<int16_t>((buffer[1] << 8) | buffer[0]);
         int16_t y = static_cast<int16_t>((buffer[3] << 8) | buffer[2]);
         int16_t z = static_cast<int16_t>((buffer[5] << 8) | buffer[4]);
-        
+
         data.mag[0] = x * sensitivity_;
         data.mag[1] = y * sensitivity_;
         data.mag[2] = z * sensitivity_;
         data.overflow = (status & 0x40) != 0;
         data.timestamp = getTimestamp();
-        
+
         return hal::Status::OK;
+    }
+
+    // ========================================================================
+    // Health monitoring
+    // ========================================================================
+
+    uint32_t getErrorCount() const { return errorCount_; }
+    uint32_t getTimeoutCount() const { return timeoutCount_; }
+    void resetErrorCounters() {
+        errorCount_ = 0;
+        timeoutCount_ = 0;
     }
     
 private:
@@ -744,7 +762,11 @@ private:
     uint8_t address_;
     Config config_;
     float sensitivity_ = 1.0f;
-    
+
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
+
     uint64_t getTimestamp() const { return 0; }
 };
 
@@ -852,9 +874,20 @@ public:
     bool hasValidFix() const {
         return lastFixValid_;
     }
-    
+
     uint8_t getSatellites() const {
         return lastSatellites_;
+    }
+
+    // ========================================================================
+    // Health monitoring
+    // ========================================================================
+
+    uint32_t getErrorCount() const { return errorCount_; }
+    uint32_t getTimeoutCount() const { return timeoutCount_; }
+    void resetErrorCounters() {
+        errorCount_ = 0;
+        timeoutCount_ = 0;
     }
 
 private:
@@ -862,7 +895,11 @@ private:
     Config config_;
     bool lastFixValid_ = false;
     uint8_t lastSatellites_ = 0;
-    
+
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
+
     // Буфер для приёма
     std::array<uint8_t, 1024> rxBuffer_;
     
@@ -1618,6 +1655,30 @@ private:
     uint64_t getTimestamp() const {
         return timeSource_ ? timeSource_->getMs() : 0;
     }
+
+    // ========================================================================
+    // Health monitoring
+    // ========================================================================
+
+    uint32_t getErrorCount() const { return errorCount_; }
+    uint32_t getTimeoutCount() const { return timeoutCount_; }
+    void resetErrorCounters() {
+        errorCount_ = 0;
+        timeoutCount_ = 0;
+    }
+
+private:
+    hal::II2C* i2c_;
+    hal::ISPI* spi_;
+    hal::ISystemTime* timeSource_ = nullptr;
+    uint8_t address_;
+    bool useSPI_;
+    Config config_;
+    CalibData calib_;
+
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
 };
 
 // ============================================================================
@@ -2050,12 +2111,24 @@ private:
         if (useSPI_) {
             spi_->selectDevice();
             uint8_t txData = reg | 0x80;
-            spi_->transmit({&txData, 1}, 10);
-            hal::Status status = spi_->receive({data, len}, 10);
+            hal::Status status = spi_->transmit({&txData, 1}, 10);
+            if (status == hal::Status::OK) {
+                status = spi_->receive({data, len}, 10);
+            }
             spi_->deselectDevice();
+
+            if (status != hal::Status::OK) {
+                errorCount_++;
+                if (status == hal::Status::TIMEOUT) timeoutCount_++;
+            }
             return status;
         } else {
-            return i2c_->readRegister(address_, reg, data, len, 100);
+            hal::Status status = i2c_->readRegister(address_, reg, data, len, 100);
+            if (status != hal::Status::OK) {
+                errorCount_++;
+                if (status == hal::Status::TIMEOUT) timeoutCount_++;
+            }
+            return status;
         }
     }
 
@@ -2063,12 +2136,24 @@ private:
         if (useSPI_) {
             spi_->selectDevice();
             uint8_t txData = reg & 0x7F;
-            spi_->transmit({&txData, 1}, 10);
-            hal::Status status = spi_->transmit({data, len}, 10);
+            hal::Status status = spi_->transmit({&txData, 1}, 10);
+            if (status == hal::Status::OK) {
+                status = spi_->transmit({data, len}, 10);
+            }
             spi_->deselectDevice();
+
+            if (status != hal::Status::OK) {
+                errorCount_++;
+                if (status == hal::Status::TIMEOUT) timeoutCount_++;
+            }
             return status;
         } else {
-            return i2c_->writeRegister(address_, reg, data, len, 100);
+            hal::Status status = i2c_->writeRegister(address_, reg, data, len, 100);
+            if (status != hal::Status::OK) {
+                errorCount_++;
+                if (status == hal::Status::TIMEOUT) timeoutCount_++;
+            }
+            return status;
         }
     }
 
@@ -2119,6 +2204,32 @@ private:
     uint64_t getTimestamp() const {
         return timeSource_ ? timeSource_->getMs() : 0;
     }
+
+    // ========================================================================
+    // Health monitoring
+    // ========================================================================
+
+    uint32_t getErrorCount() const { return errorCount_; }
+    uint32_t getTimeoutCount() const { return timeoutCount_; }
+    void resetErrorCounters() {
+        errorCount_ = 0;
+        timeoutCount_ = 0;
+    }
+
+private:
+    hal::II2C* i2c_;
+    hal::ISPI* spi_;
+    hal::ISystemTime* timeSource_ = nullptr;
+    uint8_t address_;
+    bool useSPI_;
+    Config config_;
+
+    float accSensitivity_ = 1.0f;
+    float gyrSensitivity_ = 1.0f;
+
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
 };
 
 } // namespace sensors
