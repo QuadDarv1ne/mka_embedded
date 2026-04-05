@@ -251,7 +251,7 @@ public:
         q2 += dq2 * dt;
         q3 += dq3 * dt;
 
-        // Нормализация кватерниона
+        // Нормализация кватерниона с восстановлением при нулевой норме
         float norm = std::sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3);
         if (norm > 1e-10f) {
             float inv_norm = 1.0f / norm;
@@ -259,6 +259,12 @@ public:
             q1 *= inv_norm;
             q2 *= inv_norm;
             q3 *= inv_norm;
+        } else {
+            // Восстановление кватерниона по умолчанию
+            q0 = 1.0f;
+            q1 = 0.0f;
+            q2 = 0.0f;
+            q3 = 0.0f;
         }
 
         // Обновление состояния
@@ -290,10 +296,11 @@ public:
         F_[23] = -half_dt * wx;
         F_[24] = 1.0f;
 
-        // ∂q/∂bias
-        F_[3] *= -dt;  // ∂q0/∂bx
-        F_[10] *= dt;  // ∂q1/∂by
-        F_[17] *= dt;  // ∂q2/∂bz
+        // ∂q/∂bias (правильные производные)
+        // dq/dbias = 0.5 * dt * ∂(q⊗ω)/∂bias
+        F_[3] = 0.5f * dt * q1;   // ∂q0/∂bx
+        F_[10] = -0.5f * dt * q0; // ∂q1/∂by
+        F_[17] = -0.5f * dt * q0; // ∂q2/∂bz
 
         // ∂bias/∂bias (identity)
         F_[28] = 1.0f;
@@ -812,30 +819,41 @@ public:
      * @param dt Время с предыдущего вызова (с)
      */
     float compute(float setpoint, float measurement, float dt) {
+        // Защита от деления на ноль
+        if (dt < 1e-6f) {
+            return lastOutput_;
+        }
+
         float error = setpoint - measurement;
-        
+
         // Пропорциональная составляющая
         float p_term = config_.kp * error;
-        
-        // Интегральная составляющая с ограничением
-        integral_ += error * dt;
-        integral_ = math::clamp(integral_, -config_.integralLimit, config_.integralLimit);
-        float i_term = config_.ki * integral_;
-        
+
+        // Интегральная составляющая с anti-windup (conditional integration)
+        // Интегрируем только если выход не насыщен
+        float outputUnclamped = p_term + config_.ki * integral_ + config_.kd * (error - prevError_) / dt;
+        float output = math::clamp(outputUnclamped, config_.outputMin, config_.outputMax);
+
+        // Conditional integration - накапливаем только если не в насыщении
+        bool notSaturated = (outputUnclamped > config_.outputMin && outputUnclamped < config_.outputMax);
+        if (notSaturated || (error >= 0 && outputUnclamped <= config_.outputMin) ||
+            (error <= 0 && outputUnclamped >= config_.outputMax)) {
+            integral_ += error * dt;
+            integral_ = math::clamp(integral_, -config_.integralLimit, config_.integralLimit);
+        }
+
         // Деривативная составляющая с фильтрацией
         float derivative = (error - prevError_) / dt;
         if (config_.derivativeFilterCoeff > 0) {
-            filteredDerivative_ += config_.derivativeFilterCoeff * 
+            filteredDerivative_ += config_.derivativeFilterCoeff *
                                    (derivative - filteredDerivative_);
             derivative = filteredDerivative_;
         }
-        float d_term = config_.kd * derivative;
-        
+
         prevError_ = error;
-        
-        // Сумма и ограничение выхода
-        float output = p_term + i_term + d_term;
-        return math::clamp(output, config_.outputMin, config_.outputMax);
+
+        lastOutput_ = output;
+        return output;
     }
     
     void reset() {
@@ -855,6 +873,7 @@ private:
     float integral_ = 0.0f;
     float prevError_ = 0.0f;
     float filteredDerivative_ = 0.0f;
+    float lastOutput_ = 0.0f;
 };
 
 // ============================================================================
@@ -1004,26 +1023,43 @@ public:
      * @return Дипольные моменты магнитных катушек [mx, my, mz] (A·m²)
      */
     std::array<float, 3> compute(float mag_x, float mag_y, float mag_z, float dt) {
+        // Защита от деления на ноль
+        if (dt < 1e-6f) {
+            return {0.0f, 0.0f, 0.0f};
+        }
+
+        // Инициализация при первом вызове
+        if (!initialized_) {
+            filteredMag_[0] = mag_x;
+            filteredMag_[1] = mag_y;
+            filteredMag_[2] = mag_z;
+            prevMag_[0] = mag_x;
+            prevMag_[1] = mag_y;
+            prevMag_[2] = mag_z;
+            initialized_ = true;
+            return {0.0f, 0.0f, 0.0f};  // Первый вызов - нет производной
+        }
+
         // Фильтрация измерений
         filteredMag_[0] += config_.filterCoeff * (mag_x - filteredMag_[0]);
         filteredMag_[1] += config_.filterCoeff * (mag_y - filteredMag_[1]);
         filteredMag_[2] += config_.filterCoeff * (mag_z - filteredMag_[2]);
-        
+
         // Производная магнитного поля
         float dB_x = (filteredMag_[0] - prevMag_[0]) / dt;
         float dB_y = (filteredMag_[1] - prevMag_[1]) / dt;
         float dB_z = (filteredMag_[2] - prevMag_[2]) / dt;
-        
+
         // Сохранение предыдущих значений
         prevMag_[0] = filteredMag_[0];
         prevMag_[1] = filteredMag_[1];
         prevMag_[2] = filteredMag_[2];
-        
+
         // Закон управления: m = -K * dB/dt
         float m_x = -config_.gain * dB_x;
         float m_y = -config_.gain * dB_y;
         float m_z = -config_.gain * dB_z;
-        
+
         // Ограничение дипольного момента
         float norm = std::sqrt(m_x*m_x + m_y*m_y + m_z*m_z);
         if (norm > config_.maxDipole) {
@@ -1032,7 +1068,7 @@ public:
             m_y *= scale;
             m_z *= scale;
         }
-        
+
         return {m_x, m_y, m_z};
     }
     
@@ -1045,6 +1081,7 @@ private:
     Config config_;
     std::array<float, 3> filteredMag_{0, 0, 0};
     std::array<float, 3> prevMag_{0, 0, 0};
+    bool initialized_ = false;
 };
 
 // ============================================================================

@@ -159,7 +159,7 @@ public:
     /**
      * @brief Получить период орбиты [минуты]
      */
-    double getOrbitalPeriod() const { return 1440.0 / meanMotion_; }
+    double getOrbitalPeriod() const { return meanMotionRevPerDay_ > 0.0 ? 1440.0 / meanMotionRevPerDay_ : 0.0; }
 
     /**
      * @brief Получить среднее движение [rev/day]
@@ -207,6 +207,15 @@ private:
 
     // B-star параметр
     double bstar_ = 0.0;
+
+    // Mean motion в rev/day (для getOrbitalPeriod)
+    double meanMotionRevPerDay_ = 0.0;
+
+    // Эпоха TLE (день года)
+    double epochDay = 0.0;
+
+    // Год эпохи
+    int epochYear = 0;
 
     /**
      * @brief Парсинг TLE строки

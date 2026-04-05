@@ -206,7 +206,12 @@ public:
         , bufferSize_(bufferSize)
         , sequenceCount_(0)
         , currentApId_(0)
-    {}
+    {
+        // Проверка минимального размера буфера
+        if (buffer_ && bufferSize_ < sizeof(TelemetryHeader) + CRC_SIZE) {
+            bufferSize_ = 0;  // Буфер слишком мал
+        }
+    }
 
     uint8_t registerChannel(const TelemetryChannel& channel) {
         if (channelCount_ >= MAX_TELEMETRY_CHANNELS) {
@@ -247,8 +252,13 @@ public:
 
     FrameStatus generateFrame(uint16_t apid, uint32_t /*includeChannels*/ = 0xFFFFFFFF,
                               size_t* frameSize = nullptr) {
+        // Проверка валидности буфера
+        if (!buffer_ || bufferSize_ < sizeof(TelemetryHeader) + CRC_SIZE) {
+            return FrameStatus::BUFFER_TOO_SMALL;
+        }
+
         currentApId_ = apid;
-        
+
         TelemetryHeader* header = reinterpret_cast<TelemetryHeader*>(buffer_);
         header->set(apid, sequenceCount_, 0, true);
         

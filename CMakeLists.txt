@@ -103,11 +103,18 @@ set(HAL_SOURCES
 # Драйверы
 set(DRIVER_SOURCES
     src/cpp/drivers/sensors_drivers.hpp
+    src/cpp/drivers/eeprom_driver.hpp
+    src/cpp/drivers/radio_driver.hpp
+    src/cpp/drivers/sun_sensor.hpp
 )
 
 # Алгоритмы
 set(ALGORITHM_SOURCES
     src/cpp/algorithms/adcs_algorithms.hpp
+    src/cpp/algorithms/anomaly_detector.hpp
+    src/cpp/algorithms/anomaly_detector.cpp
+    src/cpp/algorithms/sgp4.hpp
+    src/cpp/algorithms/sgp4.cpp
 )
 
 # Системные модули
@@ -118,6 +125,23 @@ set(SYSTEM_SOURCES
     src/cpp/systems/memory_pool.hpp
     src/cpp/systems/telemetry.hpp
     src/cpp/systems/file_system.hpp
+    src/cpp/systems/command_handler.hpp
+    src/cpp/systems/param_store.hpp
+    src/cpp/systems/watchdog_manager.hpp
+    src/cpp/systems/ota_updater.hpp
+    src/cpp/systems/canopen.hpp
+)
+
+# Утилиты
+set(UTILS_SOURCES
+    src/cpp/utils/callback.hpp
+    src/cpp/utils/result.hpp
+    src/cpp/utils/span.hpp
+)
+
+# RTOS
+set(RTOS_SOURCES
+    src/cpp/rtos/freertos_wrapper.hpp
 )
 
 # Все заголовочные файлы
@@ -126,6 +150,8 @@ set(HEADER_FILES
     ${DRIVER_SOURCES}
     ${ALGORITHM_SOURCES}
     ${SYSTEM_SOURCES}
+    ${UTILS_SOURCES}
+    ${RTOS_SOURCES}
 )
 
 # ============================================================================
@@ -143,6 +169,40 @@ add_library(mka_algorithms INTERFACE)
 target_include_directories(mka_algorithms INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
 )
+
+# Библиотека системных модулей
+add_library(mka_systems INTERFACE)
+target_include_directories(mka_systems INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
+)
+
+# Библиотека утилит
+add_library(mka_utils INTERFACE)
+target_include_directories(mka_utils INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
+)
+
+# Библиотека RTOS
+add_library(mka_rtos INTERFACE)
+target_include_directories(mka_rtos INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
+)
+
+# ============================================================================
+# Опциональные зависимости для тестов
+# ============================================================================
+
+# LittleFS для тестирования файловой системы (опционально)
+option(USE_LITTLEFS "Use LittleFS for file system tests" OFF)
+
+if(USE_LITTLEFS)
+    FetchContent_Declare(
+        littlefs
+        GIT_REPOSITORY https://github.com/littlefs-project/littlefs.git
+        GIT_TAG        v2.5.0
+    )
+    FetchContent_MakeAvailable(littlefs)
+endif()
 
 # ============================================================================
 # Тесты

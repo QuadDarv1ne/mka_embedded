@@ -104,28 +104,30 @@ public:
     bool read(SunVector& result) {
         // Чтение всех каналов ADC
         std::array<uint16_t, CH_COUNT> rawValues{};
-        
+
         for (int i = 0; i < CH_COUNT; i++) {
             if (!adc_.readChannel(i, rawValues[i])) {
+                errorCount_++;
                 result.valid = false;
                 return false;
             }
         }
-        
+        readCount_++;
+
         // Применение калибровки
         float calValues[CH_COUNT];
         for (int i = 0; i < CH_COUNT; i++) {
-            calValues[i] = (rawValues[i] - calibration_.offset[i]) * 
+            calValues[i] = (rawValues[i] - calibration_.offset[i]) *
                            calibration_.scale[i];
         }
-        
+
         // Расчёт вектора направления
         // dX = (Pos_X - Neg_X) / (Pos_X + Neg_X)
         // dY = (Pos_Y - Neg_Y) / (Pos_Y + Neg_Y)
-        
+
         float sumX = calValues[CH_POS_X] + calValues[CH_NEG_X];
         float sumY = calValues[CH_POS_Y] + calValues[CH_NEG_Y];
-        
+
         // Проверка наличия солнца
         float totalIntensity = sumX + sumY;
         if (totalIntensity < calibration_.threshold * 4.0f) {
@@ -133,36 +135,36 @@ public:
             result.intensity = 0.0f;
             return true;  // Солнце не в поле зрения
         }
-        
+
         // Нормализованные разности
         float dX = (calValues[CH_POS_X] - calValues[CH_NEG_X]) / sumX;
         float dY = (calValues[CH_POS_Y] - calValues[CH_NEG_Y]) / sumY;
-        
+
         // Коррекция перекрёстных связей
-        float dX_corr = calibration_.crossCoupling[0][0] * dX + 
+        float dX_corr = calibration_.crossCoupling[0][0] * dX +
                         calibration_.crossCoupling[0][1] * dY;
-        float dY_corr = calibration_.crossCoupling[1][0] * dX + 
+        float dY_corr = calibration_.crossCoupling[1][0] * dX +
                         calibration_.crossCoupling[1][1] * dY;
-        
+
         // Расчёт углов
         result.angleX = std::atan(dX_corr / calibration_.tanTheta);
         result.angleY = std::atan(dY_corr / calibration_.tanTheta);
-        
+
         // Расчёт вектора направления
         float tanX = std::tan(result.angleX);
         float tanY = std::tan(result.angleY);
-        
+
         // Нормализация вектора
         float norm = std::sqrt(1.0f + tanX * tanX + tanY * tanY);
-        
+
         result.x = tanX / norm;
         result.y = tanY / norm;
         result.z = 1.0f / norm;
-        
+
         // Интенсивность
         result.intensity = totalIntensity / (4.0f * 4095.0f);  // Normalize to 0-1
         result.intensity = std::min(1.0f, result.intensity);
-        
+
         result.valid = true;
         return true;
     }
@@ -221,6 +223,22 @@ public:
 private:
     IADC& adc_;
     Calibration calibration_;
+    
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t readCount_ = 0;
+    
+public:
+    // Health monitoring методы
+    uint32_t getErrorCount() const { return errorCount_; }
+    uint32_t getReadCount() const { return readCount_; }
+    float getErrorRate() const { 
+        return readCount_ > 0 ? static_cast<float>(errorCount_) / readCount_ : 0.0f; 
+    }
+    void resetErrorCounters() { 
+        errorCount_ = 0; 
+        readCount_ = 0; 
+    }
 };
 
 // ============================================================================
@@ -272,19 +290,22 @@ public:
         // Проверка WHO_AM_I
         uint8_t whoAmI;
         if (!i2c_.readRegister(address_, REG_WHO_AM_I, {&whoAmI, 1})) {
+            errorCount_++;
             return false;
         }
-        
+
         if (whoAmI != 0x55) {  // Ожидаемое значение
+            errorCount_++;
             return false;
         }
-        
+
         // Конфигурация
         uint8_t config = 0x01;  // Continuous mode
         if (!i2c_.writeRegister(address_, REG_CONFIG, {&config, 1})) {
+            errorCount_++;
             return false;
         }
-        
+
         initialized_ = true;
         return true;
     }
@@ -314,42 +335,44 @@ public:
             result.valid = false;
             return false;
         }
-        
+
         // Проверка готовности данных
         Status status = getStatus();
         if (!status.dataReady) {
             result.valid = false;
             return true;
         }
-        
+
         // Чтение данных
         uint8_t data[6];
         if (!i2c_.readRegister(address_, REG_X_MSB, data)) {
+            errorCount_++;
             result.valid = false;
             return false;
         }
-        
+        readCount_++;
+
         // Парсинг
         int16_t rawX = (data[0] << 8) | data[1];
         int16_t rawY = (data[2] << 8) | data[3];
         uint16_t rawIntensity = (data[4] << 8) | data[5];
-        
+
         // Конвертация
         result.angleX = rawX * (3.14159f / 32768.0f);  // ±π range
         result.angleY = rawY * (3.14159f / 32768.0f);
         result.intensity = rawIntensity / 65535.0f;
-        
+
         // Вычисление вектора
         float tanX = std::tan(result.angleX);
         float tanY = std::tan(result.angleY);
         float norm = std::sqrt(1.0f + tanX * tanX + tanY * tanY);
-        
+
         result.x = tanX / norm;
         result.y = tanY / norm;
         result.z = 1.0f / norm;
-        
+
         result.valid = !status.overrange && !status.error;
-        
+
         return result.valid;
     }
     
@@ -371,6 +394,22 @@ private:
     II2C& i2c_;
     uint8_t address_;
     bool initialized_ = false;
+    
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t readCount_ = 0;
+    
+public:
+    // Health monitoring методы
+    uint32_t getErrorCount() const { return errorCount_; }
+    uint32_t getReadCount() const { return readCount_; }
+    float getErrorRate() const { 
+        return readCount_ > 0 ? static_cast<float>(errorCount_) / readCount_ : 0.0f; 
+    }
+    void resetErrorCounters() { 
+        errorCount_ = 0; 
+        readCount_ = 0; 
+    }
 };
 
 // ============================================================================
