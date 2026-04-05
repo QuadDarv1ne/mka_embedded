@@ -124,8 +124,8 @@ public:
     
     /// Обновить (кикнуть) watchdog
     virtual void refresh() = 0;
-    
-    /// Получить剩余 время до сброса
+
+    /// Получить оставшееся время до сброса
     virtual uint32_t getRemainingTime() const = 0;
     
     /// Проверить причину последнего сброса

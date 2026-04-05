@@ -136,9 +136,16 @@ public:
             return true;  // Солнце не в поле зрения
         }
 
-        // Нормализованные разности
-        float dX = (calValues[CH_POS_X] - calValues[CH_NEG_X]) / sumX;
-        float dY = (calValues[CH_POS_Y] - calValues[CH_NEG_Y]) / sumY;
+        // Нормализованные разности с защитой от деления на ноль
+        float dX = 0.0f;
+        float dY = 0.0f;
+
+        if (sumX > 1e-6f) {
+            dX = (calValues[CH_POS_X] - calValues[CH_NEG_X]) / sumX;
+        }
+        if (sumY > 1e-6f) {
+            dY = (calValues[CH_POS_Y] - calValues[CH_NEG_Y]) / sumY;
+        }
 
         // Коррекция перекрёстных связей
         float dX_corr = calibration_.crossCoupling[0][0] * dX +
@@ -480,15 +487,21 @@ public:
             sumW += w;
         }
         
-        // Нормализация
+        // Нормализация с защитой от деления на ноль
         float norm = std::sqrt(sumX * sumX + sumY * sumY + sumZ * sumZ);
-        
+
+        if (norm < 1e-6f) {
+            // Все сенсоры возвращают нулевые значения - невалидный результат
+            result.valid = false;
+            return false;
+        }
+
         result.x = sumX / norm;
         result.y = sumY / norm;
         result.z = sumZ / norm;
         result.intensity = sumW / count;
         result.valid = true;
-        
+
         return true;
     }
     

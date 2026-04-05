@@ -106,10 +106,13 @@ struct CommandResponse {
     ResultCode resultCode;
     uint16_t responseLength;
     std::array<uint8_t, MAX_RESPONSE_SIZE> data{};
-    
+
     // Время выполнения
     uint32_t executionTimeMs;
 };
+
+// Валидация размеров структур
+static_assert(sizeof(CommandResponse) <= 300, "CommandResponse слишком велик");
 
 // ============================================================================
 // Идентификаторы команд

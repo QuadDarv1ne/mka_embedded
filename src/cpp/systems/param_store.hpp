@@ -136,6 +136,11 @@ struct ParamEntry {
     const char* unit;
 };
 
+// Валидация размеров структур для сериализации
+static_assert(sizeof(ParamEntry) <= 96, "ParamEntry слишком велика для хранения");
+static_assert(sizeof(ParamValue) == 8, "ParamValue должен быть ровно 8 байт");
+static_assert(sizeof(ParamAttributes) <= 2, "ParamAttributes должен быть компактным");
+
 // ============================================================================
 // Хранилище параметров
 // ============================================================================
@@ -326,7 +331,7 @@ public:
         if (offset + 2 > bufferSize) return 0;
         buffer[offset++] = (paramCount_ >> 8) & 0xFF;
         buffer[offset++] = paramCount_ & 0xFF;
-        
+
         // Параметры
         for (size_t i = 0; i < paramCount_; i++) {
             if (entries_[i].attributes.persistent) {
@@ -344,13 +349,12 @@ public:
             }
         }
 
-        // CRC32 (placeholder)
-        if (offset + 4 > bufferSize) return 0;
-        buffer[offset++] = 0;
-        buffer[offset++] = 0;
-        buffer[offset++] = 0;
-        buffer[offset++] = 0;
-        
+        // CRC16-CCITT для контроля целостности
+        if (offset + 2 > bufferSize) return 0;
+        uint16_t crc = calculateCRC16(buffer, offset);
+        buffer[offset++] = (crc >> 8) & 0xFF;
+        buffer[offset++] = crc & 0xFF;
+
         return offset;
     }
     
@@ -358,7 +362,7 @@ public:
      * @brief Десериализация параметров
      */
     bool deserialize(const uint8_t* buffer, size_t bufferSize) {
-        if (!buffer || bufferSize < 6) return false;
+        if (!buffer || bufferSize < 8) return false;  // Минимум: 4 header + 2 count + 2 CRC
 
         size_t offset = 0;
 
@@ -381,16 +385,17 @@ public:
         offset += 2;
 
         // Загрузка значений
-        for (uint16_t i = 0; i < count && offset + 2 <= bufferSize; i++) {
-            if (offset + 2 > bufferSize) break;  // Защита от переполнения
+        size_t dataEnd = bufferSize - 2;  // Последние 2 байта - CRC
+        for (uint16_t i = 0; i < count && offset < dataEnd; i++) {
+            if (offset + 2 > dataEnd) break;  // Защита от переполнения
 
             uint16_t id = (buffer[offset] << 8) | buffer[offset + 1];
             offset += 2;
 
             // Поиск параметра
-            for (size_t j = 0; j < paramCount_ && offset <= bufferSize; j++) {
+            for (size_t j = 0; j < paramCount_ && offset <= dataEnd; j++) {
                 if (entries_[j].id == id) {
-                    if (entries_[j].size == 0 || offset + entries_[j].size > bufferSize) {
+                    if (entries_[j].size == 0 || offset + entries_[j].size > dataEnd) {
                         return false;  // Невалидный размер или переполнение
                     }
                     std::memcpy(&values_[j], &buffer[offset], entries_[j].size);
@@ -401,18 +406,47 @@ public:
             }
         }
 
+        // Проверка CRC
+        uint16_t storedCRC = (buffer[bufferSize - 2] << 8) | buffer[bufferSize - 1];
+        uint16_t calculatedCRC = calculateCRC16(buffer, bufferSize - 2);
+        if (storedCRC != calculatedCRC) {
+            return false;  // CRC не совпадает
+        }
+
         return true;
     }
-    
+
+private:
+    /**
+     * @brief Расчёт CRC16-CCITT
+     */
+    static uint16_t calculateCRC16(const uint8_t* data, size_t len) {
+        uint16_t crc = 0xFFFF;
+        for (size_t i = 0; i < len; i++) {
+            crc ^= static_cast<uint16_t>(data[i]) << 8;
+            for (int j = 0; j < 8; j++) {
+                if (crc & 0x8000) {
+                    crc = (crc << 1) ^ 0x1021;
+                } else {
+                    crc <<= 1;
+                }
+            }
+        }
+        return crc;
+    }
+
+private:
+    std::array<ParamEntry, MAX_PARAMS> entries_{};
+
+public:
     /**
      * @brief Установка callback для отслеживания изменений
      */
     void setChangeCallback(ChangeCallback callback) {
         changeCallback_ = callback;
     }
-    
+
 private:
-    std::array<ParamEntry, MAX_PARAMS> entries_{};
     std::array<ParamValue, MAX_PARAMS> values_{};
     std::array<bool, MAX_PARAMS> modified_{};
     size_t paramCount_ = 0;
