@@ -1231,6 +1231,7 @@ public:
         SENSOR_TIME_LSB   = 0x0B,
         SENSOR_TIME_MSB   = 0x0C,
         PWR_CTRL          = 0x1B,
+        OSR               = 0x1C,  // Oversampling register
         ODR               = 0x1D,
         CONFIG            = 0x1F,
         CALIB_DATA        = 0x31,
@@ -1545,13 +1546,6 @@ private:
         return timeSource_ ? timeSource_->getMs() : 0;
     }
 };
-
-// Дополнительный регистр для BMP388 (нужен для configureSensor)
-namespace bmp388 {
-    enum RegisterExt : uint8_t {
-        OSR = 0x1C  // Oversampling register
-    };
-}
 
 // ============================================================================
 // LSM6DSO - 6-осевой IMU (Accelerometer + Gyroscope)
