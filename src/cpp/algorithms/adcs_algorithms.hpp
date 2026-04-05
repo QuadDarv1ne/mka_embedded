@@ -959,15 +959,16 @@ public:
             const Quaternion& currentQuat,
             const std::array<float, 3>& omega,
             float dt) {
-        
+        (void)dt; // Reserved for future rate limiting dynamics
+
         // Ограничение угловой скорости
         std::array<float, 3> omegaLimited = omega;
         for (int i = 0; i < 3; ++i) {
-            omegaLimited[i] = math::clamp(omegaLimited[i], 
-                                          -config_.maxOmega, 
+            omegaLimited[i] = math::clamp(omegaLimited[i],
+                                          -config_.maxOmega,
                                           config_.maxOmega);
         }
-        
+
         return compute(targetQuat, currentQuat, omegaLimited);
     }
 
