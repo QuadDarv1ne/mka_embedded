@@ -259,9 +259,11 @@ public:
 
         currentApId_ = apid;
 
-        TelemetryHeader* header = reinterpret_cast<TelemetryHeader*>(buffer_);
-        header->set(apid, sequenceCount_, 0, true);
-        
+        // Безопасная сериализация заголовка через memcpy
+        TelemetryHeader header{};
+        header.set(apid, sequenceCount_, 0, true);
+        std::memcpy(buffer_, &header, sizeof(TelemetryHeader));
+
         size_t offset = sizeof(TelemetryHeader);
         size_t dataStart = offset;
         
@@ -293,11 +295,13 @@ public:
         if (offset + CRC_SIZE > bufferSize_) {
             return FrameStatus::BUFFER_TOO_SMALL;
         }
-        
+
         buffer_[offset++] = static_cast<uint8_t>(crc >> 8);
         buffer_[offset++] = static_cast<uint8_t>(crc & 0xFF);
 
-        header->set(apid, sequenceCount_++, offset - dataStart, true);
+        // Обновляем заголовок с финальной длиной и sequence count
+        header.set(apid, sequenceCount_++, offset - dataStart, true);
+        std::memcpy(buffer_, &header, sizeof(TelemetryHeader));
 
         if (frameSize) {
             *frameSize = offset;
@@ -466,7 +470,7 @@ public:
     CommandResult processCommand(const uint8_t* data, size_t length,
                                  CommandResult* result = nullptr) {
         constexpr size_t MIN_COMMAND_SIZE = sizeof(CommandHeader) + CRC_SIZE;
-        
+
         if (length < MIN_COMMAND_SIZE) {
             return CommandResult::INVALID_PAYLOAD;
         }
@@ -475,25 +479,27 @@ public:
             return CommandResult::CRC_ERROR;
         }
 
-        const CommandHeader* header = reinterpret_cast<const CommandHeader*>(data);
+        // Безопасная десериализация заголовка через memcpy
+        CommandHeader header{};
+        std::memcpy(&header, data, sizeof(CommandHeader));
 
         // Validate payload length to prevent buffer overflow
-        const size_t expectedTotalSize = sizeof(CommandHeader) + header->payloadLength + CRC_SIZE;
-        if (expectedTotalSize > length || header->payloadLength > MAX_COMMAND_PAYLOAD) {
+        const size_t expectedTotalSize = sizeof(CommandHeader) + header.payloadLength + CRC_SIZE;
+        if (expectedTotalSize > length || header.payloadLength > MAX_COMMAND_PAYLOAD) {
             return CommandResult::INVALID_PAYLOAD;
         }
 
-        CommandHandler handler = findHandler(header->commandId);
+        CommandHandler handler = findHandler(header.commandId);
         if (!handler) {
             return CommandResult::INVALID_COMMAND;
         }
 
         Command cmd;
-        cmd.id = header->commandId;
+        cmd.id = header.commandId;
         cmd.payload = data + sizeof(CommandHeader);
-        cmd.payloadSize = header->payloadLength;
+        cmd.payloadSize = header.payloadLength;
         cmd.timestamp = 0;
-        cmd.sourceApId = header->word0 & 0x7FF;
+        cmd.sourceApId = header.word0 & 0x7FF;
 
         CommandResult execResult = handler(cmd);
 

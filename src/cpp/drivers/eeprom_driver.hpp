@@ -97,17 +97,19 @@ public:
      * @brief Чтение массива данных
      */
     bool read(uint16_t address, std::span<uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow: используем безопасную проверку
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
         return i2c_.read(address_, address, data);
     }
-    
+
     /**
      * @brief Запись массива данных (с учётом границ страниц)
      */
     bool write(uint16_t address, std::span<const uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
         
@@ -293,80 +295,99 @@ public:
      * @brief Чтение массива данных
      */
     bool read(uint16_t address, std::span<uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
-        
+
         spi_.select();
-        
+
         // Команда чтения + адрес
         uint8_t header[3] = {
             OPCODE_READ,
             static_cast<uint8_t>(address >> 8),
             static_cast<uint8_t>(address & 0xFF)
         };
-        
-        spi_.transfer(header, {});
-        spi_.transfer({}, data);
-        
+
+        bool success = spi_.transfer(header, {});
+        if (success) {
+            success = spi_.transfer({}, data);
+        }
+
         spi_.deselect();
-        return true;
+        return success;
     }
     
     /**
      * @brief Быстрое чтение (с dummy byte)
      */
     bool fastRead(uint16_t address, std::span<uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
-        
+
         spi_.select();
-        
+
         uint8_t header[4] = {
             OPCODE_FSTRD,
             static_cast<uint8_t>(address >> 8),
             static_cast<uint8_t>(address & 0xFF),
             0x00  // Dummy byte
         };
-        
-        spi_.transfer(header, {});
-        spi_.transfer({}, data);
-        
+
+        bool success = spi_.transfer(header, {});
+        if (success) {
+            success = spi_.transfer({}, data);
+        }
+
         spi_.deselect();
-        return true;
+        return success;
     }
     
     /**
      * @brief Запись массива данных
      */
     bool write(uint16_t address, std::span<const uint8_t> data) {
-        if (address + data.size() > TOTAL_SIZE) {
+        // Защита от integer overflow
+        if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
         }
-        
+
         // Write Enable
         spi_.select();
         uint8_t wren = OPCODE_WREN;
-        spi_.transfer({&wren, 1}, {});
+        bool success = spi_.transfer({&wren, 1}, {});
         spi_.deselect();
-        
+
+        if (!success) {
+            return false;
+        }
+
+        // Проверка что Write Enable прошёл успешно (чтение статусного регистра)
+        uint8_t status = readStatusRegister();
+        if (!(status & 0x02)) {  // WEL bit должен быть установлен
+            return false;
+        }
+
         // Write
         spi_.select();
-        
+
         uint8_t header[3] = {
             OPCODE_WRITE,
             static_cast<uint8_t>(address >> 8),
             static_cast<uint8_t>(address & 0xFF)
         };
-        
-        spi_.transfer(header, {});
-        spi_.transfer(data, {});
-        
+
+        success = spi_.transfer(header, {});
+        if (success) {
+            success = spi_.transfer(data, {});
+        }
+
         spi_.deselect();
-        
+
         // FRAM не требует ожидания!
-        return true;
+        return success;
     }
     
     /**

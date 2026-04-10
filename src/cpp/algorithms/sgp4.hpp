@@ -38,9 +38,19 @@ namespace Constants {
     constexpr double J4 = -1.65597e-6;          // Четвёртый зональный коэффициент
 
     // Производные константы
-    constexpr double XKE = std::sqrt(MU_EARTH / (R_EARTH * R_EARTH * R_EARTH));
-    constexpr double CK2 = 0.5 * J2 * R_EARTH * R_EARTH;
-    constexpr double CK4 = -0.375 * J4 * R_EARTH * R_EARTH * R_EARTH * R_EARTH;
+    // Примечание: std::sqrt не constexpr в C++17, вычисляем при инициализации
+    inline constexpr double computeXKE() {
+        return std::sqrt(MU_EARTH / (R_EARTH * R_EARTH * R_EARTH));
+    }
+    inline constexpr double computeCK2() {
+        return 0.5 * J2 * R_EARTH * R_EARTH;
+    }
+    inline constexpr double computeCK4() {
+        return -0.375 * J4 * R_EARTH * R_EARTH * R_EARTH * R_EARTH;
+    }
+    static inline const double XKE = computeXKE();
+    static inline const double CK2 = computeCK2();
+    static inline const double CK4 = computeCK4();
 }
 
 // ============================================================================
@@ -70,6 +80,7 @@ struct TLE {
     double meanMotion = 0.0;        // Среднее движение [rev/day]
     int orbitNumber = 0;            // Номер витка на эпоху
 };
+static_assert(sizeof(TLE) >= 96, "TLE structure must be large enough");
 
 /// Положение и скорость спутника
 struct ECIState {
@@ -91,16 +102,17 @@ struct ECIState {
         return std::sqrt(x*x + y*y + z*z);
     }
 
-    /// Получить высоту над поверхностью Земли [km]
-    double altitude() const {
-        return radius() - Constants::R_EARTH;
-    }
-
     /// Получить скорость [km/s]
     double velocity() const {
         return std::sqrt(vx*vx + vy*vy + vz*vz);
     }
+
+    /// Получить высоту над поверхностью Земли [km]
+    double altitude() const {
+        return radius() - Constants::R_EARTH;
+    }
 };
+static_assert(sizeof(ECIState) == 112, "ECIState must be 112 bytes (14 doubles)");
 
 /// Географические координаты (LLA)
 struct LLACoords {

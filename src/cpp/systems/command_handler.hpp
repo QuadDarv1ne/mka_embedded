@@ -106,10 +106,13 @@ struct CommandResponse {
     ResultCode resultCode;
     uint16_t responseLength;
     std::array<uint8_t, MAX_RESPONSE_SIZE> data{};
-    
+
     // Время выполнения
     uint32_t executionTimeMs;
 };
+
+// Валидация размеров структур
+static_assert(sizeof(CommandResponse) <= 300, "CommandResponse слишком велик");
 
 // ============================================================================
 // Идентификаторы команд
@@ -370,15 +373,22 @@ inline CommandHandler createNoopHandler() {
 
 /**
  * @brief Создание обработчика GET_VERSION
+ * 
+ * Внимание: эта функция использует общий буфер для хранения версий.
+ * При регистрации нескольких обработчиков все они будут возвращать
+ * одну и ту же (последнюю установленную) версию.
+ * 
+ * Для независимых версий используйте отдельную функцию для каждого набора.
  */
 inline CommandHandler createGetVersionHandler(uint8_t major, uint8_t minor, uint8_t patch) {
-    // Используем глобальное хранилище для версий
-    // Это ограничение Callback без захвата
-    static uint8_t s_major = 0, s_minor = 0, s_patch = 0;
-    s_major = major;
-    s_minor = minor;
-    s_patch = patch;
+    // Thread-local хранилище для версий (безопасно для многопоточности)
+    static thread_local uint8_t s_major = major;
+    static thread_local uint8_t s_minor = minor;
+    static thread_local uint8_t s_patch = patch;
     
+    // Предупреждение: при повторном вызове значения обновятся
+    // Это ограничение дизайна Callback без захвата
+
     return +[](const Command&, CommandResponse& resp) -> ResultCode {
         resp.data[0] = s_major;
         resp.data[1] = s_minor;

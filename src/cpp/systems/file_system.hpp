@@ -92,6 +92,10 @@ struct DirEntry {
     size_t size = 0;
 };
 
+// Валидация размеров структур
+static_assert(sizeof(DirEntry) <= 272, "DirEntry слишком велик");
+static_assert(sizeof(DirHandle) <= 8, "DirHandle должен быть компактным");
+
 /// File statistics
 struct FileStats {
     FileType type = FileType::NONE;

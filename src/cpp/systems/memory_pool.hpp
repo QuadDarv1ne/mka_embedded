@@ -191,10 +191,13 @@ public:
             uintptr_t buddyOffset = offset ^ blockSize;  // XOR для нахождения buddy
             uintptr_t buddyAddr = poolStart + buddyOffset;
 
-            // Проверяем, что buddy существует и свободен
+            // Проверяем, что buddy в пределах пула ДО разыменования
+            if (!isInPoolAddress(buddyAddr)) {
+                break;  // Buddy за пределами пула — не можем объединить
+            }
+
             BlockHeader* buddy = reinterpret_cast<BlockHeader*>(buddyAddr);
-            if (buddy->order != order || buddy->allocated ||
-                !isInPool(buddy) || buddy == block) {
+            if (buddy->order != order || buddy->allocated || buddy == block) {
                 break;  // Не можем объединить
             }
 
@@ -224,6 +227,8 @@ private:
         bool allocated = false;
         uint8_t reserved[6] = {};  // Padding для выравнивания
     };
+    static_assert(sizeof(BlockHeader) == 16, "BlockHeader must be 16 bytes for alignment");
+    static_assert(alignof(BlockHeader) <= 8, "BlockHeader alignment must be <= 8");
 
     struct FreeList {
         BlockHeader* head = nullptr;
@@ -264,10 +269,12 @@ private:
     }
     
     void splitBlock(uint8_t fromOrder, uint8_t toOrder) {
+        if (fromOrder == 0 || fromOrder > MAX_ORDER) return;  // Защита от невалидных параметров
+        if (toOrder >= fromOrder) return;  // Нельзя разделить
+
         // Найти блок для разделения
         BlockHeader* block = freeLists_[fromOrder].head;
         if (!block) return;
-        if (toOrder >= fromOrder) return;  // Нельзя разделить
 
         // Удалить из списка больших блоков
         freeLists_[fromOrder].head = block->next;
@@ -289,9 +296,11 @@ private:
             block->order = fromOrder - 1;
             block->allocated = false;
             block->next = nullptr;
-            
-            // Рекурсивная проверка
-            splitBlock(fromOrder - 1, toOrder);
+
+            // Рекурсивная проверка с защитой от переполнения стека
+            if (fromOrder - 1 <= MAX_ORDER) {
+                splitBlock(fromOrder - 1, toOrder);
+            }
             return;
         }
 
@@ -299,10 +308,10 @@ private:
         block->order = toOrder;
         block->allocated = false;
         block->next = freeLists_[toOrder].head;
-        
+
         freeLists_[toOrder].head = block;
         freeLists_[toOrder].count++;
-        
+
         second->next = freeLists_[toOrder].head;
         freeLists_[toOrder].head = second;
         freeLists_[toOrder].count++;
@@ -317,6 +326,12 @@ private:
 
     bool isInPool(const BlockHeader* block) const {
         uintptr_t addr = reinterpret_cast<uintptr_t>(block);
+        uintptr_t start = reinterpret_cast<uintptr_t>(pool_.data());
+        uintptr_t end = start + pool_.size();
+        return (addr >= start && addr + sizeof(BlockHeader) <= end);
+    }
+
+    bool isInPoolAddress(uintptr_t addr) const {
         uintptr_t start = reinterpret_cast<uintptr_t>(pool_.data());
         uintptr_t end = start + pool_.size();
         return (addr >= start && addr + sizeof(BlockHeader) <= end);

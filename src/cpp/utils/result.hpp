@@ -151,24 +151,46 @@ public:
     // Доступ к значению
     // ========================================================================
 
-    /// Получить значение (не проверяет ok_)
-    constexpr T& value() & noexcept { return storage_.value; }
-    constexpr const T& value() const& noexcept { return storage_.value; }
-    constexpr T&& value() && noexcept { return std::move(storage_.value); }
+    /// Получить значение (используйте только после проверки isOk())
+    constexpr T& value() & noexcept {
+        return storage_.value;
+    }
+    constexpr const T& value() const& noexcept {
+        return storage_.value;
+    }
+    constexpr T&& value() && noexcept {
+        return std::move(storage_.value);
+    }
+
+    /// Безопасное получение значения (с проверкой)
+    constexpr std::optional<T> tryValue() const& noexcept {
+        return ok_ ? std::optional<T>(storage_.value) : std::nullopt;
+    }
 
     /// Получить значение или значение по умолчанию
-    constexpr T valueOr(const T& defaultValue) const& {
+    constexpr T valueOr(const T& defaultValue) const& noexcept {
         return ok_ ? storage_.value : defaultValue;
     }
 
-    constexpr T valueOr(T&& defaultValue) && {
+    constexpr T valueOr(T&& defaultValue) && noexcept {
         return ok_ ? std::move(storage_.value) : std::forward<T>(defaultValue);
     }
 
-    /// Получить ошибку (не проверяет isError)
-    constexpr E& error() & noexcept { return storage_.error; }
-    constexpr const E& error() const& noexcept { return storage_.error; }
-    constexpr E&& error() && noexcept { return std::move(storage_.error); }
+    /// Получить ошибку (используйте только после проверки isError())
+    constexpr E& error() & noexcept {
+        return storage_.error;
+    }
+    constexpr const E& error() const& noexcept {
+        return storage_.error;
+    }
+    constexpr E&& error() && noexcept {
+        return std::move(storage_.error);
+    }
+
+    /// Безопасное получение ошибки (с проверкой)
+    constexpr std::optional<E> tryError() const& {
+        return ok_ ? std::nullopt : std::optional<E>(storage_.error);
+    }
 
     // ========================================================================
     // Map и transform операции

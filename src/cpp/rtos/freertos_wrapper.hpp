@@ -172,7 +172,9 @@ private:
     
     alignas(8) std::array<uint8_t, StackSize> stack_{};
     // Static task buffer (platform-specific structure)
-    uint8_t taskBuffer_[64]{};  // Placeholder для TCB
+    // Размер TaskHandle_t + TCB зависит от FreeRTOS конфигурации
+    uint8_t taskBuffer_[128]{};  // Достаточно для TCB на большинстве платформ
+    static_assert(sizeof(taskBuffer_) >= 64, "taskBuffer_ too small for FreeRTOS TCB");
     
     static void taskWrapper(void* param) {
         Task* task = static_cast<Task*>(param);

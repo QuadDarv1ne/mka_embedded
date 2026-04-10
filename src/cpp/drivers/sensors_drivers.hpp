@@ -88,6 +88,7 @@ struct GPSData {
     uint8_t second;
     uint64_t timestamp;
 };
+static_assert(sizeof(GPSData) == 56, "GPSData must be 56 bytes");
 
 /// Данные солнечного датчика
 struct SunSensorData {
@@ -1761,18 +1762,16 @@ public:
         TIMESTAMP2_REG        = 0x42,
         FIFO_STATUS1          = 0x3A,
         FIFO_STATUS2          = 0x3B,
-        FIFO_DATA_OUT_TAG     = 0x3B,
-        FIFO_DATA_OUT_X_L     = 0x3C,
-        FIFO_DATA_OUT_X_H     = 0x3D,
-        FIFO_DATA_OUT_Y_L     = 0x3E,
-        FIFO_DATA_OUT_Y_H     = 0x3F,
-        FIFO_DATA_OUT_Z_L     = 0x40,
-        FIFO_DATA_OUT_Z_H     = 0x41,
-        TIMESTAMP2_REG        = 0x42,
+        FIFO_DATA_OUT_TAG     = 0x78,
+        FIFO_DATA_OUT_X_L     = 0x78,
+        FIFO_DATA_OUT_X_H     = 0x79,
+        FIFO_DATA_OUT_Y_L     = 0x7A,
+        FIFO_DATA_OUT_Y_H     = 0x7B,
+        FIFO_DATA_OUT_Z_L     = 0x7C,
+        FIFO_DATA_OUT_Z_H     = 0x7D,
         STEP_COUNTER_L        = 0x4B,
         STEP_COUNTER_H        = 0x4C,
         FUNC_SRC              = 0x53,
-        FUNC_CK_GATE          = 0x01,
         MD1_CFG               = 0x5E,
         MD2_CFG               = 0x5F,
         FXS_OUT_X_L           = 0x66,

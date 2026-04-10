@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstring>
 #include <array>
+#include <chrono>
 
 #include "utils/callback.hpp"
 #include "utils/span.hpp"
@@ -137,6 +138,7 @@ struct RadioPacket {
     int8_t snr;
     std::array<uint8_t, 256> data;
 };
+static_assert(sizeof(RadioPacket) == 260, "RadioPacket must be 260 bytes");
 
 // ============================================================================
 // Интерфейс SPI (абстракция)
@@ -478,21 +480,30 @@ private:
     bool sendCommand(uint8_t cmd, const uint8_t* params, size_t paramLen,
                      uint8_t* response, size_t respLen) {
         spi_.select();
-        
+
         // Отправка команды
-        spi_.transfer({&cmd, 1}, {});
-        if (paramLen > 0 && params) {
-            spi_.transfer({params, paramLen}, {});
+        bool success = spi_.transfer({&cmd, 1}, {});
+        if (!success) {
+            spi_.deselect();
+            return false;
         }
-        
+
+        if (paramLen > 0 && params) {
+            success = spi_.transfer({params, paramLen}, {});
+            if (!success) {
+                spi_.deselect();
+                return false;
+            }
+        }
+
         // Чтение ответа
         if (respLen > 0 && response) {
             delayMs(1);  // Wait for processing
-            spi_.transfer({}, {response, respLen});
+            success = spi_.transfer({}, {response, respLen});
         }
-        
+
         spi_.deselect();
-        return true;
+        return success;
     }
     
     bool getPartInfo(uint8_t* info) {
@@ -508,24 +519,42 @@ private:
     bool writeTxFifo(std::span<const uint8_t> data) {
         uint8_t cmd = 0x12;  // Write TX FIFO
         spi_.select();
-        spi_.transfer({&cmd, 1}, {});
-        spi_.transfer({data.data(), data.size()}, {});
+        bool success = spi_.transfer({&cmd, 1}, {});
+        if (success) {
+            success = spi_.transfer({data.data(), data.size()}, {});
+        }
         spi_.deselect();
-        return true;
+        return success;
     }
     
     bool readRxFifo(RadioPacket& packet) {
         uint8_t cmd = 0x13;  // Read RX FIFO
         uint8_t len;
-        
+
         spi_.select();
-        spi_.transfer({&cmd, 1}, {});
-        spi_.transfer({}, {&len, 1});
+        bool success = spi_.transfer({&cmd, 1}, {});
+        if (!success) {
+            spi_.deselect();
+            return false;
+        }
+
+        success = spi_.transfer({}, {&len, 1});
+        if (!success) {
+            spi_.deselect();
+            return false;
+        }
+
+        // Проверка что длина не превышает размер буфера
+        if (len > packet.data.size()) {
+            spi_.deselect();
+            return false;  // Переполнение буфера - отбрасываем пакет
+        }
+
         packet.length = len;
-        spi_.transfer({}, {packet.data.data(), len});
+        success = spi_.transfer({}, {packet.data.data(), len});
         spi_.deselect();
-        
-        return true;
+
+        return success;
     }
     
     bool startTx() {
@@ -563,10 +592,23 @@ private:
     void delayMs(uint32_t ms) {
         // Platform-specific delay
     }
-    
+
     uint32_t getTickMs() {
         // Platform-specific tick
-        return 0;
+        // Для host build используем стандартное время
+        // Для STM32 использовать HAL_GetTick() или SysTick
+#ifdef __GNUC__
+        // На bare-metal это должна быть реализация через SysTick
+        // Заглушка - возвращаем 0, но с комментарием что это требует реализации
+        return 0;  // TODO: реализовать через HAL_GetTick() или SysTick
+#else
+        // На хосте используем chrono
+        auto now = std::chrono::steady_clock::now();
+        return static_cast<uint32_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                now.time_since_epoch()).count()
+        );
+#endif
     }
 };
 

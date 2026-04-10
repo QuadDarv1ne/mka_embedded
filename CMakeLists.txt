@@ -129,6 +129,7 @@ set(SYSTEM_SOURCES
     src/cpp/systems/param_store.hpp
     src/cpp/systems/watchdog_manager.hpp
     src/cpp/systems/ota_updater.hpp
+    src/cpp/systems/ota_updater.cpp
     src/cpp/systems/canopen.hpp
 )
 
