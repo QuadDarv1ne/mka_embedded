@@ -277,7 +277,7 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_file_system mka_core GTest::gtest_main)
     add_test(NAME test_file_system COMMAND test_file_system)
 
-    # Тест SGP4 орбитального пропагатора - временно отключен (static assertion в sgp4.hpp)
+    # Тест SGP4 орбитального пропагатора - отключён (нет реализации SGP4Propagator::init/propagate)
     # add_executable(test_sgp4 tests/test_sgp4.cpp)
     # target_link_libraries(test_sgp4 mka_algorithms GTest::gtest_main)
     # add_test(NAME test_sgp4 COMMAND test_sgp4)

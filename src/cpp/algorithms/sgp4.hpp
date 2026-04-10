@@ -112,7 +112,7 @@ struct ECIState {
         return radius() - Constants::R_EARTH;
     }
 };
-static_assert(sizeof(ECIState) == 112, "ECIState must be 112 bytes (14 doubles)");
+static_assert(sizeof(ECIState) == 7 * sizeof(double), "ECIState must be 7 doubles (x,y,z,vx,vy,vz,t)");
 
 /// Географические координаты (LLA)
 struct LLACoords {
