@@ -68,6 +68,7 @@ extern "C" {
     uint32_t xTimerStart(TimerHandle_t xTimer, uint32_t xTicksToWait);
     uint32_t xTimerStop(TimerHandle_t xTimer, uint32_t xTicksToWait);
     uint32_t xTimerReset(TimerHandle_t xTimer, uint32_t xTicksToWait);
+    void* pvTimerGetTimerID(TimerHandle_t xTimer);
     
     // Event Group API
     EventGroupHandle_t xEventGroupCreateStatic(void* pxEventGroupBuffer);
@@ -392,8 +393,15 @@ private:
     uint8_t timerBuffer_[40]{};
     
     static void timerCallback(TimerHandle_t timer) {
-        // Extract Timer object and call callback
-        // In real implementation, use pvTimerGetTimerID
+        if (timer) {
+            void* id = pvTimerGetTimerID(timer);
+            if (id) {
+                Timer* self = static_cast<Timer*>(id);
+                if (self && self->callback_) {
+                    self->callback_();
+                }
+            }
+        }
     }
 };
 

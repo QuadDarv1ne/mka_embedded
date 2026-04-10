@@ -691,23 +691,33 @@ public:
         
         // CTRL_REG1: OM (operating mode) + DO (data rate)
         uint8_t ctrl1 = (0x03 << 2) | config.odr;  // UHP mode
-        i2c_.writeRegister(address_, Register::CTRL_REG1, &ctrl1, 1, 100);
-        
+        if (i2c_.writeRegister(address_, Register::CTRL_REG1, &ctrl1, 1, 100) != hal::Status::OK) {
+            errorCount_++;
+        }
+
         // CTRL_REG2: FS (full scale)
         uint8_t ctrl2 = static_cast<uint8_t>(config.scale);
-        i2c_.writeRegister(address_, Register::CTRL_REG2, &ctrl2, 1, 100);
-        
+        if (i2c_.writeRegister(address_, Register::CTRL_REG2, &ctrl2, 1, 100) != hal::Status::OK) {
+            errorCount_++;
+        }
+
         // CTRL_REG3: MD (mode) - continuous
         uint8_t ctrl3 = config.mode;
-        i2c_.writeRegister(address_, Register::CTRL_REG3, &ctrl3, 1, 100);
-        
+        if (i2c_.writeRegister(address_, Register::CTRL_REG3, &ctrl3, 1, 100) != hal::Status::OK) {
+            errorCount_++;
+        }
+
         // CTRL_REG4: OMZ (Z-axis operating mode)
         uint8_t ctrl4 = 0x0C;  // UHP for Z
-        i2c_.writeRegister(address_, Register::CTRL_REG4, &ctrl4, 1, 100);
-        
+        if (i2c_.writeRegister(address_, Register::CTRL_REG4, &ctrl4, 1, 100) != hal::Status::OK) {
+            errorCount_++;
+        }
+
         // CTRL_REG5: Block data update
         uint8_t ctrl5 = config.tempEnable ? 0x80 : 0x00;
-        i2c_.writeRegister(address_, Register::CTRL_REG5, &ctrl5, 1, 100);
+        if (i2c_.writeRegister(address_, Register::CTRL_REG5, &ctrl5, 1, 100) != hal::Status::OK) {
+            errorCount_++;
+        }
         
         // Расчёт чувствительности
         switch (config.scale) {
@@ -1086,32 +1096,44 @@ private:
         
         data.fixType = payload[20];
         lastFixValid_ = (data.fixType >= 2);
-        
+
         int32_t lon = static_cast<int32_t>(
-            payload[24] | (payload[25] << 8) | 
-            (payload[26] << 16) | (payload[27] << 24));
+            static_cast<uint32_t>(payload[24]) |
+            (static_cast<uint32_t>(payload[25]) << 8) |
+            (static_cast<uint32_t>(payload[26]) << 16) |
+            (static_cast<uint32_t>(payload[27]) << 24));
         int32_t lat = static_cast<int32_t>(
-            payload[28] | (payload[29] << 8) |
-            (payload[30] << 16) | (payload[31] << 24));
-        
+            static_cast<uint32_t>(payload[28]) |
+            (static_cast<uint32_t>(payload[29]) << 8) |
+            (static_cast<uint32_t>(payload[30]) << 16) |
+            (static_cast<uint32_t>(payload[31]) << 24));
+
         data.longitude = lon * 1e-7;
         data.latitude = lat * 1e-7;
-        
+
         int32_t hMSL = static_cast<int32_t>(
-            payload[36] | (payload[37] << 8) |
-            (payload[38] << 16) | (payload[39] << 24));
+            static_cast<uint32_t>(payload[36]) |
+            (static_cast<uint32_t>(payload[37]) << 8) |
+            (static_cast<uint32_t>(payload[38]) << 16) |
+            (static_cast<uint32_t>(payload[39]) << 24));
         data.altitude = hMSL / 1000.0;
         
-        uint32_t gSpeed = payload[60] | (payload[61] << 8) |
-                          (payload[62] << 16) | (payload[63] << 24);
+        uint32_t gSpeed = static_cast<uint32_t>(payload[60]) |
+                          (static_cast<uint32_t>(payload[61]) << 8) |
+                          (static_cast<uint32_t>(payload[62]) << 16) |
+                          (static_cast<uint32_t>(payload[63]) << 24);
         data.speed = gSpeed / 1000.0f;  // mm/s -> m/s
         
         int32_t heading = static_cast<int32_t>(
-            payload[64] | (payload[65] << 8) |
-            (payload[66] << 16) | (payload[67] << 24));
+            static_cast<uint32_t>(payload[64]) |
+            (static_cast<uint32_t>(payload[65]) << 8) |
+            (static_cast<uint32_t>(payload[66]) << 16) |
+            (static_cast<uint32_t>(payload[67]) << 24));
         data.course = heading * 1e-5f;
-        
-        uint16_t pDOP = payload[76] | (payload[77] << 8);
+
+        uint16_t pDOP = static_cast<uint16_t>(
+            static_cast<uint32_t>(payload[76]) |
+            (static_cast<uint32_t>(payload[77]) << 8));
         data.hdop = pDOP * 0.01f;
         
         data.satellites = payload[23];
@@ -1132,18 +1154,24 @@ private:
         if (len < 28) return;
 
         int32_t lon = static_cast<int32_t>(
-            payload[4] | (payload[5] << 8) |
-            (payload[6] << 16) | (payload[7] << 24));
+            static_cast<uint32_t>(payload[4]) |
+            (static_cast<uint32_t>(payload[5]) << 8) |
+            (static_cast<uint32_t>(payload[6]) << 16) |
+            (static_cast<uint32_t>(payload[7]) << 24));
         int32_t lat = static_cast<int32_t>(
-            payload[8] | (payload[9] << 8) |
-            (payload[10] << 16) | (payload[11] << 24));
+            static_cast<uint32_t>(payload[8]) |
+            (static_cast<uint32_t>(payload[9]) << 8) |
+            (static_cast<uint32_t>(payload[10]) << 16) |
+            (static_cast<uint32_t>(payload[11]) << 24));
 
         data.longitude = lon * 1e-7;
         data.latitude = lat * 1e-7;
 
         int32_t height = static_cast<int32_t>(
-            payload[12] | (payload[13] << 8) |
-            (payload[14] << 16) | (payload[15] << 24));
+            static_cast<uint32_t>(payload[12]) |
+            (static_cast<uint32_t>(payload[13]) << 8) |
+            (static_cast<uint32_t>(payload[14]) << 16) |
+            (static_cast<uint32_t>(payload[15]) << 24));
         data.altitude = height / 1000.0;  // mm -> m
 
         data.timestamp = getTimestamp();
@@ -1662,7 +1690,13 @@ private:
         partialData1 = temp * partialData1;
 
         compensatedPressure = 1.0f - (partialData1 / 1048576.0f);
+        if (compensatedPressure < 1e-10f) {
+            return 0.0f;  // Защита от деления на ноль
+        }
         compensatedPressure = static_cast<float>(pressRaw) - (partialData2 / compensatedPressure);
+        if (partialData1 < 1e-10f) {
+            return 0.0f;  // Защита от деления на ноль
+        }
         compensatedPressure = compensatedPressure / partialData1;
 
         return compensatedPressure / 100.0f;  // Па -> гПа
