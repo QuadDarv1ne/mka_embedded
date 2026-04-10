@@ -600,7 +600,19 @@ private:
     }
     
     void delayMs(uint32_t ms) {
-        // Platform-specific delay
+#ifdef STM32F4
+        extern void HAL_Delay(uint32_t);
+        HAL_Delay(ms);
+#elif defined(STM32F7)
+        extern void HAL_Delay(uint32_t);
+        HAL_Delay(ms);
+#elif defined(STM32H7)
+        extern void HAL_Delay(uint32_t);
+        HAL_Delay(ms);
+#else
+        // Host build — portable delay
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+#endif
     }
 
     uint32_t getTickMs() {

@@ -16,6 +16,10 @@
 #include <cstring>
 #include <array>
 
+#if !defined(STM32F4) && !defined(STM32F7) && !defined(STM32H7)
+#include <chrono>
+#endif
+
 #include "utils/callback.hpp"
 #include "utils/span.hpp"
 
@@ -348,9 +352,14 @@ private:
     }
     
     uint32_t getTickMs() {
-        // Platform-specific implementation
-        // В реальном проекте использовать RTOS tick или аппаратный таймер
-        return 0;
+#if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
+        extern uint32_t HAL_GetTick(void);
+        return HAL_GetTick();
+#else
+        return static_cast<uint32_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count());
+#endif
     }
 };
 
