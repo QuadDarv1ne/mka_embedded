@@ -1020,13 +1020,27 @@
 - [ ] Тест для LittleFS
 - [ ] Тест для OTA Updater
 
-### Статус на 10 апреля 2026 (23:00)
-- **Ветка:** dev (5eda7ff) ✅
+### Статус на 11 апреля 2026 (00:00)
+- **Ветка:** dev (6540b0f) ✅
 - **Сборка:** ✅ проходит без ошибок
 - **Тесты:** ✅ 13/13 (100%)
 - **Критических багов:** 0 ✅
 - **Средних проблем:** 0 ✅
 - **Готово к merge в main:** ✅
+
+#### Выполнено за сессию 10 апреля 2026
+- ✅ **Radio getTickMs()** — STM32 HAL + bare-metal SysTick + host chrono
+- ✅ **NMEA парсинг** — $GPGGA и $GPRMC вместо заглушки
+- ✅ **CANopen OD** — CiA 301 совместимость (Vendor ID, Product Code, Revision)
+- ✅ **IsolationTree buildTree** — критический баг: segfault при обучении
+- ✅ **AnomalyDetector тесты** — 9 тестов (было: segfault)
+- ✅ **UKF тесты** — 8 тестов
+- ✅ **SGP4 parseTLE** — локальные переменные вместо несуществующих членов
+- ✅ **SGP4 static_assert** — ECIState == 7 doubles
+- ✅ **delayMs()** — radio, eeprom (HAL_Delay / sleep_for)
+- ✅ **Watchdog getTickMs()** — chrono::steady_clock (host), HAL_GetTick (STM32)
+- ✅ **BandPlan.xml** — частоты ADS-B, ISS, FM, NOAA, Ham
+- ✅ **mka_ml STATIC** — anomaly_detector.cpp + sgp4.cpp
 
 #### Исправлено 10 апреля 2026 (23:00)
 - ✅ **Radio delayMs()** — std::this_thread::sleep_for (host), HAL_Delay (STM32)
