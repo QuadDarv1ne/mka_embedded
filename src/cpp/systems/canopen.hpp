@@ -712,7 +712,7 @@ public:
             uint8_t response[8];
             if (sdo_.processRequest(data, len, response)) {
                 // Отправка ответа
-                can_->transmit(sdo_.getResponseCOBId(), response, 8);
+                transmitCAN(sdo_.getResponseCOBId(), response, 8);
             }
             return;
         }
@@ -740,7 +740,7 @@ public:
         if (len == 0) return false;
 
         uint32_t cobId = pdo_.getTPDOCobId(pdoNumber);
-        return can_->transmit(cobId, data, len) == hal::Status::OK;
+        return transmitCAN(cobId, data, len) == hal::Status::OK;
     }
 
     /**
@@ -748,7 +748,7 @@ public:
      */
     bool sendHeartbeat() {
         uint8_t state = nmt_.createHeartbeat();
-        return can_->transmit(nmt_.getHeartbeatCOBId(), &state, 1) == hal::Status::OK;
+        return transmitCAN(nmt_.getHeartbeatCOBId(), &state, 1) == hal::Status::OK;
     }
 
     /**
@@ -756,17 +756,17 @@ public:
      */
     bool sendEmergency(uint16_t errorCode, const uint8_t* data, size_t len) {
         if (len > 5) len = 5;  // Max 5 bytes for emergency data
-        
+
         uint8_t emcy[8] = {};
         emcy[0] = errorCode & 0xFF;
         emcy[1] = (errorCode >> 8) & 0xFF;
         emcy[2] = nmt_.createHeartbeat();  // Device status
-        
+
         for (size_t i = 0; i < len; ++i) {
             emcy[3 + i] = data[i];
         }
 
-        return can_->transmit(COBId::EMCY + nodeId_, emcy, 8) == hal::Status::OK;
+        return transmitCAN(COBId::EMCY + nodeId_, emcy, 8) == hal::Status::OK;
     }
 
     /**
@@ -794,6 +794,20 @@ private:
     NMTStateMachine nmt_;
     SDOServer sdo_;
     PDOManager pdo_;
+
+    hal::Status transmitCAN(uint32_t id, const uint8_t* data, size_t len, uint32_t timeoutMs = 1000) {
+        hal::CANMessage msg;
+        msg.id = id;
+        msg.extended = false;
+        msg.remote = false;
+        msg.dlc = static_cast<uint8_t>(len > 8 ? 8 : len);
+        msg.data = {};
+        if (data && len > 0) {
+            std::memcpy(msg.data.data(), data, msg.dlc);
+        }
+        msg.timestamp = 0;
+        return can_->transmit(msg, timeoutMs);
+    }
 
     void setupStandardOD() {
         // Manufacturer Device Information
@@ -842,7 +856,10 @@ private:
         };
         // "MKA Embedded"
         const char* name = "MKA Embedded";
-        manufacturerName.data.assign(name, name + strlen(name) + 1);
+        size_t nameLen = strlen(name) + 1;
+        if (nameLen <= manufacturerName.data.size()) {
+            std::memcpy(manufacturerName.data.data(), name, nameLen);
+        }
         sdo_.registerEntry(manufacturerName);
 
         ODEntry deviceType = {

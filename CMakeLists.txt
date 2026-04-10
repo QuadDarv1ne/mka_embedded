@@ -293,6 +293,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_anomaly_detector mka_ml GTest::gtest_main)
     add_test(NAME test_anomaly_detector COMMAND test_anomaly_detector)
 
+    # Тест CANopen стека
+    add_executable(test_canopen tests/test_canopen.cpp)
+    target_link_libraries(test_canopen mka_systems GTest::gtest_main)
+    add_test(NAME test_canopen COMMAND test_canopen)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
