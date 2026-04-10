@@ -369,16 +369,24 @@ public:
         // Настройка диапазонов
         uint8_t accRange = static_cast<uint8_t>(config.accelRange);
         uint8_t gyrRange = static_cast<uint8_t>(config.gyroRange);
-        
-        writeRegister(Register::ACC_RANGE, &accRange, 1);
-        writeRegister(Register::GYR_RANGE, &gyrRange, 1);
-        
+
+        if (writeRegister(Register::ACC_RANGE, &accRange, 1) != hal::Status::OK) {
+            errorCount_++;
+        }
+        if (writeRegister(Register::GYR_RANGE, &gyrRange, 1) != hal::Status::OK) {
+            errorCount_++;
+        }
+
         // Настройка ODR и bandwidth
         uint8_t accConf = computeODRConfig(config.accelODR, 2);  // OSR=2
         uint8_t gyrConf = computeODRConfig(config.gyroODR, 2);
-        
-        writeRegister(Register::ACC_CONF, &accConf, 1);
-        writeRegister(Register::GYR_CONF, &gyrConf, 1);
+
+        if (writeRegister(Register::ACC_CONF, &accConf, 1) != hal::Status::OK) {
+            errorCount_++;
+        }
+        if (writeRegister(Register::GYR_CONF, &gyrConf, 1) != hal::Status::OK) {
+            errorCount_++;
+        }
         
         // Расчёт чувствительности
         computeSensitivity();
