@@ -278,7 +278,7 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_file_system mka_core GTest::gtest_main)
     add_test(NAME test_file_system COMMAND test_file_system)
 
-    # Тест SGP4 орбитального пропагатора — отключён (требует доработки parseTLE)
+    # Тест SGP4 орбитального пропагатора — отключён (баг в парсинге TLE)
     # add_executable(test_sgp4 tests/test_sgp4.cpp)
     # target_link_libraries(test_sgp4 mka_ml GTest::gtest_main)
     # add_test(NAME test_sgp4 COMMAND test_sgp4)

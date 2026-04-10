@@ -129,15 +129,32 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
 
         double meanMotionDot = std::stod(tle.line1.substr(33, 10));
         (void)meanMotionDot;
-        // Экспоненциальный формат для второй производной
-        std::string mddStr = tle.line1.substr(44, 8);
-        double meanMotionDotDot = std::stod(mddStr) * std::pow(10.0, std::stoi(tle.line1.substr(52, 1)));
-        (void)meanMotionDotDot;
+        
+        // Экспоненциальный формат для второй производной (Cols 45-52)
+        // Формат: S.DDDDD-x (без точки в строке TLE)
+        // Пример: " 00000-0" -> 0.00000 * 10^0
+        std::string mddStr = tle.line1.substr(44, 7); 
+        if (mddStr.length() >= 7) {
+            std::string numPart = "0." + mddStr.substr(0, 5);
+            char expSign = mddStr[5];
+            int expVal = std::stoi(mddStr.substr(6, 1));
+            double meanMotionDotDot = std::stod(numPart);
+            meanMotionDotDot *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
+            (void)meanMotionDotDot;
+        }
 
-        // B-star
-        std::string bstarStr = tle.line1.substr(53, 8);
-        double bstar = std::stod(bstarStr.substr(0, 2)) * std::pow(10.0, std::stoi(bstarStr.substr(2, 1)));
-        bstar_ = bstar;
+        // B-star (Cols 54-61)
+        // Формат: DDDDD-S (десятичная точка после первой цифры подразумевается)
+        // Пример: "10270-3" -> 0.10270 * 10^-3
+        std::string bstarStr = tle.line1.substr(53, 7);
+        if (bstarStr.length() >= 7) {
+            std::string numPart = "0." + bstarStr.substr(0, 5);
+            char expSign = bstarStr[5];
+            int expVal = std::stoi(bstarStr.substr(6, 1));
+            double bstar = std::stod(numPart);
+            bstar *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
+            bstar_ = bstar;
+        }
 
         int elementSetNumber = std::stoi(tle.line1.substr(64, 4));
         (void)elementSetNumber;
