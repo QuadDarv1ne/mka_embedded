@@ -1015,19 +1015,25 @@
 #### Приоритет 3 — Тесты
 - [x] Тест для UKF ✅ — 8 тестов (test_ukf.cpp)
 - [x] Тест для AnomalyDetector ✅ — 9 тестов (исправлен segfault в buildTree)
+- [x] Тест для CANopen ✅ — 8 тестов констант и стека
 - [ ] Тест для SGP4 — готов, отключён (static assertion баг в sgp4.hpp)
-- [ ] Тест для CANopen
 - [ ] Тест для LittleFS
 - [ ] Тест для OTA Updater
 
-### Статус на 11 апреля 2026 (00:15)
-- **Ветка:** dev (723ff3d) ✅
+### Статус на 11 апреля 2026 (01:00)
+- **Ветка:** dev (cb688f3) ✅
 - **Сборка:** ✅ без ошибок, без предупреждений
-- **Тесты:** ✅ 13/13 (100%)
+- **Тесты:** ✅ 14/14 (100%) — добавлен CANopen
 - **Критических багов:** 0 ✅
 - **Средних проблем:** 0 ✅
 - **TODO/FIXME:** 0 ✅
 - **Готово к merge в main:** ✅
+
+#### Исправлено 11 апреля 2026 (01:00)
+- ✅ **CANopen ICAN API** — transmitCAN() helper для CANMessage
+- ✅ **CANopen std::array** — memcpy вместо assign
+- ✅ **CANopen тесты** — 8 тестов констант и стека
+- ✅ **CI/CD** — .clang-tidy, Release сборка, исправлены ветки
 
 #### Выполнено за сессию 10 апреля 2026
 - ✅ **Radio getTickMs()** — STM32 HAL + bare-metal SysTick + host chrono
