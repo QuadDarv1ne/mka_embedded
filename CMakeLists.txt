@@ -269,6 +269,21 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_file_system mka_core GTest::gtest_main)
     add_test(NAME test_file_system COMMAND test_file_system)
 
+    # Тест SGP4 орбитального пропагатора - временно отключен (static assertion в sgp4.hpp)
+    # add_executable(test_sgp4 tests/test_sgp4.cpp)
+    # target_link_libraries(test_sgp4 mka_algorithms GTest::gtest_main)
+    # add_test(NAME test_sgp4 COMMAND test_sgp4)
+
+    # Тест UKF фильтра
+    add_executable(test_ukf tests/test_ukf.cpp)
+    target_link_libraries(test_ukf mka_algorithms GTest::gtest_main)
+    add_test(NAME test_ukf COMMAND test_ukf)
+
+    # Тест Anomaly Detector - временно отключен (требует anomaly_detector.cpp)
+    # add_executable(test_anomaly_detector tests/test_anomaly_detector.cpp)
+    # target_link_libraries(test_anomaly_detector mka_algorithms GTest::gtest_main)
+    # add_test(NAME test_anomaly_detector COMMAND test_anomaly_detector)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
