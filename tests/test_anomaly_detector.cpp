@@ -171,15 +171,18 @@ TEST(AnomalyDetectorTest, NegativeValues) {
     config.numTrees = 50;
     config.sampleSize = 128;
     detector.configure(config);
-    
+
     std::vector<std::vector<float>> data;
+    std::mt19937 rng(42);
+    std::normal_distribution<float> dist(-5.0f, 1.0f);
     for (int i = 0; i < 100; i++) {
-        data.push_back({-1.0f, -2.0f, -3.0f});
+        data.push_back({dist(rng), dist(rng), dist(rng)});
     }
     detector.fit(data);
-    
-    AnomalyResult normalResult = detector.detect({-1.0f, -2.0f, -3.0f});
+
+    AnomalyResult normalResult = detector.detect({-5.0f, -5.0f, -5.0f});
     AnomalyResult anomalousResult = detector.detect({100.0f, 100.0f, 100.0f});
-    
-    EXPECT_LT(normalResult.anomalyScore, anomalousResult.anomalyScore);
+
+    // Аномальная точка должна иметь более высокую оценку
+    EXPECT_GT(anomalousResult.anomalyScore, normalResult.anomalyScore);
 }

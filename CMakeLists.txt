@@ -165,9 +165,17 @@ target_include_directories(mka_core INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
 )
 
-# Библиотека алгоритмов
+# Библиотека алгоритмов (header-only)
 add_library(mka_algorithms INTERFACE)
 target_include_directories(mka_algorithms INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
+)
+
+# Библиотека алгоритмов с реализацией (anomaly_detector)
+add_library(mka_ml STATIC
+    src/cpp/algorithms/anomaly_detector.cpp
+)
+target_include_directories(mka_ml PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
 )
 
@@ -279,10 +287,10 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_ukf mka_algorithms GTest::gtest_main)
     add_test(NAME test_ukf COMMAND test_ukf)
 
-    # Тест Anomaly Detector - временно отключен (требует anomaly_detector.cpp)
-    # add_executable(test_anomaly_detector tests/test_anomaly_detector.cpp)
-    # target_link_libraries(test_anomaly_detector mka_algorithms GTest::gtest_main)
-    # add_test(NAME test_anomaly_detector COMMAND test_anomaly_detector)
+    # Тест Anomaly Detector
+    add_executable(test_anomaly_detector tests/test_anomaly_detector.cpp)
+    target_link_libraries(test_anomaly_detector mka_ml GTest::gtest_main)
+    add_test(NAME test_anomaly_detector COMMAND test_anomaly_detector)
 
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
