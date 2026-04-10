@@ -39,9 +39,18 @@ namespace Constants {
 
     // Производные константы
     // Примечание: std::sqrt не constexpr в C++17, вычисляем при инициализации
-    static inline const double XKE = std::sqrt(MU_EARTH / (R_EARTH * R_EARTH * R_EARTH));
-    static inline const double CK2 = 0.5 * J2 * R_EARTH * R_EARTH;
-    static inline const double CK4 = -0.375 * J4 * R_EARTH * R_EARTH * R_EARTH * R_EARTH;
+    inline constexpr double computeXKE() {
+        return std::sqrt(MU_EARTH / (R_EARTH * R_EARTH * R_EARTH));
+    }
+    inline constexpr double computeCK2() {
+        return 0.5 * J2 * R_EARTH * R_EARTH;
+    }
+    inline constexpr double computeCK4() {
+        return -0.375 * J4 * R_EARTH * R_EARTH * R_EARTH * R_EARTH;
+    }
+    static inline const double XKE = computeXKE();
+    static inline const double CK2 = computeCK2();
+    static inline const double CK4 = computeCK4();
 }
 
 // ============================================================================

@@ -84,11 +84,9 @@ public:
     }
 
     constexpr reference front() const noexcept {
-        // UB если empty() — как в std::span
         return data_[0];
     }
     constexpr reference back() const noexcept {
-        // UB если empty() — как в std::span
         return data_[size_ - 1];
     }
     constexpr pointer data() const noexcept { return data_; }

@@ -190,6 +190,9 @@ public:
         using FuncType = std::decay_t<F>;
         static_assert(sizeof(FuncType) <= ContextSize,
                       "Lambda too large for CallbackWithStorage");
+        static_assert(std::is_trivially_copyable<FuncType>::value,
+                      "CallbackWithStorage requires trivially copyable lambdas "
+                      "(no std::string, std::vector, etc. in capture)");
         new (storage_) FuncType(std::forward<F>(func));
         size_ = sizeof(FuncType);
         invoker_ = &invoke<FuncType>;
@@ -324,6 +327,9 @@ public:
         using FuncType = std::decay_t<F>;
         static_assert(sizeof(FuncType) <= ContextSize,
                       "Lambda too large for CallbackWithStorage");
+        static_assert(std::is_trivially_copyable<FuncType>::value,
+                      "CallbackWithStorage requires trivially copyable lambdas "
+                      "(no std::string, std::vector, etc. in capture)");
         new (storage_) FuncType(std::forward<F>(func));
         size_ = sizeof(FuncType);
         invoker_ = &invoke<FuncType>;

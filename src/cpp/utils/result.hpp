@@ -151,9 +151,8 @@ public:
     // Доступ к значению
     // ========================================================================
 
-    /// Получить значение (с проверкой — UB если ошибка)
+    /// Получить значение (используйте только после проверки isOk())
     constexpr T& value() & noexcept {
-        // В debug mode можно добавить assert(ok_)
         return storage_.value;
     }
     constexpr const T& value() const& noexcept {
@@ -163,21 +162,21 @@ public:
         return std::move(storage_.value);
     }
 
-    /// Получить значение или значение по умолчанию
-    constexpr T valueOr(const T& defaultValue) const& {
-        return ok_ ? storage_.value : defaultValue;
-    }
-
-    constexpr T valueOr(T&& defaultValue) && {
-        return ok_ ? std::move(storage_.value) : std::forward<T>(defaultValue);
-    }
-
     /// Безопасное получение значения (с проверкой)
-    constexpr std::optional<T> tryValue() const& {
+    constexpr std::optional<T> tryValue() const& noexcept {
         return ok_ ? std::optional<T>(storage_.value) : std::nullopt;
     }
 
-    /// Получить ошибку (с проверкой — UB если успех)
+    /// Получить значение или значение по умолчанию
+    constexpr T valueOr(const T& defaultValue) const& noexcept {
+        return ok_ ? storage_.value : defaultValue;
+    }
+
+    constexpr T valueOr(T&& defaultValue) && noexcept {
+        return ok_ ? std::move(storage_.value) : std::forward<T>(defaultValue);
+    }
+
+    /// Получить ошибку (используйте только после проверки isError())
     constexpr E& error() & noexcept {
         return storage_.error;
     }

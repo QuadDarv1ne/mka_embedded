@@ -273,38 +273,53 @@ public:
 
         // Вычисление матрицы перехода F (7x7)
         // F = ∂f/∂x, где f - нелинейная функция перехода
+        // F = I + dt/2 * ∂(q⊗ω)/∂x для orientation, identity для bias
+        // Индексация row-major: F[row*7 + col]
         float half_dt = 0.5f * dt;
         F_ = {};
 
-        // ∂q/∂q (матрица вращения) + ∂q/∂bias (комбинированная установка)
-        // Строка 0 (q0): ∂q0/∂q0=1, ∂q0/∂q1=-hdt*wx, ∂q0/∂q2=-hdt*wy, ∂q0/∂q3=-hdt*wz, ∂q0/∂bx=0.5*dt*q1
-        F_[0] = 1.0f;
+        // Identity diagonal
+        F_[0] = 1.0f;  F_[8] = 1.0f;  F_[16] = 1.0f; F_[24] = 1.0f;
+        F_[32] = 1.0f; F_[40] = 1.0f; F_[48] = 1.0f;
+
+        // ∂q/∂q элементы (матрица вращения через ω)
+        // Строка 0 (q0): dq0/dq1=-hdt*wx, dq0/dq2=-hdt*wy, dq0/dq3=-hdt*wz
         F_[1] = -half_dt * wx;
         F_[2] = -half_dt * wy;
-        F_[3] = -half_dt * wz + 0.5f * dt * q1;  // ∂q0/∂q3 + ∂q0/∂bx
+        F_[3] = -half_dt * wz;
 
-        // Строка 1 (q1): ∂q1/∂q0=hdt*wx, ∂q1/∂q1=1, ∂q1/∂q2=hdt*wz, ∂q1/∂q3=-hdt*wy, ∂q1/∂by=-0.5*dt*q0
+        // Строка 1 (q1): dq1/dq0=hdt*wx, dq1/dq2=hdt*wz, dq1/dq3=-hdt*wy
         F_[7] = half_dt * wx;
-        F_[8] = 1.0f;
         F_[9] = half_dt * wz;
-        F_[10] = -half_dt * wy - 0.5f * dt * q0;  // ∂q1/∂q3 + ∂q1/∂by
+        F_[10] = -half_dt * wy;
 
-        // Строка 2 (q2): ∂q2/∂q0=hdt*wy, ∂q2/∂q1=-hdt*wz, ∂q2/∂q2=1, ∂q2/∂q3=hdt*wx, ∂q2/∂bz=-0.5*dt*q0
+        // Строка 2 (q2): dq2/dq0=hdt*wy, dq2/dq1=-hdt*wz, dq2/dq3=hdt*wx
         F_[14] = half_dt * wy;
         F_[15] = -half_dt * wz;
-        F_[16] = 1.0f;
-        F_[17] = half_dt * wx - 0.5f * dt * q0;  // ∂q2/∂q3 + ∂q2/∂bz
+        F_[17] = half_dt * wx;
 
-        // Строка 3 (q3): ∂q3/∂q0=hdt*wz, ∂q3/∂q1=hdt*wy, ∂q3/∂q2=-hdt*wx, ∂q3/∂q3=1
+        // Строка 3 (q3): dq3/dq0=hdt*wz, dq3/dq1=hdt*wy, dq3/dq2=-hdt*wx
         F_[21] = half_dt * wz;
         F_[22] = half_dt * wy;
         F_[23] = -half_dt * wx;
-        F_[24] = 1.0f;
 
-        // ∂bias/∂bias (identity)
-        F_[28] = 1.0f;
-        F_[35] = 1.0f;
-        F_[42] = 1.0f;
+        // ∂q/∂bias элементы (смещение гироскопа влияет на ω_eff)
+        // dq/dbias = -dq/domega * dt (так как ω_eff = ω_measured - bias)
+        F_[4] =  half_dt * q1;   // dq0/dbx = +0.5*dt*q1
+        F_[5] =  half_dt * q2;   // dq0/dby = +0.5*dt*q2
+        F_[6] =  half_dt * q3;   // dq0/dbz = +0.5*dt*q3
+
+        F_[11] = half_dt * q0;   // dq1/dbx = +0.5*dt*q0
+        F_[12] = -half_dt * q3;  // dq1/dby = -0.5*dt*q3
+        F_[13] = half_dt * q2;   // dq1/dbz = +0.5*dt*q2
+
+        F_[18] = half_dt * q3;   // dq2/dbx = +0.5*dt*q3
+        F_[19] = half_dt * q0;   // dq2/dby = +0.5*dt*q0
+        F_[20] = -half_dt * q1;  // dq2/dbz = -0.5*dt*q1
+
+        F_[25] = -half_dt * q2;  // dq3/dbx = -0.5*dt*q2
+        F_[26] = half_dt * q1;   // dq3/dby = +0.5*dt*q1
+        F_[27] = half_dt * q0;   // dq3/dbz = +0.5*dt*q0
 
         // Propagate covariance: P = F * P * F^T + Q
         propagateCovariance();
@@ -390,24 +405,24 @@ public:
         // H_[18], H_[19], H_[20] = 0
 
         // Строка 3: ∂mx/∂q (индексы 21-27)
-        H_[21] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
-        H_[22] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q1;
-        H_[23] = -2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
-        H_[24] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q2;
+        H_[21] = 2.0f * magEarthX * q0 - 2.0f * magEarthZ * q2;  // ∂mx/∂q0
+        H_[22] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;  // ∂mx/∂q1
+        H_[23] = -2.0f * magEarthX * q2 - 2.0f * magEarthZ * q0; // ∂mx/∂q2
+        H_[24] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1; // ∂mx/∂q3
         // H_[25], H_[26], H_[27] = 0 (∂mx/∂bias)
 
         // Строка 4: ∂my/∂q (индексы 28-34)
-        H_[28] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1;
-        H_[29] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
-        H_[30] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
-        H_[31] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q2;
+        H_[28] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1; // ∂my/∂q0
+        H_[29] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;  // ∂my/∂q1
+        H_[30] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;  // ∂my/∂q2
+        H_[31] = -2.0f * magEarthX * q0 + 2.0f * magEarthZ * q2; // ∂my/∂q3
         // H_[32], H_[33], H_[34] = 0
 
         // Строка 5: ∂mz/∂q (индексы 35-41)
-        H_[35] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;
-        H_[36] = -2.0f * magEarthX * q3 + 2.0f * magEarthZ * q1;
-        H_[37] = 2.0f * magEarthX * q0 + 2.0f * magEarthZ * q2;
-        H_[38] = -2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;
+        H_[35] = 2.0f * magEarthX * q2 + 2.0f * magEarthZ * q0;  // ∂mz/∂q0
+        H_[36] = 2.0f * magEarthX * q3 - 2.0f * magEarthZ * q1;  // ∂mz/∂q1
+        H_[37] = 2.0f * magEarthX * q0 - 2.0f * magEarthZ * q2;  // ∂mz/∂q2
+        H_[38] = 2.0f * magEarthX * q1 + 2.0f * magEarthZ * q3;  // ∂mz/∂q3
         // H_[39], H_[40], H_[41] = 0
 
         // Kalman gain: K = P * H^T * (H * P * H^T + R)^(-1)
@@ -857,6 +872,7 @@ public:
         float outputMax = 100.0f;
         float integralLimit = 10.0f;
         float derivativeFilterCoeff = 0.1f;  // 0 = no filter
+        float antiWindupGain = 1.0f;          // Back-calculation gain
     };
 
     PIDController() = default;
@@ -887,22 +903,28 @@ public:
             derivative = filteredDerivative_;
         }
 
-        // Интегральная составляющая с anti-windup (conditional integration)
-        // Интегрируем только если выход не насыщен или ошибка уменьшается
-        bool notSaturated = (integral_ > -config_.integralLimit && integral_ < config_.integralLimit);
-        if (notSaturated || (error >= 0 && integral_ < 0) || (error <= 0 && integral_ > 0)) {
-            integral_ += error * dt;
+        // Интегрирование с ограничением
+        integral_ += error * dt;
+        integral_ = math::clamp(integral_, -config_.integralLimit, config_.integralLimit);
+
+        // Вычисление выхода
+        float outputUnclamped = p_term + config_.ki * integral_ + config_.kd * derivative;
+        float outputClamped = math::clamp(outputUnclamped, config_.outputMin, config_.outputMax);
+
+        // Back-calculation anti-windup: при насыщении корректируем интеграл
+        float saturationError = outputClamped - outputUnclamped;
+        if (config_.antiWindupGain > 0.0f && saturationError != 0.0f) {
+            integral_ += config_.antiWindupGain * saturationError * dt;
             integral_ = math::clamp(integral_, -config_.integralLimit, config_.integralLimit);
+
+            // Пересчёт с обновлённым интегралом
+            outputUnclamped = p_term + config_.ki * integral_ + config_.kd * derivative;
+            outputClamped = math::clamp(outputUnclamped, config_.outputMin, config_.outputMax);
         }
 
-        // Вычисляем выход после обновления integral
-        float outputUnclamped = p_term + config_.ki * integral_ + config_.kd * derivative;
-        float output = math::clamp(outputUnclamped, config_.outputMin, config_.outputMax);
-
         prevError_ = error;
-
-        lastOutput_ = output;
-        return output;
+        lastOutput_ = outputClamped;
+        return outputClamped;
     }
     
     void reset() {
