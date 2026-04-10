@@ -118,24 +118,29 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
         // Парсинг строки 1
         if (tle.line1.length() < 69) return false;
 
-        catalogNumber = std::stoi(tle.line1.substr(2, 5));
-        classification = tle.line1[7];
+        int catalogNumber = std::stoi(tle.line1.substr(2, 5));
+        char classification = tle.line1[7];
+        (void)catalogNumber;
+        (void)classification;
 
         int yy = std::stoi(tle.line1.substr(18, 2));
         epochYear = (yy < 57) ? 2000 + yy : 1900 + yy;
         epochDay = std::stod(tle.line1.substr(20, 12));
 
-        meanMotionDot = std::stod(tle.line1.substr(33, 10));
+        double meanMotionDot = std::stod(tle.line1.substr(33, 10));
+        (void)meanMotionDot;
         // Экспоненциальный формат для второй производной
         std::string mddStr = tle.line1.substr(44, 8);
-        meanMotionDotDot = std::stod(mddStr) * std::pow(10.0, std::stoi(tle.line1.substr(52, 1)));
+        double meanMotionDotDot = std::stod(mddStr) * std::pow(10.0, std::stoi(tle.line1.substr(52, 1)));
+        (void)meanMotionDotDot;
 
         // B-star
         std::string bstarStr = tle.line1.substr(53, 8);
-        bstar = std::stod(bstarStr.substr(0, 2)) * std::pow(10.0, std::stoi(bstarStr.substr(2, 1)));
+        double bstar = std::stod(bstarStr.substr(0, 2)) * std::pow(10.0, std::stoi(bstarStr.substr(2, 1)));
         bstar_ = bstar;
 
-        elementSetNumber = std::stoi(tle.line1.substr(64, 4));
+        int elementSetNumber = std::stoi(tle.line1.substr(64, 4));
+        (void)elementSetNumber;
 
         // Парсинг строки 2
         if (tle.line2.length() < 69) return false;
@@ -149,8 +154,9 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
 
         argPerigee_ = utils::degToRad(std::stod(tle.line2.substr(34, 8)));
         meanAnomaly_ = utils::degToRad(std::stod(tle.line2.substr(43, 8)));
-        meanMotion_ = std::stod(tle.line2.substr(52, 11));
-        orbitNumber = std::stoi(tle.line2.substr(63, 5));
+        double meanMotionRevPerDay = std::stod(tle.line2.substr(52, 11));
+        int orbitNumber = std::stoi(tle.line2.substr(63, 5));
+        (void)orbitNumber;
 
         // Валидация эксцентриситета (0 <= e < 1 для эллиптических орбит)
         if (eccentricity_ < 0.0 || eccentricity_ >= 1.0) {
@@ -158,8 +164,8 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
         }
 
         // Вычисление большой полуоси
-        double meanMotionRevPerDay = meanMotion_;  // Сохраняем для getOrbitalPeriod
-        meanMotion_ = meanMotion_ * TWOPI / 1440.0;  // rev/day -> rad/min
+        meanMotionRevPerDay_ = meanMotionRevPerDay;  // Сохраняем для getOrbitalPeriod
+        meanMotion_ = meanMotionRevPerDay * TWOPI / 1440.0;  // rev/day -> rad/min
 
         // Проверка на положительную большую полуось
         if (meanMotion_ <= 0.0) {
@@ -169,9 +175,6 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
         semiMajorAxis_ = std::pow(MU_EARTH / (meanMotion_ * meanMotion_), TWOTHIRD);
 
         epoch_ = epochDay;
-
-        // Сохраняем meanMotion в rev/day для getOrbitalPeriod
-        meanMotionRevPerDay_ = meanMotionRevPerDay;
 
         return true;
     } catch (const std::exception& e) {
