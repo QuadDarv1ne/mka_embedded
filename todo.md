@@ -1014,24 +1014,24 @@
 
 #### Приоритет 3 — Тесты
 - [x] Тест для UKF ✅ — 8 тестов (test_ukf.cpp)
+- [x] Тест для AnomalyDetector ✅ — 9 тестов (исправлен segfault в buildTree)
 - [ ] Тест для SGP4 — готов, отключён (static assertion баг в sgp4.hpp)
-- [ ] Тест для AnomalyDetector — готов, отключён (требует .cpp реализации)
 - [ ] Тест для CANopen
 - [ ] Тест для LittleFS
 - [ ] Тест для OTA Updater
 
-### Статус на 10 апреля 2026 (20:00)
-- **Ветка:** dev (eb44d86) ✅
+### Статус на 10 апреля 2026 (21:30)
+- **Ветка:** dev (1b89522) ✅
 - **Сборка:** ✅ проходит без ошибок
-- **Тесты:** ✅ 12/12 (100%) — добавлен UKF тест
+- **Тесты:** ✅ 13/13 (100%) — добавлен AnomalyDetector
 - **Критических багов:** 0 ✅
 - **Средних проблем:** 0 ✅
 - **Готово к merge в main:** ✅
 
-#### Выполнено 10 апреля 2026 (вечер)
-- ✅ **UKF тесты** — 8 тестов для UnscentedKalmanFilter
-- ✅ **SGP4 тесты** — 11 тестов готовы (отключены из-за static assertion бага)
-- ✅ **Anomaly Detector тесты** — 8 тестов готовы (отключены, требуется .cpp)
+#### Исправлено 10 апреля 2026 (вечер)
+- ✅ **IsolationTree buildTree** — критический баг: nodes_[nodeIndex] без push_back → segfault
+- ✅ **AnomalyDetector тесты** — 9 тестов проходят (было: segfault)
+- ✅ **CMakeLists.txt** — добавлена mka_ml STATIC библиотека
 
 #### Выполнено 10 апреля 2026
 - ✅ **Radio getTickMs()** — реализовано для STM32 (HAL) и bare-metal (SysTick)
