@@ -308,7 +308,9 @@ public:
         
         // Ожидание завершения
         uint32_t start = getTickMs();
-        while (getTickMs() - start < timeoutMs) {
+        uint32_t maxIterations = timeoutMs > 0 ? timeoutMs + 10 : 1000;  // Защита от бесконечного цикла
+        uint32_t iterations = 0;
+        while ((getTickMs() - start < timeoutMs) && iterations < maxIterations) {
             uint8_t status;
             if (getTxStatus(status)) {
                 if (status == 0x00) {  // TX complete
@@ -318,6 +320,7 @@ public:
                 }
             }
             delayMs(1);
+            iterations++;
         }
         
         state_.txErrors++;
@@ -365,7 +368,9 @@ public:
         
         // Ожидание пакета
         uint32_t start = getTickMs();
-        while (getTickMs() - start < timeoutMs) {
+        uint32_t maxIterations = timeoutMs > 0 ? timeoutMs + 10 : 1000;
+        uint32_t iterations = 0;
+        while ((getTickMs() - start < timeoutMs) && iterations < maxIterations) {
             uint8_t intStatus[8];
             if (getInterruptStatus(intStatus)) {
                 if (intStatus[0] & 0x02) {  // Packet received
@@ -379,6 +384,7 @@ public:
                 }
             }
             delayMs(1);
+            iterations++;
         }
         
         state_.rxErrors++;
