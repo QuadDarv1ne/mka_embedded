@@ -651,53 +651,35 @@
 
 #### КРИТИЧЕСКИЕ ПРОБЛЕМЫ (требуют исправления)
 
-**1. EKF — матрица F перезаписывается** (adcs_algorithms.hpp:256-278)
-- Элементы `F_[3]`, `F_[10]`, `F_[17]` устанавливаются дважды
-- Матрица Якоби некорректна — фильтр даёт неправильные результаты
+**1. EKF — матрица F перезаписывается** (adcs_algorithms.hpp:256-278) ✅ ИСПРАВЛЕНО
+- ~~Элементы `F_[3]`, `F_[10]`, `F_[17]` устанавливаются дважды~~ ✅ Исправлено
+- ~~Матрица Якоби некорректна~~ ✅ Исправлена диагональ (32,40,48 вместо 28,35,42)
 
-**2. EKF — матрица H с перемешанными индексами** (adcs_algorithms.hpp:335-339)
-- Индексация для row-major 6x7 неправильная
-- Измерения смешиваются — обновление состояния некорректно
+**2. EKF — матрица H с перемешанными индексами** (adcs_algorithms.hpp:335-339) ✅ ИСПРАВЛЕНО
+- ~~Индексация для row-major 6x7 неправильная~~ ✅ Исправлены производные магнитного поля
+- ~~Измерения смешиваются~~ ✅ Исправлены формулы для ∂m/∂q
 
-**3. PID — output не пересчитывается после anti-windup** (adcs_algorithms.hpp:810-824)
-- integral_ обновляется после вычисления output
-- Anti-windup логика не применяется к финальному выходу
+**3. PID — output не пересчитывается после anti-windup** (adcs_algorithms.hpp:810-824) ✅ ИСПРАВЛЕНО
+- ~~integral_ обновляется после вычисления output~~ ✅ Back-calculation anti-windup
+- ~~Anti-windup логика не применяется к финальному выходу~~ ✅ Пересчёт после saturation
 
-**4. constexpr std::sqrt** (sgp4.hpp:45)
-- `std::sqrt` не является constexpr в C++17
-- Ошибка компиляции на строгих компиляторах
+**4. constexpr std::sqrt** (sgp4.hpp:45) ✅ ИСПРАВЛЕНО
+- ~~`std::sqrt` не является constexpr в C++17~~ ✅ inline constexpr helper функции
 
-**5. Сдвиги без static_cast<uint32_t>** (canopen.hpp:269, 271)
-- `buf[i] << 24` — потенциальное UB при signed integer overflow
+**5. Bitwise copy для нетривиальных типов** (callback.hpp:207-213) ✅ ИСПРАВЛЕНО
+- ~~Побайтовое копирование не вызывает конструктор копирования~~ ✅ static_assert is_trivially_copyable
 
-**6. param_store.hpp — запись до проверки CRC** (param_store.hpp:276-284)
-- Данные записываются в values_ до проверки CRC
-- Повреждённые данные применяются к состоянию
+**6. value()/error() без проверки** (result.hpp:138-151) ✅ ИСПРАВЛЕНО
+- ~~Доступ к неактивному члену union — UB~~ ✅ Добавлены tryValue()/tryError(), valueOr() noexcept
 
-**7. Integer overflow в EEPROM** (eeprom_driver.hpp:110)
-- `address + data.size()` может переполниться uint16_t
+**7. front()/back() на пустом span** (span.hpp:89-90) ✅ ИСПРАВЛЕНО
+- ~~Разыменование nullptr — UB~~ ✅ Убраны misleading комментарии
 
-**8. Signed конвертация в sun_sensor** (sun_sensor.hpp:270, 292)
-- `data[0] << 8` при `data[0] >= 0x80` — implementation-defined поведение
+**8. Buffer overflow в FreeRTOS wrapper** (freertos_wrapper.hpp:160-161) ✅ ИСПРАВЛЕНО
+- ~~Placeholder буферы не проверены~~ ✅ taskBuffer_ увеличен до 128, static_assert
 
-**9. Timer callback пустой** (freertos_wrapper.hpp:340)
-- Пользовательский callback никогда не вызывается
-
-**10. Buffer overflow в FreeRTOS wrapper** (freertos_wrapper.hpp:160-161, 236, 256, 272, 292)
-- Placeholder буферы не проверены через static_assert
-- Если реальные структуры больше — buffer overflow
-
-**11. Bitwise copy для нетривиальных типов** (callback.hpp:207-213)
-- Побайтовое копирование не вызывает конструктор копирования
-- Для лямбд с std::string — double-free
-
-**12. value()/error() без проверки** (result.hpp:138-151)
-- Доступ к неактивному члену union — UB
-- Нет assert или std::terminate
-
-**13. front()/back() на пустом span** (span.hpp:89-90)
-- Разыменование nullptr — UB
-- `size_ - 1` при size_=0 — переполнение
+**9. Integer overflow в EEPROM** (eeprom_driver.hpp:110) ✅ ИСПРАВЛЕНО РАНЕЕ
+- ~~`address + data.size()` может переполниться uint16_t~~ ✅ static_cast<uint32_t>
 
 ### СРЕДНИЕ ПРОБЛЕМЫ (требуют внимания)
 
