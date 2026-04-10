@@ -505,7 +505,22 @@
 - [x] Добавить health monitoring во все драйверы ✅ — BMI160, LIS3MDL, GPS, BMP388, LSM6DSO
 - [ ] Интегрировать health monitoring с FDIR для автоматической детекции сбоев
 
-### Выполнено (v2.0.0-dev — 5 апреля 2026 — вторая итерация)
+### Выполнено (10 апреля 2026 — аудит качества)
+- ✅ **8 критических багов исправлено:**
+  - EKF: матрица F (диагональ bias), матрица H (магнитные производные)
+  - PID: back-calculation anti-windup с пересчётом выхода
+  - SGP4: constexpr std::sqrt → inline constexpr helper
+  - Callback: static_assert is_trivially_copyable
+  - Result: tryValue()/tryError(), valueOr() noexcept
+  - Span: убраны misleading комментарии
+  - FreeRTOS: taskBuffer_ 128 байт + static_assert
+- ✅ **6 средних проблем исправлено:**
+  - FreeRTOS Timer: вызов callback через pvTimerGetTimerID
+  - LIS3MDL: проверка writeRegister при инициализации
+  - BMP388: защита от деления на ноль
+  - GPS: static_cast<uint32_t> для всех payload[] << N
+- ✅ **Тесты:** 11/11 (100%)
+- ✅ **dev → main:** синхронизировано
 - ✅ **CMakeLists.txt** — все файлы добавлены, новые библиотеки (mka_systems, mka_utils, mka_rtos)
 - ✅ **BMP388 OSR регистр** — исправлен (перенесён из bmp388::RegisterExt в основной enum)
 - ✅ **PID контроллер** — защита от dt=0, conditional integration anti-windup
