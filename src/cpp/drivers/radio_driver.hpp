@@ -15,6 +15,10 @@
 #include <array>
 #include <chrono>
 
+#if defined(__GNUC__) && !defined(STM32F4) && !defined(STM32F7) && !defined(STM32H7)
+#include <cmsis_compiler.h>  // Для SysTick на bare-metal
+#endif
+
 #include "utils/callback.hpp"
 #include "utils/span.hpp"
 
@@ -600,15 +604,32 @@ private:
     }
 
     uint32_t getTickMs() {
-        // Platform-specific tick
-        // Для host build используем стандартное время
-        // Для STM32 использовать HAL_GetTick() или SysTick
-#ifdef __GNUC__
-        // На bare-metal это должна быть реализация через SysTick
-        // Заглушка - возвращаем 0, но с комментарием что это требует реализации
-        return 0;  // TODO: реализовать через HAL_GetTick() или SysTick
+#ifdef STM32F4
+        extern uint32_t HAL_GetTick(void);
+        return HAL_GetTick();
+#elif defined(STM32F7)
+        extern uint32_t HAL_GetTick(void);
+        return HAL_GetTick();
+#elif defined(STM32H7)
+        extern uint32_t HAL_GetTick(void);
+        return HAL_GetTick();
+#elif defined(__GNUC__)
+        // Bare-metal без HAL — SysTick или внешний таймер
+        // Если SysTick настроен на 1ms, читаем VAL
+        if (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) {
+            static uint32_t s_tickCount = 0;
+            static uint32_t s_lastVal = SysTick->VAL;
+            uint32_t currentVal = SysTick->VAL;
+            // Detect overflow (SysTick counts down)
+            if (currentVal > s_lastVal) {
+                s_tickCount++;
+            }
+            s_lastVal = currentVal;
+            return s_tickCount;
+        }
+        return 0;  // SysTick не инициализирован
 #else
-        // На хосте используем chrono
+        // Host build — chrono
         auto now = std::chrono::steady_clock::now();
         return static_cast<uint32_t>(
             std::chrono::duration_cast<std::chrono::milliseconds>(
