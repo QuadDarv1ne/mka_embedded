@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfRangeEntry xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <!-- FM-радио (88-108 MHz) -->
+  <RangeEntry>
+    <Frequency>88000000</Frequency>
+    <Bandwidth>20000000</Bandwidth>
+    <Name>FM Broadcast</Name>
+    <Color>#FF0000FF</Color>
+  </RangeEntry>
+
+  <!-- Спутниковая связь (VHF band) -->
+  <RangeEntry>
+    <Frequency>145800000</Frequency>
+    <Bandwidth>100000</Bandwidth>
+    <Name>ISS / MКС (VHF)</Name>
+    <Color>#FF00FF00</Color>
+  </RangeEntry>
+
+  <!-- Любительские радиовещательные диапазоны -->
+  <RangeEntry>
+    <Frequency>145000000</Frequency>
+    <Bandwidth>2000000</Bandwidth>
+    <Name>2m Amateur Band</Name>
+    <Color>#FFFF0000</Color>
+  </RangeEntry>
+
+  <!-- UHF спутниковый диапазон -->
+  <RangeEntry>
+    <Frequency>436700000</Frequency>
+    <Bandwidth>100000</Bandwidth>
+    <Name>ISS SSTV / Satellite UHF</Name>
+    <Color>#FF00FF00</Color>
+  </RangeEntry>
+
+  <RangeEntry>
+    <Frequency>430000000</Frequency>
+    <Bandwidth>10000000</Bandwidth>
+    <Name>70cm Amateur Band</Name>
+    <Color>#FFFF0000</Color>
+  </RangeEntry>
+
+  <!-- ADS-B (самолёты) -->
+  <RangeEntry>
+    <Frequency>1090000000</Frequency>
+    <Bandwidth>2000000</Bandwidth>
+    <Name>ADS-B Aircraft (1090 MHz)</Name>
+    <Color>#FFFFFF00</Color>
+  </RangeEntry>
+
+  <!-- ACARS (воздушная связь) -->
+  <RangeEntry>
+    <Frequency>131550000</Frequency>
+    <Bandwidth>1000000</Bandwidth>
+    <Name>ACARS Aircraft</Name>
+    <Color>#FFFFFF00</Color>
+  </RangeEntry>
+
+  <!-- NOAA метео-спутники -->
+  <RangeEntry>
+    <Frequency>137100000</Frequency>
+    <Bandwidth>40000</Bandwidth>
+    <Name>NOAA 18 APT</Name>
+    <Color>#FFFF00FF</Color>
+  </RangeEntry>
+
+  <RangeEntry>
+    <Frequency>137912500</Frequency>
+    <Bandwidth>40000</Bandwidth>
+    <Name>NOAA 19 APT</Name>
+    <Color>#FFFF00FF</Color>
+  </RangeEntry>
+
+  <!-- GOES метеоспутники -->
+  <RangeEntry>
+    <Frequency>1691000000</Frequency>
+    <Bandwidth>500000</Bandwidth>
+    <Name>GOES Weather Satellite</Name>
+    <Color>#FFFF00FF</Color>
+  </RangeEntry>
+
+  <!-- Радиолюбительские диапазоны -->
+  <RangeEntry>
+    <Frequency>28000000</Frequency>
+    <Bandwidth>2000000</Bandwidth>
+    <Name>10m Ham Band</Name>
+    <Color>#FFFF0000</Color>
+  </RangeEntry>
+
+  <RangeEntry>
+    <Frequency>50000000</Frequency>
+    <Bandwidth>2000000</Bandwidth>
+    <Name>6m Ham Band</Name>
+    <Color>#FFFF0000</Color>
+  </RangeEntry>
+
+  <!-- Морские диапазоны -->
+  <RangeEntry>
+    <Frequency>156000000</Frequency>
+    <Bandwidth>4000000</Bandwidth>
+    <Name>Marine VHF</Name>
+    <Color>#FF00FFFF</Color>
+  </RangeEntry>
+</ArrayOfRangeEntry>
