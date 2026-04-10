@@ -798,23 +798,41 @@ private:
     void setupStandardOD() {
         // Manufacturer Device Information
         ODEntry vendorId = {
-            .index = 0x1000,
-            .subIndex = 0x00,
+            .index = 0x1018,  // Identity Object
+            .subIndex = 0x01,  // Vendor ID
             .access = ODEntry::Access::RO,
             .dataType = ODEntry::DataType::UNSIGNED32
         };
-        // Vendor ID (заглушка)
-        vendorId.data = {0x00, 0x00, 0x00, 0x00};
+        // Vendor ID: 0x00000123 (MKA Embedded Project)
+        vendorId.data = {0x23, 0x01, 0x00, 0x00};
         sdo_.registerEntry(vendorId);
 
         ODEntry productCode = {
-            .index = 0x1001,
-            .subIndex = 0x00,
+            .index = 0x1018,
+            .subIndex = 0x02,  // Product Code
             .access = ODEntry::Access::RO,
             .dataType = ODEntry::DataType::UNSIGNED32
         };
         productCode.data = {0x01, 0x00, 0x00, 0x00};  // Product code = 1
         sdo_.registerEntry(productCode);
+
+        ODEntry revisionNumber = {
+            .index = 0x1018,
+            .subIndex = 0x03,  // Revision Number
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED32
+        };
+        revisionNumber.data = {0x00, 0x00, 0x02, 0x00};  // v2.0.0
+        sdo_.registerEntry(revisionNumber);
+
+        ODEntry serialNumber = {
+            .index = 0x1018,
+            .subIndex = 0x04,  // Serial Number
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED32
+        };
+        serialNumber.data = {0x00, 0x00, 0x00, 0x00};  // Заполняется при производстве
+        sdo_.registerEntry(serialNumber);
 
         ODEntry manufacturerName = {
             .index = 0x1008,
@@ -822,9 +840,29 @@ private:
             .access = ODEntry::Access::RO,
             .dataType = ODEntry::DataType::VISIBLE_STR
         };
-        // "MKA"
-        manufacturerName.data = {'M', 'K', 'A', 0x00};
+        // "MKA Embedded"
+        const char* name = "MKA Embedded";
+        manufacturerName.data.assign(name, name + strlen(name) + 1);
         sdo_.registerEntry(manufacturerName);
+
+        ODEntry deviceType = {
+            .index = 0x1000,
+            .subIndex = 0x00,
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED32
+        };
+        // Device type: 0x01000000 (CIA 301 compliant device)
+        deviceType.data = {0x00, 0x00, 0x00, 0x01};
+        sdo_.registerEntry(deviceType);
+
+        ODEntry errorRegister = {
+            .index = 0x1001,
+            .subIndex = 0x00,
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED8
+        };
+        errorRegister.data = {0x00};  // No error
+        sdo_.registerEntry(errorRegister);
     }
 };
 
