@@ -323,6 +323,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_actualization_integration mka_systems mka_ml GTest::gtest_main)
     add_test(NAME test_actualization_integration COMMAND test_actualization_integration)
 
+    # Тест новых сенсоров (HMC5883L, MAX31865)
+    add_executable(test_new_sensors tests/test_new_sensors.cpp)
+    target_link_libraries(test_new_sensors mka_core GTest::gtest_main)
+    add_test(NAME test_new_sensors COMMAND test_new_sensors)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)

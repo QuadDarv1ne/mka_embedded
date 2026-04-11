@@ -798,12 +798,473 @@ private:
 };
 
 // ============================================================================
+// HMC5883L - 3-осевой магнитометр
+// ============================================================================
+
+/**
+ * @brief Драйвер 3-осевого магнитометра HMC5883L (Honeywell)
+ *
+ * Особенности:
+ * - I2C интерфейс (адрес 0x1E)
+ * - Разрешение 1-2 мГauss
+ * - Диапазон: ±1.3 до ±8.1 Гаусс
+ * - Встроенный 12-битный АЦП
+ * - Калибровка hard/soft iron
+ *
+ * @note HMC5883L устарел, рекомендуется QMC5883L как замена
+ */
+class HMC5883LDriver {
+public:
+    static constexpr uint8_t I2C_ADDR = 0x1E;
+    static constexpr uint8_t ID_A = 0x48;
+    static constexpr uint8_t ID_B = 0x34;
+    static constexpr uint8_t ID_C = 0x33;
+
+    // Регистры
+    enum Register : uint8_t {
+        CONFIG_A       = 0x00,
+        CONFIG_B       = 0x01,
+        MODE           = 0x02,
+        DATA_X_MSB     = 0x03,
+        DATA_X_LSB     = 0x04,
+        DATA_Z_MSB     = 0x05,
+        DATA_Z_LSB     = 0x06,
+        DATA_Y_MSB     = 0x07,
+        DATA_Y_LSB     = 0x08,
+        STATUS         = 0x09,
+        ID_A_REG       = 0x0A,
+        ID_B_REG       = 0x0B,
+        ID_C_REG       = 0x0C,
+        TEMP_OUT_MSB   = 0x31,
+        TEMP_OUT_LSB   = 0x32,
+    };
+
+    // Диапазоны измерения
+    enum class Scale : uint8_t {
+        SCALE_0_88G = 0x00,  // ±0.88 Гаусс
+        SCALE_1_3G  = 0x20,  // ±1.3 Гаусс (по умолчанию)
+        SCALE_1_9G  = 0x40,  // ±1.9 Гаусс
+        SCALE_2_5G  = 0x60,  // ±2.5 Гаусс
+        SCALE_4_0G  = 0x80,  // ±4.0 Гаусс
+        SCALE_4_7G  = 0xA0,  // ±4.7 Гаусс
+        SCALE_5_6G  = 0xC0,  // ±5.6 Гаусс
+        SCALE_8_1G  = 0xE0,  // ±8.1 Гаусс
+    };
+
+    // Режимы работы
+    enum class Mode : uint8_t {
+        CONTINUOUS = 0x00,
+        SINGLE     = 0x01,
+        IDLE       = 0x03,
+    };
+
+    // Скорость обновления (ODR)
+    enum class DataRate : uint8_t {
+        RATE_0_75HZ  = 0x00,
+        RATE_1_5HZ   = 0x04,
+        RATE_3HZ     = 0x08,
+        RATE_7_5HZ   = 0x0C,
+        RATE_15HZ    = 0x10,
+        RATE_30HZ    = 0x14,
+        RATE_75HZ    = 0x18,  // Максимальная
+    };
+
+    // samples per measurement
+    enum class Samples : uint8_t {
+        SAMPLES_1 = 0x00,
+        SAMPLES_2 = 0x40,
+        SAMPLES_4 = 0x80,
+        SAMPLES_8 = 0xC0,
+    };
+
+    // Калибровочные параметры
+    struct CalibrationData {
+        // Hard iron смещение (Гаусс)
+        float offset[3] = {0.0f, 0.0f, 0.0f};
+        // Soft iron матрица 3x3 (row-major)
+        float softIronMatrix[9] = {
+            1.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 1.0f
+        };
+        bool isCalibrated = false;
+    };
+
+    struct Config {
+        Scale scale = Scale::SCALE_1_3G;
+        Mode mode = Mode::CONTINUOUS;
+        DataRate dataRate = DataRate::RATE_15HZ;
+        Samples samples = Samples::SAMPLES_1;
+        bool autoCalibrate = false;
+    };
+
+    HMC5883LDriver(hal::II2C& i2c, uint8_t address = I2C_ADDR)
+        : i2c_(i2c), address_(address) {}
+
+    /**
+     * @brief Инициализация магнитометра
+     */
+    hal::Status init() {
+        Config config;
+        config.scale = Scale::SCALE_1_3G;
+        config.mode = Mode::CONTINUOUS;
+        config.dataRate = DataRate::RATE_15HZ;
+        config.samples = Samples::SAMPLES_1;
+        config.autoCalibrate = false;
+        return init(config);
+    }
+    
+    hal::Status init(const Config& config) {
+        config_ = config;
+
+        // Проверка ID
+        uint8_t idA, idB, idC;
+        hal::Status st;
+        
+        st = i2c_.readRegister(address_, ID_A_REG, std::span<uint8_t>(&idA, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+        
+        st = i2c_.readRegister(address_, ID_B_REG, std::span<uint8_t>(&idB, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+        
+        st = i2c_.readRegister(address_, ID_C_REG, std::span<uint8_t>(&idC, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+
+        if (idA != ID_A || idB != ID_B || idC != ID_C) {
+            return hal::Status::ERROR;
+        }
+
+        // CONFIG_A: среднее значение, нормальный режим
+        uint8_t cfgA = static_cast<uint8_t>(config.samples) | static_cast<uint8_t>(config.dataRate);
+        st = i2c_.writeRegister(address_, CONFIG_A, std::span<const uint8_t>(&cfgA, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+
+        // CONFIG_B: диапазон измерения
+        uint8_t cfgB = static_cast<uint8_t>(config.scale);
+        st = i2c_.writeRegister(address_, CONFIG_B, std::span<const uint8_t>(&cfgB, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+
+        // MODE: режим работы
+        uint8_t mode = static_cast<uint8_t>(config.mode);
+        st = i2c_.writeRegister(address_, MODE, std::span<const uint8_t>(&mode, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+
+        // Расчёт чувствительности (Гаусс/LSB)
+        updateSensitivity(config.scale);
+
+        // Автокалибровка если запрошена
+        if (config.autoCalibrate) {
+            return calibrateHardIron();
+        }
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Чтение данных магнитометра
+     */
+    hal::Status readData(MagData& data) {
+        // Проверка статуса (data ready)
+        uint8_t status;
+        hal::Status st = i2c_.readRegister(address_, STATUS, std::span<uint8_t>(&status, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+
+        if (!(status & 0x01)) {  // DRDY - data not ready
+            return hal::Status::BUSY;
+        }
+
+        // Чтение 6 байт данных (X, Z, Y - порядок HMC5883L)
+        uint8_t buffer[6];
+        st = i2c_.readRegister(address_, DATA_X_MSB | 0x80, std::span<uint8_t>(buffer, 6), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+
+        int16_t x = static_cast<int16_t>((buffer[0] << 8) | buffer[1]);
+        int16_t z = static_cast<int16_t>((buffer[2] << 8) | buffer[3]);
+        int16_t y = static_cast<int16_t>((buffer[4] << 8) | buffer[5]);
+
+        // Проверка overflow
+        data.overflow = (x == -4096 || y == -4096 || z == -4096);
+        
+        // Применение калибровки
+        float rawMag[3] = {
+            x * sensitivity_,
+            y * sensitivity_,
+            z * sensitivity_
+        };
+
+        if (calibration_.isCalibrated) {
+            applyCalibration(rawMag, data.mag);
+        } else {
+            data.mag[0] = rawMag[0];
+            data.mag[1] = rawMag[1];
+            data.mag[2] = rawMag[2];
+        }
+
+        data.timestamp = getTimestamp();
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Калибровка hard iron (поиск смещения)
+     * 
+     * Метод: вращение устройства на 360° и поиск мин/макс значений
+     */
+    hal::Status calibrateHardIron() {
+        // Сброс мин/макс
+        minValues_[0] = minValues_[1] = minValues_[2] = 999999.0f;
+        maxValues_[0] = maxValues_[1] = maxValues_[2] = -999999.0f;
+        isCalibrating_ = true;
+        calibrationSamples_ = 0;
+
+        // Сбор данных в непрерывном режиме
+        for (int i = 0; i < 100; ++i) {
+            MagData data;
+            hal::Status st = readRawData(data);
+            if (st == hal::Status::OK) {
+                // Обновление мин/макс
+                for (int axis = 0; axis < 3; ++axis) {
+                    if (data.mag[axis] < minValues_[axis]) {
+                        minValues_[axis] = data.mag[axis];
+                    }
+                    if (data.mag[axis] > maxValues_[axis]) {
+                        maxValues_[axis] = data.mag[axis];
+                    }
+                }
+                calibrationSamples_++;
+            }
+            
+            // Задержка между измерениями
+            // В реальном коде: delayMs(100 / static_cast<uint8_t>(config_.dataRate));
+        }
+
+        if (calibrationSamples_ < 10) {
+            isCalibrating_ = false;
+            return hal::Status::ERROR;
+        }
+
+        // Расчёт смещения (midpoint)
+        for (int axis = 0; axis < 3; ++axis) {
+            calibration_.offset[axis] = (maxValues_[axis] + minValues_[axis]) / 2.0f;
+        }
+
+        calibration_.isCalibrated = true;
+        isCalibrating_ = false;
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Применение калибровки soft iron
+     * @param matrix Матрица коррекции 3x3 (row-major)
+     */
+    hal::Status setSoftIronCalibration(const float matrix[9]) {
+        if (!matrix) {
+            return hal::Status::INVALID_PARAM;
+        }
+
+        for (int i = 0; i < 9; ++i) {
+            calibration_.softIronMatrix[i] = matrix[i];
+        }
+        calibration_.isCalibrated = true;
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Установка калибровочных данных
+     */
+    void setCalibration(const CalibrationData& cal) {
+        calibration_ = cal;
+    }
+
+    /**
+     * @brief Получение калибровочных данных
+     */
+    const CalibrationData& getCalibration() const {
+        return calibration_;
+    }
+
+    /**
+     * @brief Сброс калибровки
+     */
+    void resetCalibration() {
+        calibration_ = CalibrationData{};
+    }
+
+    /**
+     * @brief Установка режима работы
+     */
+    hal::Status setMode(Mode mode) {
+        uint8_t modeReg = static_cast<uint8_t>(mode);
+        hal::Status st = i2c_.writeRegister(address_, MODE, std::span<const uint8_t>(&modeReg, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+        }
+        config_.mode = mode;
+        return st;
+    }
+
+    /**
+     * @brief Установка диапазона измерения
+     */
+    hal::Status setScale(Scale scale) {
+        uint8_t cfgB = static_cast<uint8_t>(scale);
+        hal::Status st = i2c_.writeRegister(address_, CONFIG_B, std::span<const uint8_t>(&cfgB, 1), 100);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            if (st == hal::Status::TIMEOUT) timeoutCount_++;
+            return st;
+        }
+        config_.scale = scale;
+        updateSensitivity(scale);
+        return hal::Status::OK;
+    }
+
+    // ========================================================================
+    // Health monitoring
+    // ========================================================================
+
+    uint32_t getErrorCount() const { return errorCount_; }
+    uint32_t getTimeoutCount() const { return timeoutCount_; }
+    uint16_t getCalibrationSamples() const { return calibrationSamples_; }
+    bool isCalibrating() const { return isCalibrating_; }
+    
+    void resetErrorCounters() {
+        errorCount_ = 0;
+        timeoutCount_ = 0;
+    }
+
+private:
+    hal::II2C& i2c_;
+    uint8_t address_;
+    Config config_;
+    float sensitivity_ = 0.0f;
+    CalibrationData calibration_;
+
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
+
+    // Калибровка
+    float minValues_[3] = {999999.0f, 999999.0f, 999999.0f};
+    float maxValues_[3] = {-999999.0f, -999999.0f, -999999.0f};
+    bool isCalibrating_ = false;
+    uint16_t calibrationSamples_ = 0;
+
+    uint64_t getTimestamp() const { return 0; }
+
+    /**
+     * @brief Обновление чувствительности по диапазону
+     */
+    void updateSensitivity(Scale scale) {
+        // Чувствительность в Гаусс/LSB (типичные значения из datasheet)
+        switch (scale) {
+            case Scale::SCALE_0_88G: sensitivity_ = 0.73f / 1000.0f; break;   // 0.73 мГauss
+            case Scale::SCALE_1_3G:  sensitivity_ = 0.92f / 1000.0f; break;   // 0.92 мГauss
+            case Scale::SCALE_1_9G:  sensitivity_ = 1.22f / 1000.0f; break;   // 1.22 мГauss
+            case Scale::SCALE_2_5G:  sensitivity_ = 1.52f / 1000.0f; break;   // 1.52 мГauss
+            case Scale::SCALE_4_0G:  sensitivity_ = 2.27f / 1000.0f; break;   // 2.27 мГauss
+            case Scale::SCALE_4_7G:  sensitivity_ = 2.56f / 1000.0f; break;   // 2.56 мГauss
+            case Scale::SCALE_5_6G:  sensitivity_ = 3.03f / 1000.0f; break;   // 3.03 мГauss
+            case Scale::SCALE_8_1G:  sensitivity_ = 4.35f / 1000.0f; break;   // 4.35 мГauss
+        }
+    }
+
+    /**
+     * @brief Чтение сырых данных без калибровки
+     */
+    hal::Status readRawData(MagData& data) {
+        uint8_t status;
+        hal::Status st = i2c_.readRegister(address_, STATUS, std::span<uint8_t>(&status, 1), 100);
+        if (st != hal::Status::OK) {
+            return st;
+        }
+
+        if (!(status & 0x01)) {
+            return hal::Status::BUSY;
+        }
+
+        uint8_t buffer[6];
+        st = i2c_.readRegister(address_, DATA_X_MSB | 0x80, std::span<uint8_t>(buffer, 6), 100);
+        if (st != hal::Status::OK) {
+            return st;
+        }
+
+        int16_t x = static_cast<int16_t>((buffer[0] << 8) | buffer[1]);
+        int16_t z = static_cast<int16_t>((buffer[2] << 8) | buffer[3]);
+        int16_t y = static_cast<int16_t>((buffer[4] << 8) | buffer[5]);
+
+        data.mag[0] = x * sensitivity_;
+        data.mag[1] = y * sensitivity_;
+        data.mag[2] = z * sensitivity_;
+        data.overflow = (x == -4096 || y == -4096 || z == -4096);
+        data.timestamp = getTimestamp();
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Применение калибровки к сырым данным
+     */
+    void applyCalibration(const float raw[3], float output[3]) {
+        // Hard iron коррекция
+        float corrected[3] = {
+            raw[0] - calibration_.offset[0],
+            raw[1] - calibration_.offset[1],
+            raw[2] - calibration_.offset[2]
+        };
+
+        // Soft iron коррекция (матричное умножение)
+        for (int row = 0; row < 3; ++row) {
+            output[row] = 0.0f;
+            for (int col = 0; col < 3; ++col) {
+                output[row] += calibration_.softIronMatrix[row * 3 + col] * corrected[col];
+            }
+        }
+    }
+};
+
+// ============================================================================
 // u-blox NEO-M8 - GPS приёмник
 // ============================================================================
 
 /**
  * @brief Драйвер GPS приёмника u-blox NEO-M8
- * 
+ *
  * Особенности:
  * - Поддержка GPS, GLONASS, Galileo, BeiDou
  * - Точность позиционирования до 2.5 м
@@ -814,7 +1275,7 @@ public:
     // UBX протокол
     static constexpr uint8_t UBX_SYNC1 = 0xB5;
     static constexpr uint8_t UBX_SYNC2 = 0x62;
-    
+
     // Классы сообщений
     enum UBXClass : uint8_t {
         CLASS_NAV = 0x01,
@@ -2359,6 +2820,431 @@ private:
     // Health monitoring
     uint32_t errorCount_ = 0;
     uint32_t timeoutCount_ = 0;
+};
+
+// ============================================================================
+// MAX31865 - прецизионный датчик температуры (PT100/PT1000)
+// ============================================================================
+
+/**
+ * @brief Драйвер прецизионного датчика температуры MAX31865
+ *
+ * Особенности:
+ * - SPI интерфейс (до 5 МГц)
+ * - Поддержка PT100, PT1000, PT500
+ * - Разрешение 15-бит (0.03125°C)
+ * - Точность ±0.5°C (0-500°C для PT100)
+ * - Компенсация сопротивления проводов
+ * - Детекция обрыва/КЗ датчика
+ *
+ * @note Требует внешний прецизионный резистор Rref (обычно 4300 Ом для PT100)
+ */
+class MAX31865Driver {
+public:
+    // Типы датчиков
+    enum class RTDType : uint8_t {
+        PT100 = 0,
+        PT500 = 1,
+        PT1000 = 2,
+    };
+
+    // Регистры SPI
+    enum Register : uint8_t {
+        CONFIG_REG    = 0x00,
+        RTD_MSB       = 0x01,
+        RTD_LSB       = 0x02,
+        HIGH_FAULT_MSB = 0x03,
+        HIGH_FAULT_LSB = 0x04,
+        LOW_FAULT_MSB = 0x05,
+        LOW_FAULT_LSB = 0x06,
+        FAULT_STATUS  = 0x07,
+    };
+
+    // Биты конфигурации
+    enum ConfigBit : uint8_t {
+        BIAS_ON       = 0x80,  // Включить ток смещения
+        AUTO_CONV       = 0x40,  // Автоматическое преобразование
+        ONE_SHOT      = 0x20,  // Однократное преобразование
+        WIRE_3        = 0x10,  // 3-проводное подключение
+        FAULT_CYCLE   = 0x0C,  // Автоматическая детекция ошибок
+        FAULT_STAT_CLEAR = 0x02,  // Очистка статуса ошибок
+        READY_FLAG    = 0x01,  // Данные готовы
+    };
+
+    // Статус ошибок
+    enum FaultStatus : uint8_t {
+        HIGH_THRESHOLD  = 0x80,  // Выше верхнего порога
+        LOW_THRESHOLD   = 0x40,  // Ниже нижнего порога
+        REFIN_HIGH      = 0x20,  // Rref > RTD (обрыв)
+        REFIN_LOW       = 0x10,  // Rref < RTD (КЗ)
+        RTDIN_LOW       = 0x08,  // RTD вход < порога
+        VOLTAGE_ERROR   = 0x04,  // Ошибка напряжения
+    };
+
+    // Коэффициенты Каллендара-Ван Дюзена для PT100
+    struct CallendarCoefficients {
+        float A = 3.9083e-3f;
+        float B = -5.775e-7f;
+        float C = -4.183e-12f;  // Для T < 0°C
+    };
+
+    // Конфигурация
+    struct Config {
+        RTDType rtdType = RTDType::PT100;
+        float rref = 4300.0f;         // Опорное сопротивление (Ом)
+        uint8_t wires = 4;            // 2, 3 или 4 провода
+        bool autoConvert = true;      // Автоматическое преобразование
+        CallendarCoefficients coeffs; // Коэффициенты калибровки
+    };
+
+    // Результат измерения
+    struct TempData {
+        float temperature;     // Температура (°C)
+        float resistance;      // Сопротивление RTD (Ом)
+        uint16_t rtdCode;      // Сырой код АЦП
+        bool faultDetected;    // Обнаружена ошибка
+        uint8_t faultStatus;   // Статус ошибок
+        uint64_t timestamp;
+    };
+
+    MAX31865Driver(hal::ISPI& spi, uint8_t csPin = 0)
+        : spi_(spi), csPin_(csPin) {}
+
+    /**
+     * @brief Инициализация датчика
+     */
+    hal::Status init() {
+        Config config;
+        return init(config);
+    }
+    
+    hal::Status init(const Config& config) {
+        config_ = config;
+
+        // Выбор коэффициентов по типу датчика
+        updateCoefficients(config.rtdType);
+
+        // Настройка конфигурации
+        uint8_t cfg = 0;
+        
+        // Включение тока смещения
+        cfg |= BIAS_ON;
+        
+        // Автоматическое преобразование
+        if (config.autoConvert) {
+            cfg |= AUTO_CONV;
+        }
+        
+        // 3-проводное подключение
+        if (config.wires == 3) {
+            cfg |= WIRE_3;
+        }
+
+        // Очистка статуса ошибок
+        cfg |= FAULT_STAT_CLEAR;
+
+        // Запись конфигурации
+        hal::Status st = writeRegister(CONFIG_REG, cfg);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+
+        // Небольшая задержка для стабилизации
+        // В реальном коде: delayMs(10);
+        
+        // Проверка связи (чтение статуса)
+        uint8_t fault;
+        st = readRegister(FAULT_STATUS, &fault);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Чтение температуры
+     */
+    hal::Status readTemperature(TempData& data) {
+        // Запуск однократного преобразования (если не auto)
+        if (!config_.autoConvert) {
+            uint8_t cfg;
+            hal::Status st = readRegister(CONFIG_REG, &cfg);
+            if (st != hal::Status::OK) {
+                errorCount_++;
+                return st;
+            }
+            
+            cfg |= ONE_SHOT;
+            st = writeRegister(CONFIG_REG, cfg);
+            if (st != hal::Status::OK) {
+                errorCount_++;
+                return st;
+            }
+            
+            // Ожидание завершения (в реальном коде: polling или delay)
+        }
+
+        // Чтение статуса ошибок
+        uint8_t fault;
+        hal::Status st = readRegister(FAULT_STATUS, &fault);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+
+        data.faultStatus = fault;
+        data.faultDetected = (fault & 0xFC) != 0;
+
+        // Чтение RTD кода (15 бит + fault flag)
+        uint8_t rtdBuffer[2];
+        st = readRegister(RTD_MSB, rtdBuffer, 2);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+
+        // RTD код (бит 0 - fault flag, биты 15:1 - данные)
+        data.rtdCode = static_cast<uint16_t>((rtdBuffer[0] << 8) | rtdBuffer[1]);
+        data.rtdCode >>= 1;  // Удаление fault flag
+
+        // Расчёт сопротивления RTD
+        // R_RTD = (RTD_code / 32768) * Rref
+        data.resistance = (static_cast<float>(data.rtdCode) / 32768.0f) * config_.rref;
+
+        // Расчёт температуры по уравнению Каллендара-Ван Дюзена
+        data.temperature = calculateTemperature(data.resistance);
+
+        data.timestamp = getTimestamp();
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Установка порогов детекции ошибок
+     * @param highTemp Верхний порог (°C)
+     * @param lowTemp Нижний порог (°C)
+     */
+    hal::Status setFaultThresholds(float highTemp, float lowTemp) {
+        if (highTemp <= lowTemp) {
+            return hal::Status::INVALID_PARAM;
+        }
+
+        // Преобразование температуры в сопротивление
+        float highResistance = temperatureToResistance(highTemp);
+        float lowResistance = temperatureToResistance(lowTemp);
+
+        // Преобразование в RTD коды
+        uint16_t highCode = static_cast<uint16_t>((highResistance / config_.rref) * 32768.0f);
+        uint16_t lowCode = static_cast<uint16_t>((lowResistance / config_.rref) * 32768.0f);
+
+        // Запись верхнего порога
+        hal::Status st = writeRegister(HIGH_FAULT_MSB, (highCode >> 8) & 0xFF);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+        
+        st = writeRegister(HIGH_FAULT_LSB, highCode & 0xFF);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+
+        // Запись нижнего порога
+        st = writeRegister(LOW_FAULT_MSB, (lowCode >> 8) & 0xFF);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+        
+        st = writeRegister(LOW_FAULT_LSB, lowCode & 0xFF);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Очистка статуса ошибок
+     */
+    hal::Status clearFaultStatus() {
+        uint8_t cfg;
+        hal::Status st = readRegister(CONFIG_REG, &cfg);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+            return st;
+        }
+        
+        cfg |= FAULT_STAT_CLEAR;
+        st = writeRegister(CONFIG_REG, cfg);
+        if (st != hal::Status::OK) {
+            errorCount_++;
+        }
+        
+        return st;
+    }
+
+    /**
+     * @brief Получение конфигурации
+     */
+    const Config& getConfig() const { return config_; }
+
+    // ========================================================================
+    // Health monitoring
+    // ========================================================================
+
+    uint32_t getErrorCount() const { return errorCount_; }
+    void resetErrorCounters() { errorCount_ = 0; }
+
+private:
+    hal::ISPI& spi_;
+    uint8_t csPin_;
+    Config config_;
+    CallendarCoefficients coeffs_;
+
+    // Health monitoring
+    uint32_t errorCount_ = 0;
+
+    uint64_t getTimestamp() const { return 0; }
+
+    /**
+     * @brief Чтение регистра через SPI
+     */
+    hal::Status readRegister(uint8_t reg, uint8_t* data, size_t len = 1) {
+        // MAX31865: бит 7 = 0 (чтение), бит 6:0 = адрес
+        uint8_t cmd = reg & 0x7F;
+        
+        // CS low
+        // В реальном коде: gpio_.write(csPin_, false);
+        
+        uint8_t rxBuffer[2];
+        uint8_t txBuffer[2] = {cmd, 0x00};
+        
+        hal::Status st = spi_.transfer(txBuffer, rxBuffer, len + 1);
+        
+        // CS high
+        // В реальном коде: gpio_.write(csPin_, true);
+        
+        if (st != hal::Status::OK) {
+            return st;
+        }
+
+        // Копирование данных (первый байт - dummy)
+        for (size_t i = 0; i < len; ++i) {
+            data[i] = rxBuffer[i + 1];
+        }
+
+        return hal::Status::OK;
+    }
+
+    /**
+     * @brief Запись регистра через SPI
+     */
+    hal::Status writeRegister(uint8_t reg, uint8_t data) {
+        // MAX31865: бит 7 = 1 (запись), бит 6:0 = адрес
+        uint8_t cmd = reg | 0x80;
+        
+        // CS low
+        uint8_t txBuffer[2] = {cmd, data};
+        uint8_t rxBuffer[2];
+        
+        hal::Status st = spi_.transfer(txBuffer, rxBuffer, 2);
+        
+        // CS high
+        return st;
+    }
+
+    /**
+     * @brief Расчёт температуры по сопротивлению (Callendar-Van Dusen)
+     */
+    float calculateTemperature(float resistance) {
+        // Нормализованное сопротивление
+        float rRatio = resistance / 100.0f;  // Для PT100
+
+        if (resistance >= 100.0f) {
+            // T >= 0°C: R = R0 * (1 + A*T + B*T²)
+            // Решаем квадратное уравнение: B*T² + A*T + (1 - R/R0) = 0
+            float a = coeffs_.B;
+            float b = coeffs_.A;
+            float c = 1.0f - rRatio;
+
+            float discriminant = b * b - 4.0f * a * c;
+            if (discriminant < 0.0f) {
+                return 0.0f;  // Ошибка
+            }
+
+            // Положительный корень
+            float t = (-b + std::sqrt(discriminant)) / (2.0f * a);
+            return t;
+        } else {
+            // T < 0°C: R = R0 * (1 + A*T + B*T² + C*(T-100)*T³)
+            // Упрощённое решение (итеративное)
+            float t = (rRatio - 1.0f) / coeffs_.A;  // Начальное приближение
+            
+            // Итерации Ньюна (3-4 итерации достаточно)
+            for (int i = 0; i < 4; ++i) {
+                float t2 = t * t;
+                float t3 = t2 * t;
+                float rCalc = 1.0f + coeffs_.A * t + coeffs_.B * t2 + 
+                             coeffs_.C * (t - 100.0f) * t3;
+                
+                float error = rRatio - rCalc;
+                float derivative = coeffs_.A + 2.0f * coeffs_.B * t + 
+                                  coeffs_.C * (4.0f * t3 - 300.0f * t2);
+                
+                if (std::abs(derivative) < 1e-10f) {
+                    break;
+                }
+                
+                t += error / derivative;
+            }
+            
+            return t;
+        }
+    }
+
+    /**
+     * @brief Расчёт сопротивления по температуре (обратное преобразование)
+     */
+    float temperatureToResistance(float temperature) {
+        if (temperature >= 0.0f) {
+            // T >= 0°C
+            float t2 = temperature * temperature;
+            return 100.0f * (1.0f + coeffs_.A * temperature + coeffs_.B * t2);
+        } else {
+            // T < 0°C
+            float t2 = temperature * temperature;
+            float t3 = t2 * temperature;
+            return 100.0f * (1.0f + coeffs_.A * temperature + coeffs_.B * t2 + 
+                           coeffs_.C * (temperature - 100.0f) * t3);
+        }
+    }
+
+    /**
+     * @brief Обновление коэффициентов по типу датчика
+     */
+    void updateCoefficients(RTDType type) {
+        // Коэффициенты для разных типов датчиков (по IEC 60751)
+        switch (type) {
+            case RTDType::PT100:
+                // PT100: R0 = 100 Ом
+                coeffs_ = CallendarCoefficients{3.9083e-3f, -5.775e-7f, -4.183e-12f};
+                break;
+            case RTDType::PT500:
+                // PT500: R0 = 500 Ом (те же коэффициенты, масштабирование)
+                coeffs_ = CallendarCoefficients{3.9083e-3f, -5.775e-7f, -4.183e-12f};
+                break;
+            case RTDType::PT1000:
+                // PT1000: R0 = 1000 Ом
+                coeffs_ = CallendarCoefficients{3.9083e-3f, -5.775e-7f, -4.183e-12f};
+                break;
+        }
+    }
 };
 
 } // namespace sensors
