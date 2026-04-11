@@ -29,6 +29,7 @@ namespace Constants {
     constexpr double PI = 3.14159265358979323846;
     constexpr double TWOPI = 2.0 * PI;
     constexpr double TWOTHIRD = 2.0 / 3.0;
+    constexpr double ONETHIRD = 1.0 / 3.0;
 
     // Физические константы Земли
     constexpr double R_EARTH = 6378.135;        // Экваториальный радиус [km]
@@ -187,6 +188,16 @@ public:
      * @brief Получить наклонение [deg]
      */
     double getInclination() const { return inclination_; }
+
+    /**
+     * @brief Получить большую полуось [km]
+     */
+    double getSemiMajorAxis() const { return semiMajorAxis_; }
+
+    /**
+     * @brief Получить среднее движение [rev/day]
+     */
+    double getMeanMotionRevPerDay() const { return meanMotionRevPerDay_; }
 
 private:
     bool initialized_ = false;

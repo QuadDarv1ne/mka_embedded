@@ -6,6 +6,7 @@
 #include "sgp4.hpp"
 #include <cstring>
 #include <algorithm>
+#include <cstdio>
 
 namespace mka {
 namespace navigation {
@@ -129,31 +130,46 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
 
         double meanMotionDot = std::stod(tle.line1.substr(33, 10));
         (void)meanMotionDot;
-        
-        // Экспоненциальный формат для второй производной (Cols 45-52)
-        // Формат: S.DDDDD-x (без точки в строке TLE)
+
+        // Экспоненциальный формат для второй производной (Cols 45-52, 0-based 44-51)
+        // Формат: ±DDDDD±D (без десятичной точки)
         // Пример: " 00000-0" -> 0.00000 * 10^0
-        std::string mddStr = tle.line1.substr(44, 7); 
+        std::string mddStr = tle.line1.substr(44, 8);
         if (mddStr.length() >= 7) {
-            std::string numPart = "0." + mddStr.substr(0, 5);
-            char expSign = mddStr[5];
-            int expVal = std::stoi(mddStr.substr(6, 1));
-            double meanMotionDotDot = std::stod(numPart);
-            meanMotionDotDot *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
-            (void)meanMotionDotDot;
+            // Удаляем ведущие пробелы для парсинга
+            size_t firstNonSpace = mddStr.find_first_not_of(' ');
+            if (firstNonSpace != std::string::npos) {
+                std::string trimmed = mddStr.substr(firstNonSpace);
+                if (trimmed.length() >= 6) {
+                    // Формат: DDDDD±D -> 0.DDDDD * 10^±D
+                    std::string numPart = "0." + trimmed.substr(0, 5);
+                    char expSign = trimmed[5];
+                    int expVal = std::stoi(trimmed.substr(6, 1));
+                    double meanMotionDotDot = std::stod(numPart);
+                    meanMotionDotDot *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
+                    (void)meanMotionDotDot;
+                }
+            }
         }
 
-        // B-star (Cols 54-61)
-        // Формат: DDDDD-S (десятичная точка после первой цифры подразумевается)
-        // Пример: "10270-3" -> 0.10270 * 10^-3
-        std::string bstarStr = tle.line1.substr(53, 7);
+        // B-star (Cols 54-61, 0-based 53-60)
+        // Формат: ±DDDDD±D
+        // Пример: " 10270-3" -> 0.10270 * 10^-3
+        std::string bstarStr = tle.line1.substr(53, 8);
         if (bstarStr.length() >= 7) {
-            std::string numPart = "0." + bstarStr.substr(0, 5);
-            char expSign = bstarStr[5];
-            int expVal = std::stoi(bstarStr.substr(6, 1));
-            double bstar = std::stod(numPart);
-            bstar *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
-            bstar_ = bstar;
+            // Удаляем ведущие пробелы для парсинга
+            size_t firstNonSpace = bstarStr.find_first_not_of(' ');
+            if (firstNonSpace != std::string::npos) {
+                std::string trimmed = bstarStr.substr(firstNonSpace);
+                if (trimmed.length() >= 6) {
+                    std::string numPart = "0." + trimmed.substr(0, 5);
+                    char expSign = trimmed[5];
+                    int expVal = std::stoi(trimmed.substr(6, 1));
+                    double bstar = std::stod(numPart);
+                    bstar *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
+                    bstar_ = bstar;
+                }
+            }
         }
 
         int elementSetNumber = std::stoi(tle.line1.substr(64, 4));
@@ -162,16 +178,23 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
         // Парсинг строки 2
         if (tle.line2.length() < 69) return false;
 
+        // Inclination (Cols 9-16, 0-based 8-15)
         inclination_ = utils::degToRad(std::stod(tle.line2.substr(8, 8)));
+        // RAAN (Cols 18-25, 0-based 17-24)
         raan_ = utils::degToRad(std::stod(tle.line2.substr(17, 8)));
 
-        // Эксцентриситет (без десятичной точки в TLE)
+        // Эксцентриситет (Cols 27-33, 0-based 26-32)
+        // В TLE десятичная точка подразумевается перед первым символом
         std::string eccStr = tle.line2.substr(26, 7);
         eccentricity_ = std::stod("0." + eccStr);
 
+        // Argument of perigee (Cols 35-42, 0-based 34-41)
         argPerigee_ = utils::degToRad(std::stod(tle.line2.substr(34, 8)));
+        // Mean anomaly (Cols 44-51, 0-based 43-50)
         meanAnomaly_ = utils::degToRad(std::stod(tle.line2.substr(43, 8)));
+        // Mean motion (Cols 53-63, 0-based 52-62)
         double meanMotionRevPerDay = std::stod(tle.line2.substr(52, 11));
+        // Orbit number at epoch (Cols 64-68, 0-based 63-67)
         int orbitNumber = std::stoi(tle.line2.substr(63, 5));
         (void)orbitNumber;
 
@@ -189,7 +212,11 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
             return false;
         }
 
-        semiMajorAxis_ = std::pow(MU_EARTH / (meanMotion_ * meanMotion_), TWOTHIRD);
+        // MU_EARTH в км³/с², meanMotion_ в рад/с для согласованности единиц
+        double meanMotionPerSec = meanMotion_ / 60.0;  // rad/min -> rad/s
+        
+        // a³ = μ/n² => a = (μ/n²)^(1/3)
+        semiMajorAxis_ = std::pow(MU_EARTH / (meanMotionPerSec * meanMotionPerSec), ONETHIRD);
 
         epoch_ = epochDay;
 
