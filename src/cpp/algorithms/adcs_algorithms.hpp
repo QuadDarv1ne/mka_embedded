@@ -15,8 +15,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
 #include <array>
 #include <cstring>
+#include <vector>
 
 namespace mka {
 namespace adcs {
@@ -2041,6 +2043,361 @@ private:
         }
 
         return Quaternion(qw, qx, qy, qz);
+    }
+};
+
+// ============================================================================
+// QUEST метод определения ориентации (QUestimator for Satellite Attitude)
+// ============================================================================
+
+/**
+ * @brief QUEST (QUestimator for Satellite Attitude) — оптимальный алгоритм
+ *        определения ориентации по множеству векторных измерений
+ *
+ * QUEST решает задачу Wahba — находит оптимальную матрицу ориентации,
+ * минимизируя взвешенную сумму квадратов ошибок между измеренными и
+ * опорными векторами.
+ *
+ * В отличие от TRIAD:
+ * - Использует все доступные измерения (не только 2 вектора)
+ * - Оптимально взвешивает измерения по их точности
+ * - Минимизирует ошибку в смысле наименьших квадратов
+ * - Работает с любым числом векторов >= 2
+ *
+ * Алгоритм:
+ * 1. Построение матрицы B (attitude profile matrix)
+ * 2. Вычисление оптимального кватерниона через решение характеристического уравнения
+ * 3. Нахождение максимального собственного значения (метод Ньютона)
+ * 4. Вычисление кватерниона ориентации
+ *
+ * Применения:
+ * - Основная система определения ориентации для CubeSat
+ * - Слияние данных акселерометра, магнитометра, солнечных датчиков
+ * - Начальная инициализация для EKF
+ *
+ * @see "A Survey of Attitude Determination Algorithms", Markley & Mortari
+ * @see "Attitude Determination Using Vector Observations", Wertz
+ */
+class QUESTEstimator {
+public:
+    /**
+     * @brief Результат QUEST
+     */
+    struct QUESTResult {
+        Quaternion orientation;       // Оптимальная ориентация (кватернион)
+        float loss;                   // Функция потерь (остаточная ошибка)
+        bool isValid;                 // Флаг валидности
+        int numVectors;               // Число использованных векторов
+        const char* errorMessage;     // Сообщение об ошибке
+    };
+
+    /**
+     * @brief Взвешенное векторное измерение
+     */
+    struct WeightedVectorObservation {
+        std::array<float, 3> refVector;   // Опорный вектор (reference frame)
+        std::array<float, 3> bodyVector;  // Измеренный вектор (body frame)
+        float weight;                      // Вес измерения (обычно 1/sigma^2)
+    };
+
+    /**
+     * @brief Конфигурация QUEST
+     */
+    struct Config {
+        float newtonTolerance = 1e-10f;   // Точность метода Ньютона
+        int maxNewtonIterations = 50;      // Макс. итераций Ньютона
+        bool normalizeInputs = true;       // Нормализовать входные векторы
+    };
+
+    QUESTEstimator() = default;
+    explicit QUESTEstimator(const Config& config) : config_(config) {}
+
+    /**
+     * @brief Оценка ориентации по множеству взвешенных векторов
+     * 
+     * @param observations Набор взвешенных векторных измерений
+     * @param numVectors Число измерений (должно быть >= 2)
+     * @return QUESTResult Результат оценки ориентации
+     * 
+     * @note Веса должны быть нормализованы (сумма весов = 1)
+     *       Если веса не нормализованы, они будут нормализованы автоматически
+     */
+    QUESTResult estimate(const WeightedVectorObservation* observations, int numVectors) {
+        QUESTResult result;
+        result.isValid = false;
+        result.errorMessage = nullptr;
+        result.loss = 0.0f;
+        result.numVectors = numVectors;
+
+        if (numVectors < 2) {
+            result.errorMessage = "QUEST requires at least 2 vector observations";
+            return result;
+        }
+
+        // Нормализация весов
+        float weightSum = 0.0f;
+        for (int i = 0; i < numVectors; i++) {
+            weightSum += observations[i].weight;
+        }
+        
+        if (weightSum < 1e-10f) {
+            result.errorMessage = "Sum of weights is zero";
+            return result;
+        }
+
+        // Нормализация входных векторов
+        std::vector<std::array<float, 3>> refVectors(numVectors);
+        std::vector<std::array<float, 3>> bodyVectors(numVectors);
+        std::vector<float> weights(numVectors);
+
+        for (int i = 0; i < numVectors; i++) {
+            weights[i] = observations[i].weight / weightSum;
+            
+            if (config_.normalizeInputs) {
+                if (!normalizeVector(observations[i].refVector, refVectors[i]) ||
+                    !normalizeVector(observations[i].bodyVector, bodyVectors[i])) {
+                    result.errorMessage = "Zero-length vector in observations";
+                    return result;
+                }
+            } else {
+                refVectors[i] = observations[i].refVector;
+                bodyVectors[i] = observations[i].bodyVector;
+            }
+        }
+
+        // Построение матрицы B (attitude profile matrix)
+        // B = sum(w_i * ref_i * body_i^T)
+        float B[9] = {0};
+        for (int k = 0; k < numVectors; k++) {
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    B[i * 3 + j] += weights[k] * refVectors[k][i] * bodyVectors[k][j];
+                }
+            }
+        }
+
+        // Построение симметричной части S = B + B^T
+        float S[9];
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                S[i * 3 + j] = B[i * 3 + j] + B[j * 3 + i];
+            }
+        }
+
+        // Вычисление trace(B) и z-вектора
+        float traceB = B[0] + B[4] + B[8];
+        std::array<float, 3> z = {
+            B[7] - B[5],  // B[2,1] - B[1,2]
+            B[2] - B[6],  // B[0,2] - B[2,0]
+            B[3] - B[1]   // B[1,0] - B[0,1]
+        };
+
+        // sigma = trace(B)
+        float sigma = traceB;
+
+        // kappa = det(B) - trace(adj(B))
+        // Для QUEST: kappa = trace(B) - 2*lambda_max
+        // Используем упрощённую форму через определитель
+
+        // Решение характеристического уравнения методом Ньютона
+        // f(lambda) = lambda^4 - (a^2+b)*lambda^2 - c*lambda + (d - a^2*sigma)
+        // где a, b, c, d — коэффициенты из B и S
+        
+        float a = sigma;
+        
+        // Вычисление |S|^2
+        float S_norm_sq = 0.0f;
+        for (int i = 0; i < 9; i++) S_norm_sq += S[i] * S[i];
+        
+        float b = S_norm_sq / 2.0f - a * a;
+        float c = 2.0f * (B[0] * (B[4]*B[8] - B[5]*B[7]) -
+                         B[1] * (B[3]*B[8] - B[5]*B[6]) +
+                         B[2] * (B[3]*B[7] - B[4]*B[6]));
+        
+        // det(B)
+        float detB = B[0] * (B[4]*B[8] - B[5]*B[7]) -
+                     B[1] * (B[3]*B[8] - B[5]*B[6]) +
+                     B[2] * (B[3]*B[7] - B[4]*B[6]);
+        
+        float d = detB;
+
+        // Начальное приближение для lambda (наибольшее собственное значение)
+        float lambda = a;
+        for (int i = 0; i < 3; i++) lambda += std::abs(z[i]);
+
+        // Метод Ньютона для нахождения максимального корня
+        for (int iter = 0; iter < config_.maxNewtonIterations; iter++) {
+            float lambda2 = lambda * lambda;
+            float lambda3 = lambda2 * lambda;
+            float lambda4 = lambda2 * lambda2;
+
+            // f(lambda) = lambda^4 - (a^2+b)*lambda^2 - c*lambda + (d - a^2*sigma)
+            float f = lambda4 - (a*a + b) * lambda2 - c * lambda + (d - a*a*sigma);
+            
+            // f'(lambda) = 4*lambda^3 - 2*(a^2+b)*lambda - c
+            float df = 4.0f * lambda3 - 2.0f * (a*a + b) * lambda - c;
+
+            if (std::abs(df) < 1e-20f) break;
+
+            float delta = f / df;
+            lambda -= delta;
+
+            if (std::abs(delta) < config_.newtonTolerance) break;
+        }
+
+        // Вычисление кватерниона
+        // (lambda*I - S)^(-1) * z
+        float M[9];
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                M[i * 3 + j] = (i == j) ? lambda : 0.0f;
+                M[i * 3 + j] -= S[i * 3 + j];
+            }
+        }
+
+        // Инверсия матрицы 3x3
+        float M_inv[9];
+        if (!invertMatrix3x3(M, M_inv)) {
+            result.errorMessage = "Matrix inversion failed in QUEST";
+            return result;
+        }
+
+        // x = M_inv * z
+        std::array<float, 3> x;
+        for (int i = 0; i < 3; i++) {
+            x[i] = 0.0f;
+            for (int j = 0; j < 3; j++) {
+                x[i] += M_inv[i * 3 + j] * z[j];
+            }
+        }
+
+        // Нормализация кватерниона
+        float qNorm = std::sqrt(lambda * lambda + x[0]*x[0] + x[1]*x[1] + x[2]*x[2]);
+        if (qNorm < 1e-10f) {
+            result.errorMessage = "Zero quaternion norm in QUEST";
+            return result;
+        }
+
+        float invNorm = 1.0f / qNorm;
+        result.orientation.w = lambda * invNorm;
+        result.orientation.x = x[0] * invNorm;
+        result.orientation.y = x[1] * invNorm;
+        result.orientation.z = x[2] * invNorm;
+
+        // Вычисление функции потерь (Wahba loss function)
+        // loss = 1 - lambda_max (для нормализованных весов)
+        result.loss = 1.0f - lambda;
+        result.isValid = true;
+        result.errorMessage = nullptr;
+
+        return result;
+    }
+
+    /**
+     * @brief Упрощённый интерфейс с отдельными векторами
+     * 
+     * @param refVectors Опорные векторы
+     * @param bodyVectors Измеренные векторы
+     * @param weights Веса измерений (опционально, по умолчанию равные)
+     * @param numVectors Число векторов
+     * @return QUESTResult
+     */
+    QUESTResult estimateFromVectors(
+        const std::array<float, 3>* refVectors,
+        const std::array<float, 3>* bodyVectors,
+        const float* weights = nullptr,
+        int numVectors = 0)
+    {
+        QUESTResult result;
+        if (numVectors == 0) {
+            result.isValid = false;
+            result.errorMessage = "numVectors must be > 0";
+            return result;
+        }
+
+        std::vector<WeightedVectorObservation> observations(numVectors);
+        for (int i = 0; i < numVectors; i++) {
+            observations[i].refVector = refVectors[i];
+            observations[i].bodyVector = bodyVectors[i];
+            observations[i].weight = weights ? weights[i] : 1.0f / numVectors;
+        }
+
+        return estimate(observations.data(), numVectors);
+    }
+
+    /**
+     * @brief Оценка ориентации по данным IMU (акселерометр + магнитометр)
+     * 
+     * @param accel Измерение акселерометра (body frame), м/с²
+     * @param mag Измерение магнитометра (body frame), Гаусс
+     * @param gravityRef Опорный вектор гравитации, обычно [0, 0, 1]
+     * @param magRef Опорный вектор магнитного поля
+     * @return QUESTResult
+     */
+    QUESTResult estimateFromIMU(
+        const std::array<float, 3>& accel,
+        const std::array<float, 3>& mag,
+        const std::array<float, 3>& gravityRef = {0.0f, 0.0f, 1.0f},
+        const std::array<float, 3>& magRef = {1.0f, 0.0f, 0.0f})
+    {
+        WeightedVectorObservation observations[2];
+        observations[0].refVector = gravityRef;
+        observations[0].bodyVector = accel;
+        observations[0].weight = 0.5f;
+        
+        observations[1].refVector = magRef;
+        observations[1].bodyVector = mag;
+        observations[1].weight = 0.5f;
+
+        return estimate(observations, 2);
+    }
+
+    /**
+     * @brief Обновление конфигурации
+     */
+    void setConfig(const Config& config) { config_ = config; }
+    const Config& getConfig() const { return config_; }
+
+private:
+    Config config_;
+
+    /**
+     * @brief Нормализация вектора
+     */
+    bool normalizeVector(const std::array<float, 3>& input, std::array<float, 3>& output) {
+        float norm = std::sqrt(input[0]*input[0] + input[1]*input[1] + input[2]*input[2]);
+        if (norm < 1e-10f) return false;
+        
+        float invNorm = 1.0f / norm;
+        output[0] = input[0] * invNorm;
+        output[1] = input[1] * invNorm;
+        output[2] = input[2] * invNorm;
+        return true;
+    }
+
+    /**
+     * @brief Инверсия матрицы 3x3
+     */
+    bool invertMatrix3x3(const float* A, float* Ainv) {
+        float det = A[0] * (A[4]*A[8] - A[5]*A[7]) -
+                    A[1] * (A[3]*A[8] - A[5]*A[6]) +
+                    A[2] * (A[3]*A[7] - A[4]*A[6]);
+        
+        if (std::abs(det) < 1e-10f) return false;
+        
+        float invDet = 1.0f / det;
+        
+        Ainv[0] = (A[4]*A[8] - A[5]*A[7]) * invDet;
+        Ainv[1] = (A[2]*A[7] - A[1]*A[8]) * invDet;
+        Ainv[2] = (A[1]*A[5] - A[2]*A[4]) * invDet;
+        Ainv[3] = (A[5]*A[6] - A[3]*A[8]) * invDet;
+        Ainv[4] = (A[0]*A[8] - A[2]*A[6]) * invDet;
+        Ainv[5] = (A[2]*A[3] - A[0]*A[5]) * invDet;
+        Ainv[6] = (A[3]*A[7] - A[4]*A[6]) * invDet;
+        Ainv[7] = (A[1]*A[6] - A[0]*A[7]) * invDet;
+        Ainv[8] = (A[0]*A[4] - A[1]*A[3]) * invDet;
+        
+        return true;
     }
 };
 
