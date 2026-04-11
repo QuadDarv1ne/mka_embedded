@@ -76,6 +76,8 @@ size_t IsolationTree::buildTree(const std::vector<std::vector<float>>& data,
 
     // Разделение данных
     std::vector<std::vector<float>> leftData, rightData;
+    leftData.reserve(data.size());
+    rightData.reserve(data.size());
     for (const auto& sample : data) {
         if (sample[featureIndex] < splitValue) {
             leftData.push_back(sample);
@@ -91,21 +93,27 @@ size_t IsolationTree::buildTree(const std::vector<std::vector<float>>& data,
         return nodeIndex;
     }
 
-    // Сохранение узла
+    // Сохранение узла-заглушки ДО рекурсии
     node.isLeaf = false;
     node.featureIndex = featureIndex;
     node.splitValue = splitValue;
+    node.leftChild = 0;
+    node.rightChild = 0;
+    nodes_.push_back(node);
 
     // Рекурсивное построение поддеревьев
     node.leftChild = buildTree(leftData, depth + 1, maxDepth, rng);
     node.rightChild = buildTree(rightData, depth + 1, maxDepth, rng);
 
+    // Обновление узла с правильными индексами детей
     nodes_[nodeIndex] = node;
     return nodeIndex;
 }
 
 float IsolationTree::pathLengthRecursive(const std::vector<float>& sample,
                                           size_t nodeIndex) const {
+    if (nodeIndex >= nodes_.size()) return 0.0f;  // Защита от невалидного индекса
+
     const auto& node = nodes_[nodeIndex];
 
     if (node.isLeaf) {

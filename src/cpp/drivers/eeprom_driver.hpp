@@ -16,6 +16,11 @@
 #include <functional>
 #include <array>
 
+#if !defined(STM32F4) && !defined(STM32F7) && !defined(STM32H7)
+#include <thread>
+#include <chrono>
+#endif
+
 #include "../utils/span.hpp"
 
 namespace mka {
@@ -189,13 +194,18 @@ public:
     
     size_t getSize() const { return TOTAL_SIZE; }
     size_t getPageSize() const { return PAGE_SIZE; }
-    
+
 private:
     II2CBus& i2c_;
     uint8_t address_;
-    
+
     void delayMs(uint32_t ms) {
-        // Platform-specific delay
+#if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
+        extern void HAL_Delay(uint32_t);
+        HAL_Delay(ms);
+#else
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+#endif
     }
 };
 

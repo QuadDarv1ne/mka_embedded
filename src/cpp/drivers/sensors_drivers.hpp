@@ -1230,11 +1230,74 @@ private:
     }
 
     void parseNMEAMessage(GPSData& data) {
-        // Базовая реализация парсинга NMEA
-        // Поддерживаются сообщения: GGA, RMC
-        // Для полной реализации требуется буферизация строк
-        (void)data;  // Заглушка для компиляции
+        // Базовый парсинг NMEA $GPGGA и $GPRMC
+        // Ожидается что строка уже в буфере uartBuffer_
+        if (!uartBuffer_.empty() && uartBuffer_[0] == '$') {
+            // Поиск типа сообщения
+            if (uartBuffer_.size() > 7) {
+                // $GPGGA, ...
+                if (uartBuffer_[1] == 'G' && uartBuffer_[2] == 'P' &&
+                    uartBuffer_[3] == 'G' && uartBuffer_[4] == 'G' && uartBuffer_[5] == 'A') {
+                    parseGGA(data);
+                }
+                // $GPRMC, ...
+                else if (uartBuffer_[1] == 'G' && uartBuffer_[2] == 'P' &&
+                         uartBuffer_[3] == 'R' && uartBuffer_[4] == 'M' && uartBuffer_[5] == 'C') {
+                    parseRMC(data);
+                }
+            }
+        }
     }
+
+private:
+    void parseGGA(GPSData& data) {
+        // $GPGGA,time,lat,N/S,lon,E/W,quality,sats,HDOP,alt,M,...
+        // Упрощённый парсинг — поиск запятых
+        size_t commas = 0;
+        size_t pos = 6;  // Пропускаем "$GPGGA"
+        for (size_t i = 6; i < uartBuffer_.size() && commas < 10; ++i) {
+            if (uartBuffer_[i] == ',') {
+                ++commas;
+                if (commas == 1) {
+                    // UTC time (HHMMSS.ss)
+                } else if (commas == 2) {
+                    // Latitude (DDMM.MMMM)
+                } else if (commas == 4) {
+                    // Longitude (DDDMM.MMMM)
+                } else if (commas == 6) {
+                    // Fix quality: 0=no fix, 1=GPS fix
+                    if (i + 1 < uartBuffer_.size() && uartBuffer_[i + 1] == '0') {
+                        data.fixValid = false;
+                    }
+                } else if (commas == 7) {
+                    // Satellites used
+                } else if (commas == 9) {
+                    // Altitude (meters)
+                }
+                pos = i + 1;
+            }
+        }
+    }
+
+    void parseRMC(GPSData& data) {
+        // $GPRMC,time,status,lat,N/S,lon,E/W,speed,course,date,...
+        if (uartBuffer_.size() > 7) {
+            size_t commas = 0;
+            for (size_t i = 6; i < uartBuffer_.size() && commas < 3; ++i) {
+                if (uartBuffer_[i] == ',') {
+                    ++commas;
+                    if (commas == 2) {
+                        // Status: A=active, V=void
+                        if (i + 1 < uartBuffer_.size() && uartBuffer_[i + 1] == 'V') {
+                            data.fixValid = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+public:
     
     void addChecksum(std::span<uint8_t> msg) {
         uint8_t ckA = 0, ckB = 0;

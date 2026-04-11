@@ -569,6 +569,21 @@ private:
             }
         }
     }
+
+public:
+    /**
+     * @brief Публичный метод для логирования событий от health monitoring
+     * @param code Код ошибки
+     * @param severity Серьёзность
+     * @param subsystem Подсистема
+     * @param source Источник внутри подсистемы
+     * @param value Измеренное значение
+     * @param threshold Пороговое значение
+     */
+    void recordDriverEvent(ErrorCode code, Severity severity, Subsystem subsystem,
+                           uint8_t source, int16_t value, int16_t threshold) {
+        logEvent(code, severity, subsystem, source, value, threshold);
+    }
 };
 
 // ============================================================================

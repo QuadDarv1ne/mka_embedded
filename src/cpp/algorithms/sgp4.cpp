@@ -6,6 +6,7 @@
 #include "sgp4.hpp"
 #include <cstring>
 #include <algorithm>
+#include <cstdio>
 
 namespace mka {
 namespace navigation {
@@ -118,39 +119,84 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
         // Парсинг строки 1
         if (tle.line1.length() < 69) return false;
 
-        catalogNumber = std::stoi(tle.line1.substr(2, 5));
-        classification = tle.line1[7];
+        int catalogNumber = std::stoi(tle.line1.substr(2, 5));
+        char classification = tle.line1[7];
+        (void)catalogNumber;
+        (void)classification;
 
         int yy = std::stoi(tle.line1.substr(18, 2));
         epochYear = (yy < 57) ? 2000 + yy : 1900 + yy;
         epochDay = std::stod(tle.line1.substr(20, 12));
 
-        meanMotionDot = std::stod(tle.line1.substr(33, 10));
-        // Экспоненциальный формат для второй производной
+        double meanMotionDot = std::stod(tle.line1.substr(33, 10));
+        (void)meanMotionDot;
+
+        // Экспоненциальный формат для второй производной (Cols 45-52, 0-based 44-51)
+        // Формат: ±DDDDD±D (без десятичной точки)
+        // Пример: " 00000-0" -> 0.00000 * 10^0
         std::string mddStr = tle.line1.substr(44, 8);
-        meanMotionDotDot = std::stod(mddStr) * std::pow(10.0, std::stoi(tle.line1.substr(52, 1)));
+        if (mddStr.length() >= 7) {
+            // Удаляем ведущие пробелы для парсинга
+            size_t firstNonSpace = mddStr.find_first_not_of(' ');
+            if (firstNonSpace != std::string::npos) {
+                std::string trimmed = mddStr.substr(firstNonSpace);
+                if (trimmed.length() >= 6) {
+                    // Формат: DDDDD±D -> 0.DDDDD * 10^±D
+                    std::string numPart = "0." + trimmed.substr(0, 5);
+                    char expSign = trimmed[5];
+                    int expVal = std::stoi(trimmed.substr(6, 1));
+                    double meanMotionDotDot = std::stod(numPart);
+                    meanMotionDotDot *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
+                    (void)meanMotionDotDot;
+                }
+            }
+        }
 
-        // B-star
+        // B-star (Cols 54-61, 0-based 53-60)
+        // Формат: ±DDDDD±D
+        // Пример: " 10270-3" -> 0.10270 * 10^-3
         std::string bstarStr = tle.line1.substr(53, 8);
-        bstar = std::stod(bstarStr.substr(0, 2)) * std::pow(10.0, std::stoi(bstarStr.substr(2, 1)));
-        bstar_ = bstar;
+        if (bstarStr.length() >= 7) {
+            // Удаляем ведущие пробелы для парсинга
+            size_t firstNonSpace = bstarStr.find_first_not_of(' ');
+            if (firstNonSpace != std::string::npos) {
+                std::string trimmed = bstarStr.substr(firstNonSpace);
+                if (trimmed.length() >= 6) {
+                    std::string numPart = "0." + trimmed.substr(0, 5);
+                    char expSign = trimmed[5];
+                    int expVal = std::stoi(trimmed.substr(6, 1));
+                    double bstar = std::stod(numPart);
+                    bstar *= std::pow(10.0, (expSign == '-') ? -expVal : expVal);
+                    bstar_ = bstar;
+                }
+            }
+        }
 
-        elementSetNumber = std::stoi(tle.line1.substr(64, 4));
+        int elementSetNumber = std::stoi(tle.line1.substr(64, 4));
+        (void)elementSetNumber;
 
         // Парсинг строки 2
         if (tle.line2.length() < 69) return false;
 
+        // Inclination (Cols 9-16, 0-based 8-15)
         inclination_ = utils::degToRad(std::stod(tle.line2.substr(8, 8)));
+        // RAAN (Cols 18-25, 0-based 17-24)
         raan_ = utils::degToRad(std::stod(tle.line2.substr(17, 8)));
 
-        // Эксцентриситет (без десятичной точки в TLE)
+        // Эксцентриситет (Cols 27-33, 0-based 26-32)
+        // В TLE десятичная точка подразумевается перед первым символом
         std::string eccStr = tle.line2.substr(26, 7);
         eccentricity_ = std::stod("0." + eccStr);
 
+        // Argument of perigee (Cols 35-42, 0-based 34-41)
         argPerigee_ = utils::degToRad(std::stod(tle.line2.substr(34, 8)));
+        // Mean anomaly (Cols 44-51, 0-based 43-50)
         meanAnomaly_ = utils::degToRad(std::stod(tle.line2.substr(43, 8)));
-        meanMotion_ = std::stod(tle.line2.substr(52, 11));
-        orbitNumber = std::stoi(tle.line2.substr(63, 5));
+        // Mean motion (Cols 53-63, 0-based 52-62)
+        double meanMotionRevPerDay = std::stod(tle.line2.substr(52, 11));
+        // Orbit number at epoch (Cols 64-68, 0-based 63-67)
+        int orbitNumber = std::stoi(tle.line2.substr(63, 5));
+        (void)orbitNumber;
 
         // Валидация эксцентриситета (0 <= e < 1 для эллиптических орбит)
         if (eccentricity_ < 0.0 || eccentricity_ >= 1.0) {
@@ -158,20 +204,21 @@ bool SGP4Propagator::parseTLE(const TLE& tle) {
         }
 
         // Вычисление большой полуоси
-        double meanMotionRevPerDay = meanMotion_;  // Сохраняем для getOrbitalPeriod
-        meanMotion_ = meanMotion_ * TWOPI / 1440.0;  // rev/day -> rad/min
+        meanMotionRevPerDay_ = meanMotionRevPerDay;  // Сохраняем для getOrbitalPeriod
+        meanMotion_ = meanMotionRevPerDay * TWOPI / 1440.0;  // rev/day -> rad/min
 
         // Проверка на положительную большую полуось
         if (meanMotion_ <= 0.0) {
             return false;
         }
 
-        semiMajorAxis_ = std::pow(MU_EARTH / (meanMotion_ * meanMotion_), TWOTHIRD);
+        // MU_EARTH в км³/с², meanMotion_ в рад/с для согласованности единиц
+        double meanMotionPerSec = meanMotion_ / 60.0;  // rad/min -> rad/s
+        
+        // a³ = μ/n² => a = (μ/n²)^(1/3)
+        semiMajorAxis_ = std::pow(MU_EARTH / (meanMotionPerSec * meanMotionPerSec), ONETHIRD);
 
         epoch_ = epochDay;
-
-        // Сохраняем meanMotion в rev/day для getOrbitalPeriod
-        meanMotionRevPerDay_ = meanMotionRevPerDay;
 
         return true;
     } catch (const std::exception& e) {

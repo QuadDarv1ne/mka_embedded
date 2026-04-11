@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <array>
+#include <mutex>
 
 #include "utils/callback.hpp"
 #include "utils/span.hpp"
@@ -264,32 +265,34 @@ public:
              const char* file, int line, const char* function,
              const char* fmt, ...) {
         if (level < config_.minLevel) return;
-        
+
+        std::lock_guard<std::mutex> lock(mutex_);
+
         LogEntry entry{};
-        
+
         // Время
         if (getSeconds_) entry.timestamp = getSeconds_();
         if (getMs_) entry.milliseconds = getMs_();
-        
+
         entry.level = level;
         entry.category = category;
         entry.line = static_cast<uint16_t>(line);
         entry.file = file;
         entry.function = function;
-        
+
         // Форматирование сообщения
         va_list args;
         va_start(args, fmt);
         vsnprintf(entry.message, sizeof(entry.message), fmt, args);
         va_end(args);
-        
+
         // Добавление в буфер
         buffer_.push(entry);
-        
+
         // Отправка на выходы
         char formatted[256];
         LogFormatter::format(entry, formatted, sizeof(formatted), config_.colorOutput);
-        
+
         for (size_t i = 0; i < outputCount_; i++) {
             if (outputs_[i]) {
                 outputs_[i]->write(entry, formatted);
@@ -355,7 +358,7 @@ public:
     
 private:
     Logger() = default;
-    
+
     LoggerConfig config_;
     LogBuffer<BUFFER_SIZE> buffer_;
     ILogOutput* outputs_[MAX_OUTPUTS] = {};
@@ -363,6 +366,7 @@ private:
 
     Callback<uint32_t()> getSeconds_;
     Callback<uint16_t()> getMs_;
+    std::mutex mutex_;  ///< Мьютекс для thread-safe логирования
 };
 
 // ============================================================================

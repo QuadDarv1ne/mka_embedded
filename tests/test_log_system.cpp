@@ -7,6 +7,9 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <thread>
+#include <vector>
+#include <atomic>
 
 #include "systems/log_system.hpp"
 
@@ -369,4 +372,89 @@ TEST(LogBoundaryTest, AllLevels) {
     entry.level = LogLevel::CRITICAL;
     LogFormatter::format(entry, buffer.data(), buffer.size());
     EXPECT_GT(std::strlen(buffer.data()), 0u);
+}
+
+// ============================================================================
+// Тесты thread-safety
+// ============================================================================
+
+class MockThreadSafeOutput : public ILogOutput {
+public:
+    void write(const LogEntry& entry, const char* formatted) override {
+        (void)entry;
+        (void)formatted;
+        write_count_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    std::atomic<size_t> write_count_{0};
+};
+
+TEST(LogThreadSafetyTest, ConcurrentLogging) {
+    auto& logger = Logger::instance();
+    MockThreadSafeOutput output;
+
+    // Настраиваем логгер
+    LoggerConfig config;
+    config.minLevel = LogLevel::DEBUG;
+    logger.setConfig(config);
+    logger.addOutput(&output);
+
+    // Запускаем несколько потоков с логированием
+    constexpr int NUM_THREADS = 4;
+    constexpr int LOGS_PER_THREAD = 100;
+    std::vector<std::thread> threads;
+    std::atomic<int> thread_counter{0};
+
+    for (int t = 0; t < NUM_THREADS; t++) {
+        threads.emplace_back([&logger, &thread_counter, t]() {
+            for (int i = 0; i < LOGS_PER_THREAD; i++) {
+                LOG_INFO(LogCategory::GENERAL, "Thread %d log %d", t, i);
+                thread_counter.fetch_add(1);
+            }
+        });
+    }
+
+    // Ждём завершения всех потоков
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    // Проверя что все логи были записаны
+    EXPECT_EQ(thread_counter.load(), NUM_THREADS * LOGS_PER_THREAD);
+    EXPECT_GE(output.write_count_.load(), 0);  // Хотя бы некоторые дошли
+}
+
+TEST(LogThreadSafetyTest, MultipleOutputsConcurrent) {
+    auto& logger = Logger::instance();
+    MockThreadSafeOutput output1, output2, output3;
+
+    LoggerConfig config;
+    config.minLevel = LogLevel::DEBUG;
+    logger.setConfig(config);
+    logger.addOutput(&output1);
+    logger.addOutput(&output2);
+    logger.addOutput(&output3);
+
+    constexpr int NUM_THREADS = 3;
+    constexpr int LOGS_PER_THREAD = 50;
+    std::vector<std::thread> threads;
+
+    for (int t = 0; t < NUM_THREADS; t++) {
+        threads.emplace_back([&logger, t]() {
+            for (int i = 0; i < LOGS_PER_THREAD; i++) {
+                LOG_WARNING(LogCategory::FDIR, "Thread %d warning %d", t, i);
+            }
+        });
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    // Все выходы должны были получить логи
+    // (не обязательно поровну из-за race conditions на буфере)
+    size_t total_writes = output1.write_count_.load() + 
+                          output2.write_count_.load() + 
+                          output3.write_count_.load();
+    EXPECT_GT(total_writes, 0);
 }

@@ -206,6 +206,11 @@ public:
      */
     float getThreshold() const { return threshold_; }
 
+    /**
+     * @brief Средняя длина пути в BST с n узлами (public для IsolationTree)
+     */
+    static float c(size_t n);
+
 private:
     AnomalyDetectorConfig config_;
     std::vector<IsolationTree> trees_;
@@ -227,11 +232,6 @@ private:
      * @brief Нормализация признака
      */
     float normalizeFeature(float value, size_t featureIndex) const;
-
-    /**
-     * @brief Средняя длина пути в BST с n узлами
-     */
-    static float c(size_t n);
 };
 
 // ============================================================================
@@ -314,8 +314,9 @@ public:
     Statistics getStatistics() const { return stats_; }
 
 private:
+    AnomalyDetectorConfig config_;
     IsolationForest forest_;
-    Statistics stats_;
+    mutable Statistics stats_;  // mutable для обновления в const методах
     std::vector<std::vector<float>> buffer_;  // Буфер для онлайн обучения
     static constexpr size_t MAX_BUFFER_SIZE = 1000;
 };

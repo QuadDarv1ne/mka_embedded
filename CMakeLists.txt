@@ -165,9 +165,18 @@ target_include_directories(mka_core INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
 )
 
-# Библиотека алгоритмов
+# Библиотека алгоритмов (header-only)
 add_library(mka_algorithms INTERFACE)
 target_include_directories(mka_algorithms INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
+)
+
+# Библиотека алгоритмов с реализацией
+add_library(mka_ml STATIC
+    src/cpp/algorithms/anomaly_detector.cpp
+    src/cpp/algorithms/sgp4.cpp
+)
+target_include_directories(mka_ml PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cpp
 )
 
@@ -259,6 +268,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_log_system mka_core GTest::gtest_main)
     add_test(NAME test_log_system COMMAND test_log_system)
 
+    # Интеграционные тесты драйверов
+    add_executable(test_driver_integration tests/test_driver_integration.cpp)
+    target_link_libraries(test_driver_integration mka_core mka_algorithms GTest::gtest_main)
+    add_test(NAME test_driver_integration COMMAND test_driver_integration)
+
     # Тест телеметрии и команд
     add_executable(test_telemetry tests/test_telemetry.cpp)
     target_link_libraries(test_telemetry mka_core GTest::gtest_main)
@@ -268,6 +282,46 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_executable(test_file_system tests/test_file_system.cpp)
     target_link_libraries(test_file_system mka_core GTest::gtest_main)
     add_test(NAME test_file_system COMMAND test_file_system)
+
+    # Тест SGP4 орбитального пропагатора
+    add_executable(test_sgp4 tests/test_sgp4.cpp)
+    target_link_libraries(test_sgp4 mka_ml GTest::gtest_main)
+    add_test(NAME test_sgp4 COMMAND test_sgp4)
+
+    # Тест UKF фильтра
+    add_executable(test_ukf tests/test_ukf.cpp)
+    target_link_libraries(test_ukf mka_algorithms GTest::gtest_main)
+    add_test(NAME test_ukf COMMAND test_ukf)
+
+    # Тест Anomaly Detector
+    add_executable(test_anomaly_detector tests/test_anomaly_detector.cpp)
+    target_link_libraries(test_anomaly_detector mka_ml GTest::gtest_main)
+    add_test(NAME test_anomaly_detector COMMAND test_anomaly_detector)
+
+    # Тест CANopen стека
+    add_executable(test_canopen tests/test_canopen.cpp)
+    target_link_libraries(test_canopen mka_systems GTest::gtest_main)
+    add_test(NAME test_canopen COMMAND test_canopen)
+
+    # Тест Health Monitor + FDIR integration
+    add_executable(test_health_monitor tests/test_health_monitor.cpp)
+    target_link_libraries(test_health_monitor mka_systems GTest::gtest_main)
+    add_test(NAME test_health_monitor COMMAND test_health_monitor)
+
+    # Тест Moscow Time и Data Freshness
+    add_executable(test_moscow_time tests/test_moscow_time.cpp)
+    target_link_libraries(test_moscow_time mka_systems GTest::gtest_main)
+    add_test(NAME test_moscow_time COMMAND test_moscow_time)
+
+    # Тест Auto Actualization
+    add_executable(test_auto_actualization tests/test_auto_actualization.cpp)
+    target_link_libraries(test_auto_actualization mka_systems GTest::gtest_main)
+    add_test(NAME test_auto_actualization COMMAND test_auto_actualization)
+
+    # Тест Actualization Integration
+    add_executable(test_actualization_integration tests/test_actualization_integration.cpp)
+    target_link_libraries(test_actualization_integration mka_systems mka_ml GTest::gtest_main)
+    add_test(NAME test_actualization_integration COMMAND test_actualization_integration)
 
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)

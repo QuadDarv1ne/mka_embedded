@@ -712,7 +712,7 @@ public:
             uint8_t response[8];
             if (sdo_.processRequest(data, len, response)) {
                 // Отправка ответа
-                can_->transmit(sdo_.getResponseCOBId(), response, 8);
+                transmitCAN(sdo_.getResponseCOBId(), response, 8);
             }
             return;
         }
@@ -740,7 +740,7 @@ public:
         if (len == 0) return false;
 
         uint32_t cobId = pdo_.getTPDOCobId(pdoNumber);
-        return can_->transmit(cobId, data, len) == hal::Status::OK;
+        return transmitCAN(cobId, data, len) == hal::Status::OK;
     }
 
     /**
@@ -748,7 +748,7 @@ public:
      */
     bool sendHeartbeat() {
         uint8_t state = nmt_.createHeartbeat();
-        return can_->transmit(nmt_.getHeartbeatCOBId(), &state, 1) == hal::Status::OK;
+        return transmitCAN(nmt_.getHeartbeatCOBId(), &state, 1) == hal::Status::OK;
     }
 
     /**
@@ -756,17 +756,17 @@ public:
      */
     bool sendEmergency(uint16_t errorCode, const uint8_t* data, size_t len) {
         if (len > 5) len = 5;  // Max 5 bytes for emergency data
-        
+
         uint8_t emcy[8] = {};
         emcy[0] = errorCode & 0xFF;
         emcy[1] = (errorCode >> 8) & 0xFF;
         emcy[2] = nmt_.createHeartbeat();  // Device status
-        
+
         for (size_t i = 0; i < len; ++i) {
             emcy[3 + i] = data[i];
         }
 
-        return can_->transmit(COBId::EMCY + nodeId_, emcy, 8) == hal::Status::OK;
+        return transmitCAN(COBId::EMCY + nodeId_, emcy, 8) == hal::Status::OK;
     }
 
     /**
@@ -795,26 +795,58 @@ private:
     SDOServer sdo_;
     PDOManager pdo_;
 
+    hal::Status transmitCAN(uint32_t id, const uint8_t* data, size_t len, uint32_t timeoutMs = 1000) {
+        hal::CANMessage msg;
+        msg.id = id;
+        msg.extended = false;
+        msg.remote = false;
+        msg.dlc = static_cast<uint8_t>(len > 8 ? 8 : len);
+        msg.data = {};
+        if (data && len > 0) {
+            std::memcpy(msg.data.data(), data, msg.dlc);
+        }
+        msg.timestamp = 0;
+        return can_->transmit(msg, timeoutMs);
+    }
+
     void setupStandardOD() {
         // Manufacturer Device Information
         ODEntry vendorId = {
-            .index = 0x1000,
-            .subIndex = 0x00,
+            .index = 0x1018,  // Identity Object
+            .subIndex = 0x01,  // Vendor ID
             .access = ODEntry::Access::RO,
             .dataType = ODEntry::DataType::UNSIGNED32
         };
-        // Vendor ID (заглушка)
-        vendorId.data = {0x00, 0x00, 0x00, 0x00};
+        // Vendor ID: 0x00000123 (MKA Embedded Project)
+        vendorId.data = {0x23, 0x01, 0x00, 0x00};
         sdo_.registerEntry(vendorId);
 
         ODEntry productCode = {
-            .index = 0x1001,
-            .subIndex = 0x00,
+            .index = 0x1018,
+            .subIndex = 0x02,  // Product Code
             .access = ODEntry::Access::RO,
             .dataType = ODEntry::DataType::UNSIGNED32
         };
         productCode.data = {0x01, 0x00, 0x00, 0x00};  // Product code = 1
         sdo_.registerEntry(productCode);
+
+        ODEntry revisionNumber = {
+            .index = 0x1018,
+            .subIndex = 0x03,  // Revision Number
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED32
+        };
+        revisionNumber.data = {0x00, 0x00, 0x02, 0x00};  // v2.0.0
+        sdo_.registerEntry(revisionNumber);
+
+        ODEntry serialNumber = {
+            .index = 0x1018,
+            .subIndex = 0x04,  // Serial Number
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED32
+        };
+        serialNumber.data = {0x00, 0x00, 0x00, 0x00};  // Заполняется при производстве
+        sdo_.registerEntry(serialNumber);
 
         ODEntry manufacturerName = {
             .index = 0x1008,
@@ -822,9 +854,32 @@ private:
             .access = ODEntry::Access::RO,
             .dataType = ODEntry::DataType::VISIBLE_STR
         };
-        // "MKA"
-        manufacturerName.data = {'M', 'K', 'A', 0x00};
+        // "MKA Embedded"
+        const char* name = "MKA Embedded";
+        size_t nameLen = strlen(name) + 1;
+        if (nameLen <= manufacturerName.data.size()) {
+            std::memcpy(manufacturerName.data.data(), name, nameLen);
+        }
         sdo_.registerEntry(manufacturerName);
+
+        ODEntry deviceType = {
+            .index = 0x1000,
+            .subIndex = 0x00,
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED32
+        };
+        // Device type: 0x01000000 (CIA 301 compliant device)
+        deviceType.data = {0x00, 0x00, 0x00, 0x01};
+        sdo_.registerEntry(deviceType);
+
+        ODEntry errorRegister = {
+            .index = 0x1001,
+            .subIndex = 0x00,
+            .access = ODEntry::Access::RO,
+            .dataType = ODEntry::DataType::UNSIGNED8
+        };
+        errorRegister.data = {0x00};  // No error
+        sdo_.registerEntry(errorRegister);
     }
 };
 
