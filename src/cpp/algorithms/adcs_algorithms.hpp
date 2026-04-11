@@ -1793,6 +1793,257 @@ private:
     }
 };
 
+// ============================================================================
+// TRIAD метод определения ориентации
+// ============================================================================
+
+/**
+ * @brief TRIAD (TRIad Attitude Determination) — алгоритм определения ориентации
+ *
+ * TRIAD вычисляет кватернион ориентации по двум некомпланарным векторным
+ * измерениям в системе корпуса (body frame) и системе отсчёта (reference frame).
+ *
+ * Классическая комбинация для CubeSat:
+ * - Вектор 1: Ускорение свободного падения (акселерометр) → направление на Землю
+ * - Вектор 2: Магнитное поле (магнитометр) → направление на магнитный полюс
+ *
+ * Алгоритм:
+ * 1. Нормализация измеренных и опорных векторов
+ * 2. Построение ортонормированного базиса (TRIAD)
+ * 3. Вычисление матрицы ориентации (DCM - Direction Cosine Matrix)
+ * 4. Преобразование DCM в кватернион
+ *
+ * Преимущества:
+ * - Простая реализация, детерминированный результат
+ * - Не требует начального приближения
+ * - Вычислительно эффективнее QUEST/EKF
+ *
+ * Ограничения:
+ * - Использует только два вектора (не оптимально при >2 измерениях)
+ * - Чувствителен к шуму измерений (нет статистической оптимизации)
+ * - Требует некомпланарных векторов (перекрёстное произведение != 0)
+ *
+ * @note Рекомендуется использовать как начальное приближение для EKF/QUEST
+ * @see "Attitude Determination Using Vector Observations", Markley & Crassidis
+ */
+class TRIADEstimator {
+public:
+    /**
+     * @brief Результат TRIAD
+     */
+    struct TRIADResult {
+        Quaternion orientation;        // Ориентация (кватернион)
+        float dcm[9];                  // Матрица ориентации 3x3 (row-major)
+        bool isValid;                  // Флаг валидности результата
+        float vectorsAngle;            // Угол между векторами (рад)
+        const char* errorMessage;      // Сообщение об ошибке (если есть)
+    };
+
+    /**
+     * @brief Конфигурация TRIAD
+     */
+    struct Config {
+        float minVectorAngle = 10.0f * math::DEG_TO_RAD;  // Мин. угол между векторами
+        float maxVectorAngle = 170.0f * math::DEG_TO_RAD; // Макс. угол между векторами
+        bool normalizeInputs = true;   // Автоматическая нормализация входов
+        bool computeDCM = true;        // Вычислять матрицу ориентации
+    };
+
+    TRIADEstimator() = default;
+    explicit TRIADEstimator(const Config& config) : config_(config) {}
+
+    /**
+     * @brief Оценка ориентации по двум векторным измерениям
+     * 
+     * @param refVectors Опорные векторы в системе отсчёта (reference frame)
+     *                   refVectors[0] - основной (обычно гравитация)
+     *                   refVectors[1] - вспомогательный (обычно магнитное поле)
+     * @param bodyVectors Измеренные векторы в системе корпуса (body frame)
+     *                    bodyVectors[0] - соответствует refVectors[0]
+     *                    bodyVectors[1] - соответствует refVectors[1]
+     * @return TRIADResult Результат оценки ориентации
+     * 
+     * @note Все векторы должны быть в одной системе координат (обычно ECI или NED)
+     */
+    TRIADResult estimate(
+        const std::array<float, 3> refVectors[2],
+        const std::array<float, 3> bodyVectors[2])
+    {
+        TRIADResult result;
+        result.isValid = false;
+        result.errorMessage = nullptr;
+        result.vectorsAngle = 0.0f;
+
+        // Нормализация входных векторов
+        std::array<float, 3> v1_ref, v2_ref, v1_body, v2_body;
+        
+        if (config_.normalizeInputs) {
+            if (!normalizeVector(refVectors[0], v1_ref) ||
+                !normalizeVector(refVectors[1], v2_ref) ||
+                !normalizeVector(bodyVectors[0], v1_body) ||
+                !normalizeVector(bodyVectors[1], v2_body)) {
+                result.errorMessage = "Zero-length vector input";
+                return result;
+            }
+        } else {
+            v1_ref = refVectors[0];
+            v2_ref = refVectors[1];
+            v1_body = bodyVectors[0];
+            v2_body = bodyVectors[1];
+        }
+
+        // Проверка угла между векторами
+        float cosAngle = dotProduct(v1_ref, v2_ref);
+        float angle = std::acos(math::clamp(cosAngle, -1.0f, 1.0f));
+        result.vectorsAngle = angle;
+
+        if (angle < config_.minVectorAngle || angle > config_.maxVectorAngle) {
+            result.errorMessage = "Vectors are too parallel or anti-parallel";
+            return result;
+        }
+
+        // Построение TRIAD базиса для reference frame
+        std::array<float, 3> r1, r2, r3;
+        r1 = v1_ref;
+        r3 = crossProduct(v1_ref, v2_ref);
+        if (!normalizeVector(r3, r3)) {
+            result.errorMessage = "Cross product is zero (parallel vectors)";
+            return result;
+        }
+        r2 = crossProduct(r3, r1);
+
+        // Построение TRIAD базиса для body frame
+        std::array<float, 3> b1, b2, b3;
+        b1 = v1_body;
+        b3 = crossProduct(v1_body, v2_body);
+        if (!normalizeVector(b3, b3)) {
+            result.errorMessage = "Cross product is zero (parallel vectors)";
+            return result;
+        }
+        b2 = crossProduct(b3, b1);
+
+        // Вычисление матрицы ориентации (DCM)
+        // A = R_ref * R_body^T, где R - матрицы базисов
+        // DCM[i][j] = dot(r_i, b_j)
+        for (int i = 0; i < 3; i++) {
+            const auto& ri = (i == 0) ? r1 : (i == 1) ? r2 : r3;
+            for (int j = 0; j < 3; j++) {
+                const auto& bj = (j == 0) ? b1 : (j == 1) ? b2 : b3;
+                float dcm_val = dotProduct(ri, bj);
+                result.dcm[i * 3 + j] = dcm_val;
+            }
+        }
+
+        // Преобразование DCM в кватернион
+        result.orientation = dcmToQuaternion(result.dcm);
+        result.orientation.normalize();
+        result.isValid = true;
+        result.errorMessage = nullptr;
+
+        return result;
+    }
+
+    /**
+     * @brief Упрощённая оценка с использованием гравитации и магнитного поля
+     * 
+     * @param accel Измерение акселерометра (body frame), м/с²
+     * @param mag Измерение магнитометра (body frame), Гаусс или мкТл
+     * @param gravityRef Опорный вектор гравитации (reference frame), обычно [0, 0, 1]
+     * @param magRef Опорный вектор магнитного поля (reference frame)
+     * @return TRIADResult
+     */
+    TRIADResult estimateFromIMU(
+        const std::array<float, 3>& accel,
+        const std::array<float, 3>& mag,
+        const std::array<float, 3>& gravityRef = {0.0f, 0.0f, 1.0f},
+        const std::array<float, 3>& magRef = {1.0f, 0.0f, 0.0f})
+    {
+        std::array<float, 3> refVectors[2] = {gravityRef, magRef};
+        std::array<float, 3> bodyVectors[2] = {accel, mag};
+        return estimate(refVectors, bodyVectors);
+    }
+
+    /**
+     * @brief Обновление конфигурации
+     */
+    void setConfig(const Config& config) { config_ = config; }
+    const Config& getConfig() const { return config_; }
+
+private:
+    Config config_;
+
+    /**
+     * @brief Нормализация вектора
+     */
+    bool normalizeVector(const std::array<float, 3>& input, std::array<float, 3>& output) {
+        float norm = std::sqrt(input[0]*input[0] + input[1]*input[1] + input[2]*input[2]);
+        if (norm < 1e-10f) return false;
+        
+        float invNorm = 1.0f / norm;
+        output[0] = input[0] * invNorm;
+        output[1] = input[1] * invNorm;
+        output[2] = input[2] * invNorm;
+        return true;
+    }
+
+    /**
+     * @brief Скалярное произведение
+     */
+    float dotProduct(const std::array<float, 3>& a, const std::array<float, 3>& b) const {
+        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    }
+
+    /**
+     * @brief Векторное произведение
+     */
+    std::array<float, 3> crossProduct(const std::array<float, 3>& a, 
+                                       const std::array<float, 3>& b) const {
+        return {
+            a[1]*b[2] - a[2]*b[1],
+            a[2]*b[0] - a[0]*b[2],
+            a[0]*b[1] - a[1]*b[0]
+        };
+    }
+
+    /**
+     * @brief Преобразование DCM в кватернион
+     * 
+     * Использует метод Shepperd для численной стабильности
+     */
+    Quaternion dcmToQuaternion(const float dcm[9]) const {
+        float trace = dcm[0] + dcm[4] + dcm[8];
+        float qw, qx, qy, qz;
+
+        if (trace > 0.0f) {
+            float s = std::sqrt(trace + 1.0f) * 2.0f;
+            qw = 0.25f * s;
+            qx = (dcm[7] - dcm[5]) / s;
+            qy = (dcm[2] - dcm[6]) / s;
+            qz = (dcm[3] - dcm[1]) / s;
+        } else if (dcm[0] > dcm[4] && dcm[0] > dcm[8]) {
+            float s = std::sqrt(1.0f + dcm[0] - dcm[4] - dcm[8]) * 2.0f;
+            qw = (dcm[7] - dcm[5]) / s;
+            qx = 0.25f * s;
+            qy = (dcm[1] + dcm[3]) / s;
+            qz = (dcm[2] + dcm[6]) / s;
+        } else if (dcm[4] > dcm[8]) {
+            float s = std::sqrt(1.0f + dcm[4] - dcm[0] - dcm[8]) * 2.0f;
+            qw = (dcm[2] - dcm[6]) / s;
+            qx = (dcm[1] + dcm[3]) / s;
+            qy = 0.25f * s;
+            qz = (dcm[5] + dcm[7]) / s;
+        } else {
+            float s = std::sqrt(1.0f + dcm[8] - dcm[0] - dcm[4]) * 2.0f;
+            qw = (dcm[3] - dcm[1]) / s;
+            qx = (dcm[2] + dcm[6]) / s;
+            qy = (dcm[5] + dcm[7]) / s;
+            qz = 0.25f * s;
+        }
+
+        return Quaternion(qw, qx, qy, qz);
+    }
+};
+
 } // namespace adcs
 } // namespace mka
 

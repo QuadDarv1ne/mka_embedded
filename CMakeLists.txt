@@ -328,6 +328,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_new_sensors mka_core GTest::gtest_main)
     add_test(NAME test_new_sensors COMMAND test_new_sensors)
 
+    # Тест TRIAD метода определения ориентации
+    add_executable(test_triad tests/test_triad.cpp)
+    target_link_libraries(test_triad mka_algorithms GTest::gtest_main)
+    add_test(NAME test_triad COMMAND test_triad)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
