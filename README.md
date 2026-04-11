@@ -85,9 +85,19 @@ mka_embedded_complete/
 #### Алгоритмы ориентации (`adcs_algorithms.hpp`)
 
 - **Quaternion** — математика кватернионов
-- **MadgwickFilter** — фильтр слияния IMU
-- **PIDController** — регулятор с anti-windup
-- **BDotController** — гашение вращения
+- **Фильтры оценки ориентации:**
+  - MadgwickFilter — фильтр слияния IMU
+  - Extended Kalman Filter (EKF) — оценка ориентации + смещения гироскопа
+  - Unscented Kalman Filter (UKF) — нелинейная оценка ориентации
+  - Complementary filter — альтернатива Madgwick
+- **Определение ориентации:**
+  - TRIAD метод — построение DCM из двух векторов
+  - QUEST метод — оптимальный алгоритм Wahba
+- **Контроллеры ориентации:**
+  - PIDController — регулятор с anti-windup
+  - BDotController — гашение вращения (detumbling)
+  - PD Controller — кватернионная ошибка, демпфирование
+  - SlidingModeController — робастный нелинейный контроллер
 - **AttitudeController** — контроллер ориентации
 
 #### Система FDIR (`fdir.hpp`)
