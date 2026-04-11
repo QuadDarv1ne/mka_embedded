@@ -338,6 +338,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_quest mka_algorithms GTest::gtest_main)
     add_test(NAME test_quest COMMAND test_quest)
 
+    # Тест Task Scheduler
+    add_executable(test_task_scheduler tests/test_task_scheduler.cpp)
+    target_link_libraries(test_task_scheduler mka_systems GTest::gtest_main)
+    add_test(NAME test_task_scheduler COMMAND test_task_scheduler)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
