@@ -308,6 +308,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_moscow_time mka_systems GTest::gtest_main)
     add_test(NAME test_moscow_time COMMAND test_moscow_time)
 
+    # Тест Auto Actualization
+    add_executable(test_auto_actualization tests/test_auto_actualization.cpp)
+    target_link_libraries(test_auto_actualization mka_systems GTest::gtest_main)
+    add_test(NAME test_auto_actualization COMMAND test_auto_actualization)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
