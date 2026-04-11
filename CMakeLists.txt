@@ -343,6 +343,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_task_scheduler mka_systems GTest::gtest_main)
     add_test(NAME test_task_scheduler COMMAND test_task_scheduler)
 
+    # Тест Power Manager
+    add_executable(test_power_manager tests/test_power_manager.cpp)
+    target_link_libraries(test_power_manager mka_systems GTest::gtest_main)
+    add_test(NAME test_power_manager COMMAND test_power_manager)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
