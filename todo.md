@@ -78,6 +78,13 @@
   - [x] Helper estimateFromIMU
   - [x] 20 unit-тестов (100% покрытие)
   - [x] Интеграция с EKF/Madgwick/UKF
+- [x] **QUEST метод определения ориентации** ✅
+  - [x] QUESTEstimator класс (Wahba problem solver)
+  - [x] Метод Ньютона для собственного значения
+  - [x] Поддержка множества векторов с весами
+  - [x] Helper estimateFromIMU
+  - [x] 16 unit-тестов (100% покрытие)
+  - [x] Оптимальнее TRIAD при >2 измерений
 
 ---
 
@@ -173,7 +180,7 @@
   - [ ] Model Predictive Control (MPC)
 - [x] **Определение ориентации**
   - [x] TRIAD метод ✅ — реализован в `adcs_algorithms.hpp` (Апрель 2026)
-  - [ ] QUEST метод
+  - [x] QUEST метод ✅ — оптимальный алгоритм Wahba (Апрель 2026)
   - [ ] Sun-Magnet cross product
 
 ### 6. Планировщик задач
