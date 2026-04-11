@@ -348,6 +348,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_power_manager mka_systems GTest::gtest_main)
     add_test(NAME test_power_manager COMMAND test_power_manager)
 
+    # Тест Sliding Mode Controller
+    add_executable(test_sliding_mode tests/test_sliding_mode.cpp)
+    target_link_libraries(test_sliding_mode mka_algorithms GTest::gtest_main)
+    add_test(NAME test_sliding_mode COMMAND test_sliding_mode)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)

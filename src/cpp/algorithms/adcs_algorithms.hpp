@@ -2401,6 +2401,217 @@ private:
     }
 };
 
+// ============================================================================
+// Sliding Mode Controller (SMC) — скользящий режим управления
+// ============================================================================
+
+/**
+ * @brief Sliding Mode Controller — робастный нелинейный контроллер ориентации
+ *
+ * SMC обеспечивает устойчивое управление ориентацией спутника при наличии:
+ * - Неопределённости параметров инерции
+ * - Внешних возмущений (аэродинамика, магнитное поле, солнечное давление)
+ * - Нелинейностей динамики
+ *
+ * Принцип работы:
+ * 1. Определяется sliding surface s = e_dot + lambda*e (ошибка + производная)
+ * 2. Управление u = -K*sign(s) создаёт скользящий режим на поверхности
+ * 3. Система экспоненциально сходится к нулевой ошибке
+ *
+ * Преимущества перед PID:
+ * - Робастность к неопределённости параметров (до 50% ошибки инерции)
+ * - Быстрая сходимость без перерегулирования
+ * - Компенсация возмущений без интегральной составляющей
+ *
+ * Недостатки:
+ * - Chattering (высокочастотные колебания) — mitigated saturation функцией
+ * - Требует знания границ неопределённости
+ *
+ * @see "Sliding Mode Control for Spacecraft Attitude", Wie et al.
+ */
+class SlidingModeController {
+public:
+    /// Конфигурация SMC
+    struct Config {
+        // Параметры sliding surface
+        float lambda = 0.5f;          // Коэффициент поверхности скольжения
+        
+        // Параметры управления
+        float K = 0.1f;               // Коэффициент усиления (Н·м)
+        float boundaryLayer = 0.01f;  // Толщина пограничного слоя (для saturation)
+        
+        // Ограничения
+        float maxTorque = 0.1f;       // Макс. крутящий момент маховиков (Н·м)
+        
+        // Фильтр
+        float filterAlpha = 0.1f;     // Коэффициент фильтрации (0-1)
+    };
+
+    /// Состояние SMC
+    struct State {
+        std::array<float, 3> error;         // Ошибка ориентации (quaternion vector part)
+        std::array<float, 3> errorDot;      // Производная ошибки (угловая скорость)
+        std::array<float, 3> slidingSurface; // Sliding surface s = e_dot + lambda*e
+        std::array<float, 3> controlTorque;  // Управляющий момент (Н·м)
+        bool inSlidingMode;                 // Флаг скользящего режима
+        float chatteringIndex;              // Индекс chatter'а (0-1)
+    };
+
+    SlidingModeController() = default;
+    explicit SlidingModeController(const Config& config) 
+        : config_(config), state_{} {}
+
+    /**
+     * @brief Вычислить управляющий момент
+     * 
+     * @param currentOrientation Текущая ориентация (кватернион)
+     * @param desiredOrientation Желаемая ориентация (кватернион)
+     * @param currentAngVel Текущая угловая скорость (рад/с, body frame)
+     * @param dt Время шага (сек)
+     * @return Управляющий момент маховиков (Н·м, body frame)
+     */
+    std::array<float, 3> compute(
+        const Quaternion& currentOrientation,
+        const Quaternion& desiredOrientation,
+        const std::array<float, 3>& currentAngVel,
+        float dt)
+    {
+        if (dt <= 0.0f) dt = 0.01f;  // Защита от dt=0
+
+        // 1. Вычисление ошибки ориентации (quaternion error)
+        // q_error = q_current^{-1} * q_desired
+        Quaternion qError = currentOrientation.conjugate() * desiredOrientation;
+        
+        // Ошибка — vector part кватерниона
+        state_.error = {qError.x, qError.y, qError.z};
+        
+        // 2. Производная ошибки (угловая скорость в body frame)
+        state_.errorDot = currentAngVel;
+        
+        // 3. Sliding surface: s = e_dot + lambda*e
+        for (int i = 0; i < 3; i++) {
+            state_.slidingSurface[i] = state_.errorDot[i] + 
+                                       config_.lambda * state_.error[i];
+        }
+        
+        // 4. Управление: u = -K * sat(s/phi)
+        // saturation вместо sign для уменьшения chattering
+        float phi = config_.boundaryLayer;
+        for (int i = 0; i < 3; i++) {
+            float s = state_.slidingSurface[i];
+            float sat = saturationFunction(s, phi);
+            state_.controlTorque[i] = -config_.K * sat;
+        }
+        
+        // 5. Ограничение момента маховиков
+        float maxTorque = config_.maxTorque;
+        for (int i = 0; i < 3; i++) {
+            if (state_.controlTorque[i] > maxTorque) {
+                state_.controlTorque[i] = maxTorque;
+            } else if (state_.controlTorque[i] < -maxTorque) {
+                state_.controlTorque[i] = -maxTorque;
+            }
+        }
+        
+        // 6. Фильтрация управления (уменьшение chattering)
+        float alpha = config_.filterAlpha;
+        for (int i = 0; i < 3; i++) {
+            controlTorqueFiltered_[i] = alpha * state_.controlTorque[i] + 
+                                       (1.0f - alpha) * controlTorqueFiltered_[i];
+        }
+        
+        // 7. Обновление состояния
+        updateChatteringIndex();
+        state_.inSlidingMode = checkSlidingModeCondition();
+        
+        return controlTorqueFiltered_;
+    }
+
+    /**
+     * @brief Упрощённый интерфейс с желаемой угловой скоростью = 0 (стабилизация)
+     */
+    std::array<float, 3> stabilize(
+        const Quaternion& currentOrientation,
+        const std::array<float, 3>& currentAngVel,
+        float dt)
+    {
+        Quaternion desired(1.0f, 0.0f, 0.0f, 0.0f);  // Identity quaternion
+        return compute(currentOrientation, desired, currentAngVel, dt);
+    }
+
+    /**
+     * @brief Получить текущее состояние
+     */
+    const State& getState() const { return state_; }
+    
+    /**
+     * @brief Обновить конфигурацию
+     */
+    void setConfig(const Config& config) { config_ = config; }
+    const Config& getConfig() const { return config_; }
+    
+    /**
+     * @brief Сбросить состояние
+     */
+    void reset() {
+        state_ = State{};
+        controlTorqueFiltered_ = {0.0f, 0.0f, 0.0f};
+    }
+
+private:
+    Config config_;
+    State state_;
+    std::array<float, 3> controlTorqueFiltered_ = {0.0f, 0.0f, 0.0f};
+
+    /**
+     * @brief Saturation функция (аппроксимация sign)
+     * 
+     * sat(s/phi) = s/phi           if |s| <= phi
+     *              = sign(s)       if |s| > phi
+     */
+    float saturationFunction(float s, float phi) const {
+        if (phi < 1e-6f) return math::sign(s);
+        
+        if (s > phi) return 1.0f;
+        if (s < -phi) return -1.0f;
+        return s / phi;
+    }
+
+    /**
+     * @brief Проверка условия скользящего режима
+     */
+    bool checkSlidingModeCondition() const {
+        // Sliding mode active when |s| < boundary_layer для всех осей
+        for (int i = 0; i < 3; i++) {
+            if (std::abs(state_.slidingSurface[i]) > config_.boundaryLayer * 2.0f) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @brief Вычисление индекса chattering (оценка высокочастотных колебаний)
+     */
+    void updateChatteringIndex() {
+        // Простая оценка: отношение высокочастотной энергии к общей
+        float totalEnergy = 0.0f;
+        float highFreqEnergy = 0.0f;
+        
+        for (int i = 0; i < 3; i++) {
+            float torque = state_.controlTorque[i];
+            totalEnergy += torque * torque;
+            
+            // Высокочастотная компонента (разница с фильтрованной)
+            float diff = torque - controlTorqueFiltered_[i];
+            highFreqEnergy += diff * diff;
+        }
+        
+        state_.chatteringIndex = (totalEnergy > 1e-10f) ? 
+            std::sqrt(highFreqEnergy / totalEnergy) : 0.0f;
+    }
+};
+
 } // namespace adcs
 } // namespace mka
 
