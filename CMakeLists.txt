@@ -303,6 +303,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_health_monitor mka_systems GTest::gtest_main)
     add_test(NAME test_health_monitor COMMAND test_health_monitor)
 
+    # Тест Moscow Time и Data Freshness
+    add_executable(test_moscow_time tests/test_moscow_time.cpp)
+    target_link_libraries(test_moscow_time mka_systems GTest::gtest_main)
+    add_test(NAME test_moscow_time COMMAND test_moscow_time)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
