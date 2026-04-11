@@ -1018,6 +1018,8 @@
 - **CANopen Object Dictionary** — CiA 301 совместимость
 - **NMEA парсинг** — $GPGGA и $GPRMC реализованы
 - **Radio getTickMs()** — реализовано для STM32 и host
+- **Thread-safety Logger** — добавлен std::mutex и тесты
+- **Тесты thread-safety** — ConcurrentLogging, MultipleOutputsConcurrent
 
 ### Текущие задачи для улучшения 🚀
 
