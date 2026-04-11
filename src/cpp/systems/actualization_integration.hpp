@@ -106,7 +106,7 @@ public:
         if (actualizeTLEData()) {
             // Обновляем время актуализации
             if (utcSource_) {
-                uint64_t currentTime = utcSource_();
+                (void)utcSource_(); // Вызываем для обновления времени
                 // Обновляем через менеджер
                 auto& mgr = getActualizationManager();
                 mgr.actualizeByType(CalculationType::SGP4_ORBITAL);
