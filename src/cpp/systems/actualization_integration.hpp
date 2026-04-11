@@ -19,6 +19,7 @@
 #include "systems/auto_actualization.hpp"
 #include "algorithms/sgp4.hpp"
 #include "systems/health_monitor.hpp"
+#include "systems/fdir.hpp"
 
 namespace mka {
 namespace systems {
