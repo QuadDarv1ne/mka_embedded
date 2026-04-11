@@ -18,14 +18,10 @@
 
 #include "systems/auto_actualization.hpp"
 #include "algorithms/sgp4.hpp"
+#include "systems/health_monitor.hpp"
 
 namespace mka {
 namespace systems {
-
-// Forward declarations
-class AutoActualizationTelemetry;
-class AutoActualizationFDIR;
-class AutoActualizationHealthMonitoring;
 
 // ============================================================================
 // SGP4 Auto Actualization
@@ -106,7 +102,17 @@ public:
      * @return true при успехе
      */
     bool forceActualize() {
-        return actualizeTLEData();
+        if (actualizeTLEData()) {
+            // Обновляем время актуализации
+            if (utcSource_) {
+                uint64_t currentTime = utcSource_();
+                // Обновляем через менеджер
+                auto& mgr = getActualizationManager();
+                mgr.actualizeByType(CalculationType::SGP4_ORBITAL);
+            }
+            return true;
+        }
+        return false;
     }
     
     /**

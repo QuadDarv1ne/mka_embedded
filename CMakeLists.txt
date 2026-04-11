@@ -315,7 +315,7 @@ if(BUILD_TESTS AND HOST_BUILD)
 
     # Тест Actualization Integration
     add_executable(test_actualization_integration tests/test_actualization_integration.cpp)
-    target_link_libraries(test_actualization_integration mka_systems GTest::gtest_main)
+    target_link_libraries(test_actualization_integration mka_systems mka_ml GTest::gtest_main)
     add_test(NAME test_actualization_integration COMMAND test_actualization_integration)
 
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
