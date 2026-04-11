@@ -268,6 +268,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_log_system mka_core GTest::gtest_main)
     add_test(NAME test_log_system COMMAND test_log_system)
 
+    # Интеграционные тесты драйверов
+    add_executable(test_driver_integration tests/test_driver_integration.cpp)
+    target_link_libraries(test_driver_integration mka_core mka_algorithms GTest::gtest_main)
+    add_test(NAME test_driver_integration COMMAND test_driver_integration)
+
     # Тест телеметрии и команд
     add_executable(test_telemetry tests/test_telemetry.cpp)
     target_link_libraries(test_telemetry mka_core GTest::gtest_main)
