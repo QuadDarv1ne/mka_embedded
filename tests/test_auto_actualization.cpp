@@ -439,9 +439,9 @@ TEST(AutoActualizationTest, ActualizationCount) {
     AutoActualizationManager actualizationMgr;
     uint64_t currentTime = 1000000;
     auto utcSource = [&currentTime]() -> uint64_t { return currentTime; };
-    
+
     actualizationMgr.init(utcSource);
-    
+
     int callCount = 0;
     CalculationActualizationConfig config = {
         .type = CalculationType::SGP4_ORBITAL,
@@ -456,19 +456,214 @@ TEST(AutoActualizationTest, ActualizationCount) {
             return true;
         }
     };
-    
+
     actualizationMgr.registerCalculation(config);
-    
+
     // Первая актуализация
     actualizationMgr.actualizeAllCalculations();
     EXPECT_EQ(actualizationMgr.getActualizationCount(CalculationType::SGP4_ORBITAL), 1);
     EXPECT_EQ(callCount, 1);
-    
+
     // Перемещаем время вперёд (данные устарели)
     currentTime += 250;  // > staleThreshold
-    
+
     // Вторая актуализация
     actualizationMgr.actualizeAllCalculations();
     EXPECT_EQ(actualizationMgr.getActualizationCount(CalculationType::SGP4_ORBITAL), 2);
     EXPECT_EQ(callCount, 2);
+}
+
+// ============================================================================
+// Тесты фонового планировщика
+// ============================================================================
+
+TEST(AutoActualizationSchedulerTest, SchedulerInitialization) {
+    AutoActualizationScheduler scheduler;
+
+    // Планировщик не запущен по умолчанию
+    EXPECT_FALSE(scheduler.isRunning());
+}
+
+TEST(AutoActualizationSchedulerTest, StartAndStopManualMode) {
+    AutoActualizationManager actualizationMgr;
+    uint64_t currentTime = 1000000;
+    auto utcSource = [&currentTime]() -> uint64_t { return currentTime; };
+
+    actualizationMgr.init(utcSource);
+
+    auto dummyCallback = []() -> bool { return true; };
+    CalculationActualizationConfig config = {
+        .type = CalculationType::SGP4_ORBITAL,
+        .name = "ISS",
+        .freshThresholdSeconds = 3600,
+        .staleThresholdSeconds = 7200,
+        .expireThresholdSeconds = 86400,
+        .priority = ActualizationPriority::HIGH,
+        .autoActualize = true,
+        .actualizationCallback = dummyCallback
+    };
+
+    actualizationMgr.registerCalculation(config);
+
+    // Запускаем планищик в ручном режиме
+    AutoActualizationScheduler scheduler;
+    SchedulerConfig config_sched = {
+        .mode = SchedulerMode::MANUAL,
+        .baseIntervalMs = 60000
+    };
+
+    EXPECT_TRUE(scheduler.start(actualizationMgr, config_sched));
+    EXPECT_TRUE(scheduler.isRunning());
+
+    // Ручной вызов актуализации
+    size_t count = scheduler.actualizeNow();
+    EXPECT_EQ(count, 1);
+
+    // Останавливаем
+    scheduler.stop();
+    EXPECT_FALSE(scheduler.isRunning());
+}
+
+TEST(AutoActualizationSchedulerTest, StartAndStopAutoMode) {
+    AutoActualizationManager actualizationMgr;
+    uint64_t currentTime = 1000000;
+    auto utcSource = [&currentTime]() -> uint64_t { return currentTime; };
+
+    actualizationMgr.init(utcSource);
+
+    int callCount = 0;
+    auto dummyCallback = [&callCount]() -> bool {
+        callCount++;
+        return true;
+    };
+
+    CalculationActualizationConfig config = {
+        .type = CalculationType::SGP4_ORBITAL,
+        .name = "ISS",
+        .freshThresholdSeconds = 100,  // Короткий для теста
+        .staleThresholdSeconds = 200,
+        .expireThresholdSeconds = 300,
+        .priority = ActualizationPriority::HIGH,
+        .autoActualize = true,
+        .actualizationCallback = dummyCallback
+    };
+
+    actualizationMgr.registerCalculation(config);
+
+    // Запускаем планировщик в автоматическом режиме
+    AutoActualizationScheduler scheduler;
+    SchedulerConfig config_sched = {
+        .mode = SchedulerMode::AUTO_BACKGROUND,
+        .baseIntervalMs = 100,  // Очень короткий интервал для теста (100мс)
+        .criticalIntervalMs = 50,
+        .highIntervalMs = 100,
+        .mediumIntervalMs = 200,
+        .lowIntervalMs = 500
+    };
+
+    EXPECT_TRUE(scheduler.start(actualizationMgr, config_sched));
+    EXPECT_TRUE(scheduler.isRunning());
+
+    // Ждём немного чтобы фоновый поток успел сработать
+    std::this_thread::sleep_for(std::chrono::milliseconds(350));
+
+    // Останавливаем
+    scheduler.stop();
+    EXPECT_FALSE(scheduler.isRunning());
+
+    // Callback должен был вызваться хотя бы один раз
+    EXPECT_GE(callCount, 1);
+}
+
+TEST(AutoActualizationSchedulerTest, CannotStartTwice) {
+    AutoActualizationManager actualizationMgr;
+    uint64_t currentTime = 1000000;
+    auto utcSource = [&currentTime]() -> uint64_t { return currentTime; };
+
+    actualizationMgr.init(utcSource);
+    actualizationMgr.registerCalculation({
+        .type = CalculationType::SGP4_ORBITAL,
+        .name = "ISS",
+        .freshThresholdSeconds = 3600,
+        .staleThresholdSeconds = 7200,
+        .expireThresholdSeconds = 86400,
+        .priority = ActualizationPriority::HIGH,
+        .autoActualize = true,
+        .actualizationCallback = []() -> bool { return true; }
+    });
+
+    AutoActualizationScheduler scheduler;
+    SchedulerConfig config = {
+        .mode = SchedulerMode::MANUAL
+    };
+
+    EXPECT_TRUE(scheduler.start(actualizationMgr, config));
+
+    // Вторая попытка запуска должна вернуть false
+    EXPECT_FALSE(scheduler.start(actualizationMgr, config));
+
+    scheduler.stop();
+}
+
+TEST(AutoActualizationSchedulerTest, GetIntervalForPriority) {
+    AutoActualizationScheduler scheduler;
+    SchedulerConfig config = {
+        .mode = SchedulerMode::MANUAL,
+        .baseIntervalMs = 60000,
+        .criticalIntervalMs = 10000,
+        .highIntervalMs = 60000,
+        .mediumIntervalMs = 900000,
+        .lowIntervalMs = 3600000
+    };
+
+    // Запускаем чтобы инициализировать config
+    AutoActualizationManager mgr;
+    mgr.init([]() -> uint64_t { return 1000000; });
+    scheduler.start(mgr, config);
+
+    EXPECT_EQ(scheduler.getIntervalForPriority(ActualizationPriority::CRITICAL), 10000);
+    EXPECT_EQ(scheduler.getIntervalForPriority(ActualizationPriority::HIGH), 60000);
+    EXPECT_EQ(scheduler.getIntervalForPriority(ActualizationPriority::MEDIUM), 900000);
+    EXPECT_EQ(scheduler.getIntervalForPriority(ActualizationPriority::LOW), 3600000);
+
+    scheduler.stop();
+}
+
+TEST(AutoActualizationSchedulerTest, MoveConstructor) {
+    AutoActualizationManager actualizationMgr;
+    uint64_t currentTime = 1000000;
+    auto utcSource = [&currentTime]() -> uint64_t { return currentTime; };
+
+    actualizationMgr.init(utcSource);
+    actualizationMgr.registerCalculation({
+        .type = CalculationType::SGP4_ORBITAL,
+        .name = "ISS",
+        .freshThresholdSeconds = 3600,
+        .staleThresholdSeconds = 7200,
+        .expireThresholdSeconds = 86400,
+        .priority = ActualizationPriority::HIGH,
+        .autoActualize = true,
+        .actualizationCallback = []() -> bool { return true; }
+    });
+
+    AutoActualizationScheduler scheduler1;
+    SchedulerConfig config = {.mode = SchedulerMode::MANUAL};
+    scheduler1.start(actualizationMgr, config);
+
+    EXPECT_TRUE(scheduler1.isRunning());
+
+    // Перемещаем
+    AutoActualizationScheduler scheduler2(std::move(scheduler1));
+    EXPECT_TRUE(scheduler2.isRunning());
+    EXPECT_FALSE(scheduler1.isRunning());
+
+    scheduler2.stop();
+}
+
+TEST(AutoActualizationSchedulerTest, ActualizeNowWithoutManager) {
+    AutoActualizationScheduler scheduler;
+
+    // Вызов без менеджера должен вернуть 0
+    size_t count = scheduler.actualizeNow();
+    EXPECT_EQ(count, 0);
 }

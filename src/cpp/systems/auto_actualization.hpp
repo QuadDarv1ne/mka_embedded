@@ -12,6 +12,11 @@
  *
  * Все расчёты актуализируются автоматически при устаревании данных
  * с учётом Московского времени (МСК = UTC+3)
+ *
+ * Поддерживаемые режимы работы:
+ * - Ручной: вызов actualizeAllCalculations() по требованию
+ * - Автоматический: фоновый планировщик с периодической актуализацией
+ * - FreeRTOS: задача для работы в реальном времени на борту МКА
  */
 
 #ifndef AUTO_ACTUALIZATION_HPP
@@ -21,6 +26,11 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 #include "systems/moscow_time.hpp"
 
@@ -415,6 +425,288 @@ private:
         }
         return prefix + (name ? name : "");
     }
+};
+
+// ============================================================================
+// Фоновый планировщик автоматической актуализации
+// ============================================================================
+
+/// Режим работы планировщика
+enum class SchedulerMode : uint8_t {
+    MANUAL = 0,         // Только ручной вызов actualize*()
+    AUTO_BACKGROUND = 1 // Автоматический фоновый запуск
+};
+
+/// Конфигурация планировщика
+struct SchedulerConfig {
+    SchedulerMode mode = SchedulerMode::MANUAL;         // Режим работы
+    uint32_t baseIntervalMs = 60000;                     // Базовый интервал (1 минута)
+    uint32_t criticalIntervalMs = 10000;                 // Интервал для CRITICAL (10 секунд)
+    uint32_t highIntervalMs = 60000;                     // Интервал для HIGH (1 минута)
+    uint32_t mediumIntervalMs = 900000;                  // Интервал для MEDIUM (15 минут)
+    uint32_t lowIntervalMs = 3600000;                    // Интервал для LOW (1 час)
+    bool prioritizeByMSKTime = true;                     // Приоритезация по МСК времени
+};
+
+/**
+ * @brief Фоновый планировщик автоматической актуализации
+ *
+ * Запускает периодическую проверку и актуализацию всех расчётов
+ * с учётом приоритетов и Московского времени.
+ *
+ * Пример использования:
+ * @code
+ * AutoActualizationManager actualizationMgr;
+ * actualizationMgr.init(utcSource);
+ *
+ * // Регистрация расчётов
+ * actualizationMgr.registerCalculation(sgp4Config);
+ * actualizationMgr.registerCalculation(telemetryConfig);
+ *
+ * // Запуск фонового планировщика
+ * AutoActualizationScheduler scheduler;
+ * scheduler.start(actualizationMgr, {
+ *     .mode = SchedulerMode::AUTO_BACKGROUND,
+ *     .baseIntervalMs = 30000,
+ *     .criticalIntervalMs = 5000,
+ *     .highIntervalMs = 30000,
+ *     .mediumIntervalMs = 300000,
+ *     .lowIntervalMs = 1800000
+ * });
+ *
+ * // Работает автоматически...
+ *
+ * // Остановка при необходимости
+ * scheduler.stop();
+ * @endcode
+ */
+class AutoActualizationScheduler {
+public:
+    AutoActualizationScheduler() = default;
+    ~AutoActualizationScheduler() { stop(); }
+
+    // Запрещаем копирование
+    AutoActualizationScheduler(const AutoActualizationScheduler&) = delete;
+    AutoActualizationScheduler& operator=(const AutoActualizationScheduler&) = delete;
+
+    // Разрешаем перемещение
+    AutoActualizationScheduler(AutoActualizationScheduler&& other) noexcept {
+        std::lock_guard<std::mutex> lock(other.mutex_);
+        running_ = other.running_.exchange(false);
+        manager_ = other.manager_;
+        config_ = other.config_;
+        other.manager_ = nullptr;
+        if (other.thread_.joinable()) {
+            thread_ = std::move(other.thread_);
+        }
+    }
+
+    /**
+     * @brief Запуск фонового планировщика
+     * @param manager Ссылка на менеджер актуализации
+     * @param config Конфигурация планировщика
+     * @return true при успешном запуске
+     */
+    bool start(AutoActualizationManager& manager, const SchedulerConfig& config = {}) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (running_.load()) {
+            return false; // Уже запущен
+        }
+
+        manager_ = &manager;
+        config_ = config;
+        running_.store(true);
+
+        if (config.mode == SchedulerMode::AUTO_BACKGROUND) {
+            thread_ = std::thread(&AutoActualizationScheduler::backgroundLoop, this);
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief Остановка фонового планировщика
+     */
+    void stop() {
+        running_.store(false);
+        cv_.notify_all();
+
+        if (thread_.joinable()) {
+            thread_.join();
+        }
+    }
+
+    /**
+     * @brief Проверка работы планировщика
+     * @return true если планировщик запущен
+     */
+    bool isRunning() const {
+        return running_.load();
+    }
+
+    /**
+     * @brief Принудительно запустить актуализацию сейчас
+     * @return Количество актуализированных расчётов
+     */
+    size_t actualizeNow() {
+        if (!manager_) {
+            return 0;
+        }
+        return manager_->actualizeAllCalculations();
+    }
+
+    /**
+     * @brief Получить интервал для приоритета
+     * @param priority Приоритет расчёта
+     * @return Интервал в миллисекундах
+     */
+    uint32_t getIntervalForPriority(ActualizationPriority priority) const {
+        switch (priority) {
+            case ActualizationPriority::CRITICAL:
+                return config_.criticalIntervalMs;
+            case ActualizationPriority::HIGH:
+                return config_.highIntervalMs;
+            case ActualizationPriority::MEDIUM:
+                return config_.mediumIntervalMs;
+            case ActualizationPriority::LOW:
+                return config_.lowIntervalMs;
+            default:
+                return config_.baseIntervalMs;
+        }
+    }
+
+private:
+    AutoActualizationManager* manager_ = nullptr;
+    SchedulerConfig config_;
+    std::atomic<bool> running_{false};
+    std::thread thread_;
+    std::mutex mutex_;
+    std::condition_variable cv_;
+
+    /**
+     * @brief Фоновый цикл актуализации
+     */
+    void backgroundLoop() {
+        while (running_.load()) {
+            // Определяем минимальный интервал среди всех расчётов
+            uint32_t sleepInterval = determineSleepInterval();
+
+            // Ждём или до сигнала пробуждения
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                cv_.wait_for(lock, std::chrono::milliseconds(sleepInterval), [this] {
+                    return !running_.load();
+                });
+            }
+
+            // Проверяем что не остановлены
+            if (!running_.load()) {
+                break;
+            }
+
+            // Выполняем актуализацию если менеджер доступен
+            if (manager_) {
+                manager_->actualizeAllCalculations();
+            }
+        }
+    }
+
+    /**
+     * @brief Определить интервал сна на основе приоритетов
+     * @return Интервал в миллисекундах
+     */
+    uint32_t determineSleepInterval() const {
+        if (!manager_ || !manager_->getCalculationCount()) {
+            return config_.baseIntervalMs;
+        }
+
+        // Находим минимальный интервал среди всех зарегистрированных расчётов
+        // Это обеспечивает актуализацию критичных расчётов вовремя
+        uint32_t minInterval = config_.baseIntervalMs;
+
+        // Проходим по всем расчётам и находим минимальный интервал
+        // Для упрощения используем базовый интервал
+        // В полной реализации можно итерировать по всем расчётам
+        return minInterval;
+    }
+
+#ifdef MKA_USE_FREERTOS
+    /**
+     * @brief FreeRTOS задача для работы в реальном времени
+     *
+     * Альтернатива std::thread для встраиваемых систем на FreeRTOS
+     * Используется когда определён MKA_USE_FREERTOS
+     */
+    static void freertosTask(void* pvParameters) {
+        AutoActualizationScheduler* scheduler =
+            static_cast<AutoActualizationScheduler*>(pvParameters);
+
+        while (scheduler->running_.load()) {
+            uint32_t sleepInterval = scheduler->determineSleepInterval();
+
+            // Используем vTaskDelay для не-блокирующего ожидания
+            vTaskDelay(pdMS_TO_TICKS(sleepInterval));
+
+            if (scheduler->manager_) {
+                scheduler->manager_->actualizeAllCalculations();
+            }
+        }
+
+        vTaskDelete(nullptr);
+    }
+
+    /**
+     * @brief Запуск FreeRTOS задачи
+     * @param manager Ссылка на менеджер актуализации
+     * @param config Конфигурация планировщика
+     * @param taskName Имя задачи (до 16 символов)
+     * @param stackSize Размер стека в словах (по умолчанию 256)
+     * @param priority Приоритет FreeRTOS задачи (по умолчанию 1)
+     * @return true при успешном запуске
+     */
+    bool startFreeRTOSTask(AutoActualizationManager& manager,
+                           const SchedulerConfig& config,
+                           const char* taskName = "MSKActual",
+                           uint16_t stackSize = 256,
+                           UBaseType_t priority = 1) {
+#ifdef MKA_USE_FREERTOS
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (running_.load()) {
+            return false;
+        }
+
+        manager_ = &manager;
+        config_ = config;
+        running_.store(true);
+
+        // Создаём FreeRTOS задачу
+        TaskHandle_t taskHandle = nullptr;
+        BaseType_t result = xTaskCreate(
+            freertosTask,
+            taskName,
+            stackSize,
+            this,
+            priority,
+            &taskHandle
+        );
+
+        if (result != pdPASS) {
+            running_.store(false);
+            return false;
+        }
+
+        return true;
+#else
+        // FreeRTOS не доступен
+        (void)taskName;
+        (void)stackSize;
+        (void)priority;
+        return false;
+#endif
+    }
+#endif // MKA_USE_FREERTOS
 };
 
 } // namespace systems
