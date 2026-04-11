@@ -186,7 +186,7 @@ public:
      * @param len Длина данных
      * @return true если ответ сформирован
      */
-    bool processRequest(const uint8_t* data, size_t len, uint8_t* response) {
+    bool processRequest(const uint8_t* data, uint32_t len, uint8_t* response) {
         if (len < SDO_DATA_SIZE) {
             return false;
         }
@@ -522,14 +522,14 @@ public:
     /**
      * @brief Чтение данных из RPDO
      */
-    bool processRPDO(uint8_t pdoNumber, const uint8_t* data, size_t len) {
+    bool processRPDO(uint8_t pdoNumber, const uint8_t* data, uint32_t len) {
         if (pdoNumber == 0 || pdoNumber > MAX_RPDO) return false;
-        
-        size_t idx = pdoNumber - 1;
+
+        uint32_t idx = pdoNumber - 1;
         auto& config = rpdoConfig_[idx];
 
-        size_t bitOffset = 0;
-        for (size_t i = 0; i < config.mappingCount; ++i) {
+        uint32_t bitOffset = 0;
+        for (uint32_t i = 0; i < config.mappingCount; ++i) {
             uint16_t index = (config.mappings[i].index >> 16) & 0xFFFF;
             uint8_t subIndex = (config.mappings[i].index >> 8) & 0xFF;
             uint8_t size = config.mappings[i].size;
@@ -694,12 +694,12 @@ public:
     /**
      * @brief Обработка входящих CAN сообщений
      */
-    void processMessage(uint32_t id, const uint8_t* data, size_t len) {
+    void processMessage(uint32_t id, const uint8_t* data, uint32_t len) {
         // NMT команды (COB-ID 0x000)
-        if (id == COBId::NMT_COMMAND && len >= 2) {
+        if (id == COBId::NMT_COMMAND && len >= 2u) {
             NMTCommand cmd = static_cast<NMTCommand>(data[0]);
             uint8_t targetNode = data[1];
-            
+
             // 0 = broadcast, иначе проверка node ID
             if (targetNode == 0 || targetNode == nodeId_) {
                 nmt_.processCommand(cmd);
@@ -708,7 +708,7 @@ public:
         }
 
         // SDO запросы
-        if (id == (COBId::SDO_RX + nodeId_) && len == 8) {
+        if (id == (static_cast<uint32_t>(COBId::SDO_RX) + nodeId_) && len == 8u) {
             uint8_t response[8];
             if (sdo_.processRequest(data, len, response)) {
                 // Отправка ответа
