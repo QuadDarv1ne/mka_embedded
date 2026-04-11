@@ -1071,12 +1071,24 @@
 - ✅ **SGP4 static_assert** — ECIState == 7 doubles, не 14 (было: == 112)
 - ✅ **SGP4 тесты** — отключены (нет реализации SGP4Propagator::init/propagate)
 
-#### Проверка 10 апреля 2026 (22:45)
+#### Проверка 11 апреля 2026 (05:00) — АВТОМАТИЗАЦИЯ МСК ЗАВЕРШЕНА
 - ✅ Все изменения синхронизированы с origin/dev
 - ✅ Сборка без ошибок
-- ✅ Тесты 13/13 проходят
-- ✅ Критических и средних проблем нет
-- 📡 **SDR v4 подключён** — SDRSharp настроен (Airspy), BandPlan/notches пустые
+- ✅ Тесты 18/18 проходят (100%)
+- ✅ Критических проблем нет
+- 🚀 **Auto Actualization** — полная система для всех расчётов
+- 🚀 **Moscow Time** — UTC ↔ МСК конвертация
+- 🚀 **Health Monitoring + FDIR** — интеграция завершена
+- 🚀 **SGP4 bugfix** — критический баг semiMajorAxis исправлен
+
+#### Выполнено 11 апреля 2026
+- ✅ **AutoActualizationManager** — 10 типов расчётов (SGP4, телеметрия, FDIR, health, навигация, ADCS, питание, термал, коммуникации, payload)
+- ✅ **AutoActualizationSGP4** — SGP4 с авто-актуализацией TLE
+- ✅ **AutoActualizationHealthMonitoring** — Health monitoring с авто-актуализацией
+- ✅ **MoscowTimeConverter** — UTC ↔ МСК (UTC+3)
+- ✅ **DataFreshnessManager** — мониторинг свежести данных
+- ✅ **SGP4DataFreshnessManager** — актуализация TLE данных
+- ✅ **18/18 тестов** — все проходят (100%)
 
 #### Исправлено 10 апреля 2026 (вечер)
 - ✅ **IsolationTree buildTree** — критический баг: nodes_[nodeIndex] без push_back → segfault
