@@ -298,6 +298,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_canopen mka_systems GTest::gtest_main)
     add_test(NAME test_canopen COMMAND test_canopen)
 
+    # Тест Health Monitor + FDIR integration
+    add_executable(test_health_monitor tests/test_health_monitor.cpp)
+    target_link_libraries(test_health_monitor mka_systems GTest::gtest_main)
+    add_test(NAME test_health_monitor COMMAND test_health_monitor)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
