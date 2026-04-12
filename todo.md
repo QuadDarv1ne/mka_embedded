@@ -636,7 +636,7 @@
 - ✅ **ГОТОВО:** Все изменения отправлены и синхронизированы
 
 ### Исправления багов (12 апреля 2026 — ЗАВЕРШЕНО)
-- ✅ **ИСПРАВЛЕНО 21 КРИТИЧЕСКИХ БАГОВ:**
+- ✅ **ИСПРАВЛЕНО 23 КРИТИЧЕСКИХ БАГОВ:**
   - **auto_actualization.hpp:** dangling pointer → char[][]
   - **health_monitor.hpp:** uint32_t wrap → безопасная разность
   - **task_scheduler.hpp:** деление на ноль → проверка period/duration > 0
@@ -658,6 +658,8 @@
   - **fdir.hpp:** GlitchDetector ложные срабатывания → инициализация первым значением
   - **fdir.hpp:** FrozenValueDetector абсолютный порог → относительный epsilon * (1 + |value|)
   - **span.hpp:** отсутствие проверок границ → MKA_SPAN_CHECK_BOUNDS
+  - **sensors_drivers.hpp:** дублирующиеся члены классов → объединены private: блоки
+  - **eeprom_driver.hpp:** missing #include <span> → добавлен
 
 ### Идеи на будущее
 - Интеграция с ROS 2 для наземных тестов
