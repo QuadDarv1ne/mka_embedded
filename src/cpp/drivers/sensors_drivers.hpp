@@ -2099,13 +2099,15 @@ public:
     }
 
 private:
-    hal::II2C* i2c_;
-    hal::ISPI* spi_;
+    hal::II2C* i2c_ = nullptr;
+    hal::ISPI* spi_ = nullptr;
     hal::ISystemTime* timeSource_ = nullptr;
-    uint8_t address_;
-    bool useSPI_;
+    uint8_t address_ = 0;
+    bool useSPI_ = false;
     Config config_;
     CalibData calib_;
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
 
     hal::Status readRegister(uint8_t reg, uint8_t* data, size_t len) {
         hal::Status status;
@@ -2257,19 +2259,6 @@ private:
         errorCount_ = 0;
         timeoutCount_ = 0;
     }
-
-private:
-    hal::II2C* i2c_;
-    hal::ISPI* spi_;
-    hal::ISystemTime* timeSource_ = nullptr;
-    uint8_t address_;
-    bool useSPI_;
-    Config config_;
-    CalibData calib_;
-
-    // Health monitoring
-    uint32_t errorCount_ = 0;
-    uint32_t timeoutCount_ = 0;
 };
 
 // ============================================================================
@@ -2678,15 +2667,17 @@ public:
     }
 
 private:
-    hal::II2C* i2c_;
-    hal::ISPI* spi_;
+    hal::II2C* i2c_ = nullptr;
+    hal::ISPI* spi_ = nullptr;
     hal::ISystemTime* timeSource_ = nullptr;
-    uint8_t address_;
-    bool useSPI_;
+    uint8_t address_ = 0;
+    bool useSPI_ = false;
     Config config_;
 
     float accSensitivity_ = 1.0f;
     float gyrSensitivity_ = 1.0f;
+    uint32_t errorCount_ = 0;
+    uint32_t timeoutCount_ = 0;
 
     // Дополнительные регистры для offsets
     enum RegisterExt : uint8_t {
@@ -2805,21 +2796,6 @@ private:
         errorCount_ = 0;
         timeoutCount_ = 0;
     }
-
-private:
-    hal::II2C* i2c_;
-    hal::ISPI* spi_;
-    hal::ISystemTime* timeSource_ = nullptr;
-    uint8_t address_;
-    bool useSPI_;
-    Config config_;
-
-    float accSensitivity_ = 1.0f;
-    float gyrSensitivity_ = 1.0f;
-
-    // Health monitoring
-    uint32_t errorCount_ = 0;
-    uint32_t timeoutCount_ = 0;
 };
 
 // ============================================================================
