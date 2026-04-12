@@ -333,6 +333,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_span mka_core GTest::gtest_main)
     add_test(NAME test_span COMMAND test_span)
 
+    # Тест негативных сценариев ADCS (NaN, Inf, extreme)
+    add_executable(test_adcs_negative tests/test_adcs_negative.cpp)
+    target_link_libraries(test_adcs_negative mka_algorithms mka_ml GTest::gtest_main)
+    add_test(NAME test_adcs_negative COMMAND test_adcs_negative)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
