@@ -618,15 +618,18 @@
   - CANopen: только проверка констант, нет тестов NMT/SDO/PDO ✅ ИСПРАВЛЕНО
   - sensors_drivers.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_sensors.cpp создан)
   - radio_driver.hpp: НЕТ ТЕСТОВ — отложено (требует Mock UART)
-  - eeprom_driver.hpp: НЕТ ТЕСТОВ — отложено
+  - eeprom_driver.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_eeprom.cpp создан)
   - sun_sensor.hpp: НЕТ ТЕСТОВ — отложено
   - span.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_span.cpp создан)
+  - Memory Pool: нет стресс-тестов ✅ ИСПРАВЛЕНО (test_memory_pool_stress.cpp создан)
 - ✅ **ВЫПОЛНЕНО:**
   - Включены все DISABLED тесты FileSystem (21 тест)
   - Переписаны тесты CANopen с 6 до 30+ тестов (NMT, SDO, PDO, Emergency)
   - Создан test_sensors.cpp для BMI160, LIS3MDL, BMP388, LSM6DSO
+  - Создан test_eeprom.cpp для EEPROM24LC256 с моками I2C/SPI
   - Создан test_span.cpp для Span utility
   - Создан test_adcs_negative.cpp с 30+ негативными тестами (NaN, Inf, extreme)
+  - Создан test_memory_pool_stress.cpp с 15 стресс-тестами
   - Добавлены моки MockI2C и MockSPI для тестирования драйверов
   - Добавлены stress-тесты со случайными данными
 - ✅ **СИНХРОНИЗИРОВАНО:** 
