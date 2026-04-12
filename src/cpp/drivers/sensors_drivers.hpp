@@ -723,10 +723,10 @@ public:
 
         // CTRL_REG5: Block data update
         uint8_t ctrl5 = config.tempEnable ? 0x80 : 0x00;
-        if (i2c_.writeRegister(address_, Register::CTRL_REG5, &ctrl5, 1, 100) != hal::Status::OK) {
+        if (i2c_.writeRegister(address_, Register::CTRL_REG5, {&ctrl5, 1}, 100) != hal::Status::OK) {
             errorCount_++;
         }
-        
+
         // Расчёт чувствительности
         switch (config.scale) {
             case Scale::SCALE_4G:  sensitivity_ = 1.0f / 6842.0f; break;
@@ -734,13 +734,13 @@ public:
             case Scale::SCALE_12G: sensitivity_ = 1.0f / 2281.0f; break;
             case Scale::SCALE_16G: sensitivity_ = 1.0f / 1711.0f; break;
         }
-        
+
         return hal::Status::OK;
     }
     
     hal::Status readData(MagData& data) {
         uint8_t status;
-        hal::Status st = i2c_.readRegister(address_, Register::STATUS_REG, &status, 1, 100);
+        hal::Status st = i2c_.readRegister(address_, Register::STATUS_REG, {&status, 1}, 100);
         if (st != hal::Status::OK) {
             errorCount_++;
             if (st == hal::Status::TIMEOUT) timeoutCount_++;
@@ -753,7 +753,7 @@ public:
 
         uint8_t buffer[6];
         // Чтение с auto-increment (bit 7 = 1)
-        st = i2c_.readRegister(address_, Register::OUT_X_L | 0x80, buffer, 6, 100);
+        st = i2c_.readRegister(address_, static_cast<uint8_t>(Register::OUT_X_L | 0x80), {buffer, 6}, 100);
         if (st != hal::Status::OK) {
             errorCount_++;
             if (st == hal::Status::TIMEOUT) timeoutCount_++;
