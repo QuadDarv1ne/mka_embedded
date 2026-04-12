@@ -612,7 +612,7 @@
 - ✅ **Blocking вызовы** — все методы имеют timeout и retry логику
 - ✅ **Static assertions** — compile-time валидация размеров типов и структур
 
-### Аудит качества (12 апреля 2026 — ЗАВЕРШЁН)
+### Аудит качества (12 апреля 2026 — ЗАВЕРШЁН + ИСПРАВЛЕНИЯ БАГОВ)
 - ✅ **ВСЕ КРИТИЧЕСКИЕ ПРОБЕЛЫ ИСПРАВЛЕНЫ:**
   - FileSystem: 18 из ~25 тестов DISABLED ✅ ИСПРАВЛЕНО
   - CANopen: только проверка констант ✅ ИСПРАВЛЕНО
@@ -629,10 +629,19 @@
   - Callback utility: нет полных тестов ✅ ИСПРАВЛЕНО
   - OTA: тест отключен ✅ ВКЛЮЧЁН
   - FreeRTOS wrapper: тест отключен ✅ ВКЛЮЧЁН
+- ✅ **КРИТИЧЕСКИЕ БАГИ ИСПРАВЛЕНЫ:**
+  - **auto_actualization.hpp:** dangling pointer в registerDataSource() — заменён const char* на char[][]
+  - **health_monitor.hpp:** uint32_t wrap при проверке интервала и newErrors
+  - **task_scheduler.hpp:** деление на ноль в isTaskReady() (period=0) и calculateTaskPower() (duration=0)
+  - **moscow_time.hpp:** неточный алгоритм fromUnixTimestamp() (цикл while с фиксированным 30-дневным месяцем)
+  - **moscow_time.hpp:** дублирующий вызов fromUnixTimestamp в MSKDateTime::now()
+  - **moscow_time.hpp:** валидация дат без учёта реального кол-ва дней в месяце
+  - **moscow_time.hpp:** unsigned underflow при обратном ходе часов (NTP коррекция)
+  - **auto_actualization.hpp:** unsigned underflow в getActualizationStats()
 - ✅ **ФИНАЛЬНАЯ СТАТИСТИКА (ВСЕГО):**
   - **40 тестовых файлов** с **450+ тестами**
   - Создано 16 новых тестовых файлов
-  - Включены 2 ранее отключённых теста (OTA, FreeRTOS)
+  - Исправлено 8 критических багов
   - Обновлён README.md с полной структурой проекта
 - ✅ **СИНХРОНИЗИРОВАНО:** origin/main обновлён
 - ✅ **СТАТУС:** Проект готов к релизу v2.1.0
