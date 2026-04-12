@@ -636,7 +636,7 @@
 - ✅ **ГОТОВО:** Все изменения отправлены и синхронизированы
 
 ### Исправления багов (12 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
-- ✅ **ИСПРАВЛЕНО 16 КРИТИЧЕСКИХ БАГОВ:**
+- ✅ **ИСПРАВЛЕНО 17 КРИТИЧЕСКИХ БАГОВ:**
   - **auto_actualization.hpp:** dangling pointer → char[][]
   - **health_monitor.hpp:** uint32_t wrap → безопасная разность
   - **task_scheduler.hpp:** деление на ноль → проверка period/duration > 0
@@ -653,6 +653,7 @@
   - **memory_pool.hpp:** повреждённый order → проверка order <= MAX_ORDER
   - **memory_pool.hpp:** потеря блока → добавлен second в freeLists
   - **memory_pool.hpp:** totalSize > pool_.size() → ограничение
+  - **hal_full.hpp:** retry с maxRetries=0 → возврат без попыток → проверка maxRetries==0→1
 
 ### Идеи на будущее
 - Интеграция с ROS 2 для наземных тестов
