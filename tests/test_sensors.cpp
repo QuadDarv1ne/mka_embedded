@@ -16,7 +16,8 @@
 
 #include "drivers/sensors_drivers.hpp"
 
-using namespace mka::drivers;
+using namespace mka::sensors;
+using mka::sensors::DriverError;
 
 // ============================================================================
 // Mock I2C Interface
@@ -27,7 +28,7 @@ public:
     Result<int, DriverError> writeRegister(uint8_t reg, uint8_t value, uint32_t timeout = 1000) {
         registers_[reg] = value;
         writeCount_++;
-        return Ok<int>(1);
+        return Ok<int, DriverError>(1);
     }
 
     Result<int, DriverError> readRegister(uint8_t reg, uint8_t& value, uint32_t timeout = 1000) {
@@ -35,7 +36,7 @@ public:
         if (it != registers_.end()) {
             value = it->second;
             readCount_++;
-            return Ok<int>(1);
+            return Ok<int, DriverError>(1);
         }
         return Err<int, DriverError>(DriverError::TIMEOUT);
     }
@@ -50,7 +51,7 @@ public:
                 size_t toRead = std::min(rxLen, static_cast<size_t>(1));
                 rxData[0] = it->second;
                 readCount_++;
-                return Ok<int>(static_cast<int>(toRead));
+                return Ok<int, DriverError>(static_cast<int>(toRead));
             }
         }
         return Err<int, DriverError>(DriverError::TIMEOUT);
@@ -99,7 +100,7 @@ public:
             if (registers_.find(reg) != registers_.end()) {
                 rxData[0] = registers_[reg];
                 readCount_++;
-                return Ok<int>(1);
+                return Ok<int, DriverError>(1);
             }
             return Err<int, DriverError>(DriverError::TIMEOUT);
         } else {
@@ -107,7 +108,7 @@ public:
             if (len >= 2) {
                 registers_[reg] = txData[1];
                 writeCount_++;
-                return Ok<int>(1);
+                return Ok<int, DriverError>(1);
             }
         }
         

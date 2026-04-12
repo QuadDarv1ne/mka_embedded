@@ -80,6 +80,7 @@ struct GPSData {
     uint8_t satellites;
     uint8_t fixType;    // 0=no fix, 1=dead reckoning, 2=2D, 3=3D
     float hdop;         // horizontal dilution of precision
+    bool fixValid;      // флаг валидности GPS фикса
     uint16_t year;
     uint8_t month;
     uint8_t day;
@@ -1759,21 +1760,26 @@ private:
     }
 
 public:
-    
+
     void addChecksum(std::span<uint8_t> msg) {
         uint8_t ckA = 0, ckB = 0;
-        
+
         // Checksum с байта 2 до конца payload
         for (size_t i = 2; i < msg.size() - 2; ++i) {
             ckA += msg[i];
             ckB += ckA;
         }
-        
+
         msg[msg.size() - 2] = ckA;
         msg[msg.size() - 1] = ckB;
     }
-    
+
     uint64_t getTimestamp() const { return 0; }
+
+private:
+    hal::IUART& uart_;
+    Config config_;
+    std::vector<uint8_t> uartBuffer_;  // Buffer for NMEA message parsing
 };
 
 // ============================================================================
@@ -2358,6 +2364,11 @@ public:
         WATERMARK             = 0x0B,
         I3C_IF_AVAIL          = 0x7F,
         ORIENT_CFG_G          = 0x56,
+        X_OFS_USR             = 0x73,
+        Y_OFS_USR             = 0x74,
+        Z_OFS_USR             = 0x75,
+        GYRO_OFF_X            = 0x76,
+        GYRO_OFF_Y            = 0x77,
     };
 
     // Диапазоны измерений акселерометра
@@ -2480,7 +2491,7 @@ public:
         writeRegister(Register::CTRL2_G, &ctrl2, 1);
 
         // CTRL3_C: Блок данных, автоинкремент, SPI режим
-        uint8_t ctrl3 = 0x04;  // BDU - Block Data Update
+        ctrl3 = 0x04;  // BDU - Block Data Update
         if (!useSPI_) {
             ctrl3 |= 0x02;  // IF_INC - Register address auto-increment
         } else {
