@@ -403,6 +403,16 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_watchdog_manager mka_systems GTest::gtest_main)
     add_test(NAME test_watchdog_manager COMMAND test_watchdog_manager)
 
+    # Полные тесты Result utility
+    add_executable(test_result tests/test_result.cpp)
+    target_link_libraries(test_result mka_utils GTest::gtest_main)
+    add_test(NAME test_result COMMAND test_result)
+
+    # Полные тесты Callback utility
+    add_executable(test_callback tests/test_callback.cpp)
+    target_link_libraries(test_callback mka_utils GTest::gtest_main)
+    add_test(NAME test_callback COMMAND test_callback)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
