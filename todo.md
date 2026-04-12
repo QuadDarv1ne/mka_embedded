@@ -617,9 +617,9 @@
   - FileSystem: 18 из ~25 тестов DISABLED ✅ ИСПРАВЛЕНО
   - CANopen: только проверка констант, нет тестов NMT/SDO/PDO ✅ ИСПРАВЛЕНО
   - sensors_drivers.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_sensors.cpp создан)
-  - radio_driver.hpp: НЕТ ТЕСТОВ — отложено (требует Mock UART)
+  - radio_driver.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_radio.cpp создан)
   - eeprom_driver.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_eeprom.cpp создан)
-  - sun_sensor.hpp: НЕТ ТЕСТОВ — отложено
+  - sun_sensor.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_sun_sensor.cpp создан)
   - span.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_span.cpp создан)
   - Memory Pool: нет стресс-тестов ✅ ИСПРАВЛЕНО (test_memory_pool_stress.cpp создан)
 - ✅ **ВЫПОЛНЕНО:**
@@ -627,10 +627,12 @@
   - Переписаны тесты CANopen с 6 до 30+ тестов (NMT, SDO, PDO, Emergency)
   - Создан test_sensors.cpp для BMI160, LIS3MDL, BMP388, LSM6DSO
   - Создан test_eeprom.cpp для EEPROM24LC256 с моками I2C/SPI
+  - Создан test_radio.cpp для SI4463Driver с моками SPI/GPIO
+  - Создан test_sun_sensor.cpp для SunSensorDriver с моком ADC
   - Создан test_span.cpp для Span utility
   - Создан test_adcs_negative.cpp с 30+ негативными тестами (NaN, Inf, extreme)
   - Создан test_memory_pool_stress.cpp с 15 стресс-тестами
-  - Добавлены моки MockI2C и MockSPI для тестирования драйверов
+  - Добавлены моки MockI2C, MockSPI, MockGPIO, MockADC для тестирования драйверов
   - Добавлены stress-тесты со случайными данными
 - ✅ **СИНХРОНИЗИРОВАНО:** 
   - origin/dev обновлён
