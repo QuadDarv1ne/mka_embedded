@@ -14,20 +14,43 @@
 ## Структура проекта
 
 ```
-mka_embedded_complete/
+mka_embedded/
 ├── src/
 │   ├── cpp/
 │   │   ├── hal/
 │   │   │   └── hal_full.hpp              # Полные HAL интерфейсы
 │   │   ├── drivers/
-│   │   │   └── sensors_drivers.hpp       # Драйверы BMI160, LIS3MDL, GPS, Sun Sensor
+│   │   │   ├── sensors_drivers.hpp       # Драйверы BMI160, LIS3MDL, GPS, BMP388, LSM6DSO
+│   │   │   ├── eeprom_driver.hpp         # Драйвер EEPROM 24LC256
+│   │   │   ├── radio_driver.hpp          # Драйвер радиомодуля SI4463
+│   │   │   └── sun_sensor.hpp            # Драйвер солнечного сенсора
 │   │   ├── algorithms/
-│   │   │   └── adcs_algorithms.hpp       # Алгоритмы ориентации
-│   │   └── systems/
-│   │       ├── fdir.hpp                  # Fault Detection, Isolation, Recovery
-│   │       ├── state_machine.hpp         # Машина состояний спутника
-│   │       ├── log_system.hpp            # Система логирования
-│   │       └── memory_pool.hpp           # Пул памяти для RTOS
+│   │   │   ├── adcs_algorithms.hpp       # Алгоритмы ориентации (EKF, UKF, Madgwick)
+│   │   │   ├── anomaly_detector.hpp      # Детектор аномалий (Isolation Forest)
+│   │   │   └── sgp4.hpp                  # SGP4 орбитальный пропагатор
+│   │   ├── systems/
+│   │   │   ├── fdir.hpp                  # Fault Detection, Isolation, Recovery
+│   │   │   ├── state_machine.hpp         # Машина состояний спутника
+│   │   │   ├── log_system.hpp            # Система логирования
+│   │   │   ├── memory_pool.hpp           # Пул памяти для RTOS
+│   │   │   ├── telemetry.hpp             # Генератор телеметрии и команд
+│   │   │   ├── file_system.hpp           # Файловая система LittleFS
+│   │   │   ├── ota_updater.hpp           # OTA обновление прошивки
+│   │   │   ├── command_handler.hpp       # Обработчик команд
+│   │   │   ├── param_store.hpp           # Хранилище параметров
+│   │   │   ├── watchdog_manager.hpp      # Менеджер сторожевых таймеров
+│   │   │   ├── canopen.hpp               # CANopen стек
+│   │   │   ├── power_manager.hpp         # Управление питанием (MPPT)
+│   │   │   ├── task_scheduler.hpp        # Планировщик задач
+│   │   │   ├── health_monitor.hpp        # Мониторинг здоровья
+│   │   │   ├── moscow_time.hpp           # Система Московского времени
+│   │   │   └── auto_actualization.hpp    # Автоматическая актуализация
+│   │   ├── rtos/
+│   │   │   └── freertos_wrapper.hpp      # Обёртки FreeRTOS
+│   │   └── utils/
+│   │       ├── callback.hpp              # Легковесные callback
+│   │       ├── result.hpp                # Result<T, E> тип
+│   │       └── span.hpp                  # Span utility
 │   └── python/
 │       ├── utils/
 │       │   ├── littlefs_sim.py           # Симулятор файловой системы
@@ -40,6 +63,7 @@ mka_embedded_complete/
 │       │   └── telemetry_visualizer.py   # Визуализация телеметрии
 │       └── hil/
 │           └── hil_framework.py          # HIL тестирование
+├── tests/                                # Юнит-тесты (40 файлов, 450+ тестов)
 ├── exercises/
 │   └── labs.md                           # Практические задания
 ├── cheatsheets/
