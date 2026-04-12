@@ -384,10 +384,15 @@ public:
             return false;  // Неподдерживаемая версия
         }
 
-        // Количество параметров
+        // Количество параметров (с защитой от повреждённых данных)
         if (offset + 2 > bufferSize) return false;
         uint16_t count = (buffer[offset] << 8) | buffer[offset + 1];
         offset += 2;
+        
+        // Ограничиваем count максимальным количеством параметров
+        if (count > MAX_PARAMS) {
+            return false;  // Повреждённые данные
+        }
 
         // Загрузка значений (только после проверки CRC)
         size_t dataEnd = bufferSize - 2;  // Последние 2 байта - CRC
@@ -400,7 +405,10 @@ public:
             // Поиск параметра
             for (size_t j = 0; j < paramCount_ && offset <= dataEnd; j++) {
                 if (entries_[j].id == id) {
-                    if (entries_[j].size == 0 || offset + entries_[j].size > dataEnd) {
+                    // Защита от buffer overflow: размер не должен превышать ParamValue
+                    if (entries_[j].size == 0 || 
+                        entries_[j].size > sizeof(ParamValue) ||
+                        offset + entries_[j].size > dataEnd) {
                         return false;  // Невалидный размер или переполнение
                     }
                     std::memcpy(&values_[j], &buffer[offset], entries_[j].size);

@@ -301,6 +301,10 @@ public:
      * @brief unregister обработчика команды
      */
     bool unregisterCommand(uint16_t commandId) {
+        if (commandCount_ == 0) {
+            return false;  // Защита от unsigned wraparound
+        }
+        
         for (size_t i = 0; i < commandCount_; i++) {
             if (registrations_[i].commandId == commandId) {
                 // Сдвиг массива

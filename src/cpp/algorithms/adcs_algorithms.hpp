@@ -1754,15 +1754,75 @@ private:
     }
 
     /**
-     * @brief Упрощённая матричная инверсия (для 3x3 блоков)
+     * @brief Полная инверсия матрицы 6x6 (метод Гаусса-Жордана)
+     */
+    void invertMatrix6x6(const float* A, float* Ainv) {
+        constexpr int N = 6;
+        float work[36];
+        
+        // Инициализация Ainv единичной матрицей
+        for (int i = 0; i < N * N; i++) Ainv[i] = 0.0f;
+        for (int i = 0; i < N; i++) Ainv[i * N + i] = 1.0f;
+        
+        // Копируем A в рабочий буфер
+        for (int i = 0; i < N * N; i++) work[i] = A[i];
+        
+        // Прямой ход (Гаусс)
+        for (int col = 0; col < N; col++) {
+            // Поиск ведущего элемента
+            int pivotRow = col;
+            float maxVal = std::abs(work[col * N + col]);
+            for (int row = col + 1; row < N; row++) {
+                float val = std::abs(work[row * N + col]);
+                if (val > maxVal) {
+                    maxVal = val;
+                    pivotRow = row;
+                }
+            }
+            
+            // Обмен строк
+            if (pivotRow != col) {
+                for (int j = 0; j < N; j++) {
+                    std::swap(work[col * N + j], work[pivotRow * N + j]);
+                    std::swap(Ainv[col * N + j], Ainv[pivotRow * N + j]);
+                }
+            }
+            
+            // Проверка на вырожденность
+            float pivot = work[col * N + col];
+            if (std::abs(pivot) < 1e-10f) {
+                // Возврат единичной матрицы при вырожденности
+                for (int i = 0; i < N * N; i++) Ainv[i] = 0.0f;
+                for (int i = 0; i < N; i++) Ainv[i * N + i] = 1.0f;
+                return;
+            }
+            
+            // Нормализация строки
+            float invPivot = 1.0f / pivot;
+            for (int j = 0; j < N; j++) {
+                work[col * N + j] *= invPivot;
+                Ainv[col * N + j] *= invPivot;
+            }
+            
+            // Обнуление столбца
+            for (int row = 0; row < N; row++) {
+                if (row != col) {
+                    float factor = work[row * N + col];
+                    for (int j = 0; j < N; j++) {
+                        work[row * N + j] -= factor * work[col * N + j];
+                        Ainv[row * N + j] -= factor * Ainv[col * N + j];
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Упрощённая матричная инверсия (для 6x6 используется полная инверсия)
      */
     void matrixInverse3x3(const float* A, float* Ainv) {
-        // Для простоты используваем диагональную аппроксимацию
-        for (int i = 0; i < MEAS_DIM * MEAS_DIM; i++) Ainv[i] = 0.0f;
-        for (int i = 0; i < MEAS_DIM; i++) {
-            float diag = A[i * MEAS_DIM + i];
-            Ainv[i * MEAS_DIM + i] = (diag > 1e-6f) ? 1.0f / diag : 1.0f;
-        }
+        // Используем полную инверсию 6x6 вместо диагональной аппроксимации
+        invertMatrix6x6(A, Ainv);
     }
 
     /**
