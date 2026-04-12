@@ -21,6 +21,7 @@
 #include "../hal/hal_full.hpp"
 #include "../utils/result.hpp"
 #include "../utils/span.hpp"
+#include "block_device.hpp"
 
 namespace mka {
 namespace filesystem {
@@ -226,71 +227,10 @@ private:
     size_t position_ = 0;
     size_t size_ = 0;
     bool is_open_ = false;
+    std::string file_path_;
 
     friend class FileSystem;
 };
-
-// ============================================================================
-// FileHandle Inline Implementations
-// ============================================================================
-
-inline FileHandle::FileHandle(FileHandle&& other) noexcept
-    : file_id_(other.file_id_)
-    , position_(other.position_)
-    , size_(other.size_)
-    , is_open_(other.is_open_) {
-    other.is_open_ = false;
-}
-
-inline FileHandle& FileHandle::operator=(FileHandle&& other) noexcept {
-    if (this != &other) {
-        if (is_open_) close();
-        file_id_ = other.file_id_;
-        position_ = other.position_;
-        size_ = other.size_;
-        is_open_ = other.is_open_;
-        other.is_open_ = false;
-    }
-    return *this;
-}
-
-inline Result<int, FSStatus> FileHandle::read(void* buffer, size_t size) {
-    (void)buffer;
-    (void)size;
-    if (!is_open_) return Err<int, FSStatus>(FSStatus::ERROR);
-    return Ok<int, FSStatus>(0);
-}
-
-inline Result<int, FSStatus> FileHandle::write(const void* buffer, size_t size) {
-    (void)buffer;
-    (void)size;
-    if (!is_open_) return Err<int, FSStatus>(FSStatus::ERROR);
-    return Ok<int, FSStatus>(0);
-}
-
-inline Result<int, FSStatus> FileHandle::seek(int32_t offset, int whence) {
-    (void)offset;
-    (void)whence;
-    if (!is_open_) return Err<int, FSStatus>(FSStatus::ERROR);
-    return Ok<int, FSStatus>(static_cast<int>(position_));
-}
-
-inline Result<void, FSStatus> FileHandle::truncate(size_t size) {
-    (void)size;
-    if (!is_open_) return Err<void, FSStatus>(FSStatus::ERROR);
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileHandle::flush() {
-    if (!is_open_) return Err<void, FSStatus>(FSStatus::ERROR);
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileHandle::close() {
-    if (!is_open_) return Ok<FSStatus>();
-    is_open_ = false;
-    return Ok<FSStatus>();
-}
 
 // ============================================================================
 // File System Configuration
@@ -354,6 +294,13 @@ public:
         BlockDeviceEraseFunc erase_func,
         BlockDeviceSyncFunc sync_func = nullptr
     );
+
+    /**
+     * @brief Configure with block device object
+     * @param block_device Block device interface
+     * @return Status
+     */
+    Result<void, FSStatus> configure(IBlockDevice* block_device);
 
     /**
      * @brief Configure with HAL flash interface
@@ -615,264 +562,25 @@ protected:
     BlockDeviceEraseFunc erase_func_;
     BlockDeviceSyncFunc sync_func_;
 
+    // Block device object
+    IBlockDevice* block_device_ = nullptr;
+    std::unique_ptr<CallbackBlockDevice> callback_device_;
+
     // Configuration
     FSConfig config_;
 
     // Statistics
-    FSStats stats_;
+    mutable FSStats stats_;
     WearStats wear_stats_;
 
     // Internal state (for real LittleFS implementation)
     void* lfs_handle_ = nullptr;
-    void* block_device_ = nullptr;
 };
-
-// ============================================================================
-// Inline Implementations (Mock for now)
-// ============================================================================
-
-inline FileSystem::FileSystem() = default;
-
-inline FileSystem::~FileSystem() {
-    if (mounted_) {
-        unmount();
-    }
-}
-
-inline Result<void, FSStatus> FileSystem::configure(
-    BlockDeviceReadFunc read_func,
-    BlockDeviceProgFunc prog_func,
-    BlockDeviceEraseFunc erase_func,
-    BlockDeviceSyncFunc sync_func
-) {
-    read_func_ = read_func;
-    prog_func_ = prog_func;
-    erase_func_ = erase_func;
-    sync_func_ = sync_func;
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::configureFromFlash(
-    hal::IFlash* flash,
-    uint32_t start_block,
-    size_t block_count
-) {
-    // Mock implementation
-    (void)flash;
-    (void)start_block;
-    (void)block_count;
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::format(const FSConfig* config) {
-    if (config) {
-        config_ = *config;
-    }
-    // Mock format
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::mount() {
-    if (mounted_) return Ok<FSStatus>();
-    // Mock mount
-    mounted_ = true;
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::unmount() {
-    if (!mounted_) return Ok<FSStatus>();
-    // Mock unmount
-    mounted_ = false;
-    return Ok<FSStatus>();
-}
-
-inline Result<FileHandle, FSStatus> FileSystem::open(const char* path, FileMode mode) {
-    (void)path;
-    (void)mode;
-    // Mock open
-    if (open_files_ >= MAX_OPEN_FILES) {
-        return Err<FileHandle, FSStatus>(FSStatus::TOO_MANY_OPEN_FILES);
-    }
-    open_files_++;
-    FileHandle handle;
-    handle.is_open_ = true;
-    return Ok<FileHandle, FSStatus>(std::move(handle));
-}
-
-inline Result<void, FSStatus> FileSystem::close(FileHandle& handle) {
-    (void)handle;
-    // Mock close
-    if (open_files_ > 0) open_files_--;
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::remove(const char* path) {
-    (void)path;
-    // Mock remove
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::rename(const char* old_path, const char* new_path) {
-    (void)old_path;
-    (void)new_path;
-    // Mock rename
-    return Ok<FSStatus>();
-}
-
-inline Result<FileStats, FSStatus> FileSystem::stat(const char* path) {
-    (void)path;
-    // Mock stat
-    return Ok<FileStats, FSStatus>(FileStats{});
-}
-
-inline bool FileSystem::exists(const char* path) {
-    (void)path;
-    // Mock exists
-    return false;
-}
-
-inline Result<int, FSStatus> FileSystem::readFile(const char* path, void* buffer, size_t size) {
-    (void)path;
-    (void)buffer;
-    (void)size;
-    // Mock read
-    return Ok<int, FSStatus>(0);
-}
-
-inline Result<void, FSStatus> FileSystem::writeFile(const char* path, const void* buffer, size_t size) {
-    (void)path;
-    (void)buffer;
-    (void)size;
-    // Mock write
-    return Ok<FSStatus>();
-}
-
-// Directory operations mock
-inline Result<DirHandle, FSStatus> FileSystem::opendir(const char* path) {
-    (void)path;
-    return Ok<DirHandle, FSStatus>(DirHandle{});
-}
-
-inline Result<void, FSStatus> FileSystem::closedir(DirHandle& handle) {
-    (void)handle;
-    return Ok<FSStatus>();
-}
-
-inline Result<DirEntry, FSStatus> FileSystem::readdir(DirHandle& handle) {
-    (void)handle;
-    return Err<DirEntry, FSStatus>(FSStatus::OK); // End of dir
-}
-
-inline Result<void, FSStatus> FileSystem::mkdir(const char* path) {
-    (void)path;
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::rmdir(const char* path) {
-    (void)path;
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::listdir(
-    const char* path,
-    std::function<void(const char* name, bool is_dir)> callback
-) {
-    (void)path;
-    (void)callback;
-    return Ok<FSStatus>();
-}
-
-inline Result<void, FSStatus> FileSystem::walk(
-    const char* path,
-    std::function<void(const char* path, const char** dirs, size_t num_dirs,
-                      const char** files, size_t num_files)> callback
-) {
-    (void)path;
-    (void)callback;
-    return Ok<FSStatus>();
-}
-
-// Attributes mock
-inline Result<int, FSStatus> FileSystem::setattr(const char* path, const char* name,
-                                                 const void* buffer, size_t size) {
-    (void)path;
-    (void)name;
-    (void)buffer;
-    (void)size;
-    return Ok<int, FSStatus>(0);
-}
-
-inline Result<int, FSStatus> FileSystem::getattr(const char* path, const char* name,
-                                                 void* buffer, size_t size) {
-    (void)path;
-    (void)name;
-    (void)buffer;
-    (void)size;
-    return Ok<int, FSStatus>(0);
-}
-
-// Stats
-inline FSStats FileSystem::getStats() const {
-    return stats_;
-}
-
-inline WearStats FileSystem::getWearStats() const {
-    return wear_stats_;
-}
-
-// System operations
-inline Result<void, FSStatus> FileSystem::sync() {
-    return Ok<FSStatus>();
-}
-
-inline bool FileSystem::checkAndRepair() {
-    return true;
-}
-
-// ============================================================================
-// Convenience Functions
-// ============================================================================
-
-inline const char* fsStatusToString(FSStatus status) {
-    switch (status) {
-        case FSStatus::OK: return "OK";
-        case FSStatus::ERROR: return "ERROR";
-        case FSStatus::NOT_FOUND: return "NOT_FOUND";
-        case FSStatus::EXISTS: return "EXISTS";
-        case FSStatus::NOT_DIR: return "NOT_DIR";
-        case FSStatus::IS_DIR: return "IS_DIR";
-        case FSStatus::NOT_EMPTY: return "NOT_EMPTY";
-        case FSStatus::NO_SPACE: return "NO_SPACE";
-        case FSStatus::NOT_MOUNTED: return "NOT_MOUNTED";
-        case FSStatus::INVALID_PATH: return "INVALID_PATH";
-        case FSStatus::NAME_TOO_LONG: return "NAME_TOO_LONG";
-        case FSStatus::TOO_MANY_OPEN_FILES: return "TOO_MANY_OPEN_FILES";
-        case FSStatus::CORRUPT: return "CORRUPT";
-        case FSStatus::NOT_SUPPORTED: return "NOT_SUPPORTED";
-        default: return "UNKNOWN";
-    }
-}
-
-inline bool normalizePath(const char* path, char* normalized, size_t size) {
-    (void)path;
-    (void)normalized;
-    (void)size;
-    // Mock
-    return true;
-}
-
-inline bool splitPath(const char* path, char* dir_path, size_t dir_size,
-                      char* filename, size_t fname_size) {
-    (void)path;
-    (void)dir_path;
-    (void)dir_size;
-    (void)filename;
-    (void)fname_size;
-    // Mock
-    return true;
-}
 
 } // namespace filesystem
 } // namespace mka
+
+// Include implementation (mock for host, real LittleFS when USE_LITTLEFS is defined)
+#include "file_system_littlefs.hpp"
 
 #endif // FILE_SYSTEM_HPP

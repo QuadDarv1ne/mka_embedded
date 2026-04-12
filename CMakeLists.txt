@@ -125,6 +125,8 @@ set(SYSTEM_SOURCES
     src/cpp/systems/memory_pool.hpp
     src/cpp/systems/telemetry.hpp
     src/cpp/systems/file_system.hpp
+    src/cpp/systems/block_device.hpp
+    src/cpp/systems/file_system_littlefs.hpp
     src/cpp/systems/command_handler.hpp
     src/cpp/systems/param_store.hpp
     src/cpp/systems/watchdog_manager.hpp
@@ -209,7 +211,7 @@ if(USE_LITTLEFS)
     FetchContent_Declare(
         littlefs
         GIT_REPOSITORY https://github.com/littlefs-project/littlefs.git
-        GIT_TAG        v2.5.0
+        GIT_TAG        v2.11.3
     )
     FetchContent_MakeAvailable(littlefs)
 endif()
@@ -282,6 +284,15 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_executable(test_file_system tests/test_file_system.cpp)
     target_link_libraries(test_file_system mka_core GTest::gtest_main)
     add_test(NAME test_file_system COMMAND test_file_system)
+
+    # Тест LittleFS файловой системы (с реальной LittleFS)
+    add_executable(test_littlefs tests/test_littlefs.cpp)
+    target_link_libraries(test_littlefs mka_systems GTest::gtest_main)
+    if(USE_LITTLEFS)
+        target_link_libraries(test_littlefs littlefs)
+        target_compile_definitions(test_littlefs PRIVATE USE_LITTLEFS)
+    endif()
+    add_test(NAME test_littlefs COMMAND test_littlefs)
 
     # Тест SGP4 орбитального пропагатора
     add_executable(test_sgp4 tests/test_sgp4.cpp)
