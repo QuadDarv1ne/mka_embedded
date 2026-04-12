@@ -388,6 +388,11 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_sun_sensor mka_core GTest::gtest_main)
     add_test(NAME test_sun_sensor COMMAND test_sun_sensor)
 
+    # Негативные тесты SGP4
+    add_executable(test_sgp4_negative tests/test_sgp4_negative.cpp)
+    target_link_libraries(test_sgp4_negative mka_ml GTest::gtest_main)
+    add_test(NAME test_sgp4_negative COMMAND test_sgp4_negative)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
