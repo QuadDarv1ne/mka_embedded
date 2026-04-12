@@ -378,6 +378,16 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_memory_pool_stress mka_core GTest::gtest_main)
     add_test(NAME test_memory_pool_stress COMMAND test_memory_pool_stress)
 
+    # Тест Radio драйвера
+    add_executable(test_radio tests/test_radio.cpp)
+    target_link_libraries(test_radio mka_core GTest::gtest_main)
+    add_test(NAME test_radio COMMAND test_radio)
+
+    # Тест Sun Sensor драйвера
+    add_executable(test_sun_sensor tests/test_sun_sensor.cpp)
+    target_link_libraries(test_sun_sensor mka_core GTest::gtest_main)
+    add_test(NAME test_sun_sensor COMMAND test_sun_sensor)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
