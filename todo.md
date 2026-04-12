@@ -739,6 +739,13 @@
   - ❌ test_file_system: 4/24 passed (проблемы с mock FS API)
   - ❌ test_eeprom: 10/11 passed (ZeroSizeWrite failed)
 
+### Выполнено (12 апреля 2026 — SDR проверка)
+- ✅ **SDR# установка и настройка** — SDR# v1921 установлен в C:\SDRSharp
+- ✅ **RTL-SDR V4 драйверы** — rtlsdr.dll и SDRSharp.RTLSDR.dll настроены
+- ✅ **SDRSharp.config** — обновлён для RTL-SDR (iqSource=1)
+- ⚠️ **RTL-SDR V4 USB драйвер** — Windows не распознаёт устройство (сбой дескриптора)
+- ⚠️ **Требуется Zadig** — установка WinUSB драйвера для RTL-SDR V4
+
 ### Приоритетные задачи для следующей итерации
 1. **Исправить test_file_system** — mock FS не поддерживает file handles, seek, directory operations
 2. **Исправить test_eeprom** — ZeroSizeWrite возвращает ошибку вместо Ok
