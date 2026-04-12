@@ -55,6 +55,29 @@
 
 ---
 
+## ✅ Файловая система LittleFS (Апрель 2026)
+
+- [x] **block_device.hpp** — абстрактный слой блочных устройств ✅
+  - [x] IBlockDevice интерфейс (init, deinit, read, program, erase, sync)
+  - [x] MemoryBlockDevice — RAM-backed mock для хост-тестирования
+  - [x] CallbackBlockDevice — обёртка для callback-функций
+  - [x] Wear leveling статистика (erase count per block)
+  - [x] 8 unit-тестов (100% покрытие)
+- [x] **file_system_littlefs.hpp** — полноценная mock-реализация FileSystem ✅
+  - [x] FileHandle: open, close, read, write, seek, truncate, flush
+  - [x] FileSystem: configure, mount, unmount, format
+  - [x] Файловые операции: readFile, writeFile, remove, rename, stat, exists
+  - [x] Директории: mkdir, rmdir, listdir, opendir/closedir/readdir
+  - [x] Атрибуты: setattr, getattr
+  - [x] Статистика: getStats, getWearStats
+  - [x] Поддержка реальной LittleFS через `#ifdef USE_LITTLEFS`
+  - [x] Интеграция с file_system.hpp
+- [x] **test_littlefs.cpp** — 21 юнит-тест ✅
+  - [x] BlockDevice: init, read/write, erase, bounds, erase count, callback, reset, status string
+  - [x] FileSystem: configure, mkdir, write/read, file handles, rename, remove, listdir, stats, multiple files, append, truncate
+
+---
+
 ## ✅ Новые драйверы и алгоритмы (Апрель 2026)
 
 - [x] **HMC5883L** — 3-осевой магнитометр ✅
