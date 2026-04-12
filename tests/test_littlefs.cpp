@@ -454,9 +454,11 @@ TEST(FileSystemTest, MultipleFiles) {
     block_dev.init();
     
     fs.configure(&block_dev);
+    fs.format();
     fs.mount();
-    
-    // Create multiple files
+
+    // Create directory and multiple files
+    fs.mkdir("/test");
     for (int i = 0; i < 20; i++) {
         std::string path = "/test/file_" + std::to_string(i) + ".txt";
         std::string data = "Content of file " + std::to_string(i);

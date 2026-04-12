@@ -199,35 +199,45 @@ template<size_t Size>
 class LogBuffer {
 public:
     bool push(const LogEntry& entry) {
+        std::lock_guard<std::mutex> lock(mutex_);
         entries_[head_] = entry;
         head_ = (head_ + 1) % Size;
         if (count_ < Size) count_++;
         return true;
     }
-    
+
     bool pop(LogEntry& entry) {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (count_ == 0) return false;
         size_t tail = (head_ + Size - count_) % Size;
         entry = entries_[tail];
         count_--;
         return true;
     }
-    
+
     bool get(size_t index, LogEntry& entry) const {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (index >= count_) return false;
         size_t actualIndex = (head_ + Size - count_ + index) % Size;
         entry = entries_[actualIndex];
         return true;
     }
-    
-    size_t size() const { return count_; }
+
+    size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return count_;
+    }
     size_t capacity() const { return Size; }
-    void clear() { count_ = 0; head_ = 0; }
-    
+    void clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        count_ = 0; head_ = 0;
+    }
+
 private:
     std::array<LogEntry, Size> entries_{};
     size_t head_ = 0;
     size_t count_ = 0;
+    mutable std::mutex mutex_;
 };
 
 // ============================================================================
@@ -245,10 +255,25 @@ public:
     }
     
     void setConfig(const LoggerConfig& config) {
+        std::lock_guard<std::mutex> lock(mutex_);
         config_ = config;
+    }
+
+    /**
+     * @brief Сбросить состояние логгера (для тестирования)
+     */
+    void reset() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        buffer_.clear();
+        outputCount_ = 0;
+        for (size_t i = 0; i < MAX_OUTPUTS; i++) {
+            outputs_[i] = nullptr;
+        }
+        config_ = LoggerConfig{};
     }
     
     void addOutput(ILogOutput* output) {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (outputCount_ < MAX_OUTPUTS) {
             outputs_[outputCount_++] = output;
         }

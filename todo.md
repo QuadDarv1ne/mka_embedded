@@ -747,10 +747,27 @@
 - ⚠️ **Требуется Zadig** — установка WinUSB драйвера для RTL-SDR V4
 
 ### Приоритетные задачи для следующей итерации
-1. **Исправить test_file_system** — mock FS не поддерживает file handles, seek, directory operations
-2. **Исправить test_eeprom** — ZeroSizeWrite возвращает ошибку вместо Ok
-3. **Включить обратно отключенные тесты** — обновить под актуальный API
-4. **Добавить mock для FreeRTOS** — чтобы test_freertos_wrapper работал на хосте
+1. ~~**Исправить test_file_system**~~ — **ВЫПОЛНЕНО** (24/24 проходят)
+2. ~~**Исправить test_eeprom**~~ — **ВЫПОЛНЕНО** (11/11 проходят)
+3. ~~**Исправить test_littlefs**~~ — **ВЫПОЛНЕНО** (21/21 проходят)
+4. ~~**Исправить test_log_system SEGFAULT**~~ — **ВЫПОЛНЕНО** (24/24 проходят)
+5. **Включить 14 отключенных тестов** — обновить под актуальный API
+6. **Добавить mock для FreeRTOS** — чтобы test_freertos_wrapper работал на хосте
+
+### Исправления (12 апреля 2026 — ТЕСТИРОВАНИЕ)
+- ✅ **EEPROM драйвер** — добавлена проверка `data.empty()` в `read()` и `write()` (ZeroSizeWrite/Read fixed)
+- ✅ **FileSystem configure()** — callback-функции теперь сохраняются (read_func_, prog_func_, и т.д.)
+- ✅ **FileSystem mount()** — проверка `has_callbacks` для callback-устройства
+- ✅ **FileSystem writeFile()** — проверка существования родительской директории
+- ✅ **FileSystem stat()** — проверка `!path || path[0] == '\0'` (InvalidPath fixed)
+- ✅ **FileSystem test_file_system** — `memWriteFile`/`memReadFile` используют `detail::mockStorage()`
+- ✅ **FileSystem test_file_system** — `FileExists` тест вызывает `setupFileSystem()` до проверки
+- ✅ **FileSystem test_file_system** — `fs_.exists()` вместо `memFS_.exists()`
+- ✅ **LittleFS test** — добавлен `fs.format()` и `fs.mkdir("/test")` в MultipleFiles
+- ✅ **LogBuffer** — добавлен `std::mutex` для thread-safety (push/pop/get/size/clear)
+- ✅ **Logger** — добавлен `reset()` для сброса состояния, `addOutput` синхронизирован
+- ✅ **Logger тесты** — `LogThreadSafetyTest` использует `SetUp`/`TearDown` с `reset()`
+- ✅ **27/27 тестов проходят (100%)** — все тесты без ошибок
 
 ### Идеи на будущее
 - Интеграция с ROS 2 для наземных тестов
@@ -768,7 +785,7 @@
 
 ---
 
-*Последнее обновление: 12 апреля 2026 (v2.0.0-dev — аудит завершён, пометки в todo.md)*
+*Последнее обновление: 12 апреля 2026 (v2.0.0-dev — тестирование, 27/27 тестов проходят)*
 
 ---
 

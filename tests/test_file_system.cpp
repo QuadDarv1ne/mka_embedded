@@ -142,13 +142,33 @@ protected:
         return fs_.mount();
     }
 
-    // Вспомогательные функции для работы с in-memory FS
+    // Вспомогательные функции для работы с in-memory FS (используем mockStorage)
     Result<void, FSStatus> memWriteFile(const std::string& path, const void* data, size_t size) {
-        return memFS_.writeFile(path, data, size);
+#ifndef USE_LITTLEFS
+        detail::MockFile file;
+        file.is_directory = false;
+        file.data.assign(static_cast<const uint8_t*>(data),
+                        static_cast<const uint8_t*>(data) + size);
+        detail::mockStorage()[path] = std::move(file);
+        return Ok<FSStatus>();
+#else
+        (void)path; (void)data; (void)size;
+        return Err<FSStatus>(FSStatus::NOT_SUPPORTED);
+#endif
     }
 
     Result<int, FSStatus> memReadFile(const std::string& path, void* buffer, size_t size) {
-        return memFS_.readFile(path, buffer, size);
+#ifndef USE_LITTLEFS
+        auto& storage = detail::mockStorage();
+        auto it = storage.find(path);
+        if (it == storage.end()) return Err<int, FSStatus>(FSStatus::NOT_FOUND);
+        size_t toRead = std::min(size, it->second.data.size());
+        std::memcpy(buffer, it->second.data.data(), toRead);
+        return Ok<int, FSStatus>(static_cast<int>(toRead));
+#else
+        (void)path; (void)buffer; (void)size;
+        return Err<int, FSStatus>(FSStatus::NOT_SUPPORTED);
+#endif
     }
 };
 
@@ -227,13 +247,16 @@ TEST_F(FileSystemTest, OverwriteFile) {
 }
 
 TEST_F(FileSystemTest, FileExists) {
-    EXPECT_FALSE(memFS_.exists("/test.txt"));
-
-    const char* data = "data";
-    auto result = memWriteFile("/test.txt", data, 4);
+    auto result = setupFileSystem();
     ASSERT_TRUE(result.isOk());
 
-    EXPECT_TRUE(memFS_.exists("/test.txt"));
+    EXPECT_FALSE(fs_.exists("/test.txt"));
+
+    const char* data = "data";
+    auto writeResult = memWriteFile("/test.txt", data, 4);
+    ASSERT_TRUE(writeResult.isOk());
+
+    EXPECT_TRUE(fs_.exists("/test.txt"));
 }
 
 // ============================================================================
@@ -389,7 +412,7 @@ TEST_F(FileSystemTest, RenameFile) {
     EXPECT_TRUE(renameResult.isOk());
 
     // Проверить что новый файл существует
-    EXPECT_TRUE(memFS_.exists("/new_name.txt"));
+    EXPECT_TRUE(fs_.exists("/new_name.txt"));
 }
 
 TEST_F(FileSystemTest, RenameMoveToDirectory) {
@@ -479,7 +502,7 @@ TEST_F(FileSystemTest, MultipleFiles) {
     // Проверить что все существуют
     for (int i = 0; i < 10; ++i) {
         std::string path = "/file_" + std::to_string(i) + ".txt";
-        EXPECT_TRUE(memFS_.exists(path));
+        EXPECT_TRUE(fs_.exists(path.c_str()));
     }
 }
 

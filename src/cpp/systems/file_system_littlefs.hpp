@@ -205,8 +205,12 @@ inline Result<void, FSStatus> FileSystem::configure(IBlockDevice* block_device) 
 }
 
 inline Result<void, FSStatus> FileSystem::configure(
-    BlockDeviceReadFunc, BlockDeviceProgFunc, 
-    BlockDeviceEraseFunc, BlockDeviceSyncFunc) {
+    BlockDeviceReadFunc read_func, BlockDeviceProgFunc prog_func,
+    BlockDeviceEraseFunc erase_func, BlockDeviceSyncFunc sync_func) {
+    read_func_ = std::move(read_func);
+    prog_func_ = std::move(prog_func);
+    erase_func_ = std::move(erase_func);
+    sync_func_ = std::move(sync_func);
     return Ok<FSStatus>();
 }
 
@@ -225,7 +229,9 @@ inline Result<void, FSStatus> FileSystem::format(const FSConfig* config) {
 
 inline Result<void, FSStatus> FileSystem::mount() {
     if (mounted_) return Ok<FSStatus>();
-    if (!block_device_ && !callback_device_) {
+    // Проверка: либо block device, либо callback-устройства, либо callback-функции
+    bool has_callbacks = (read_func_ && prog_func_ && erase_func_);
+    if (!block_device_ && !callback_device_ && !has_callbacks) {
         return Err<void, FSStatus>(FSStatus::NOT_MOUNTED);
     }
     mounted_ = true;
@@ -320,6 +326,7 @@ inline Result<void, FSStatus> FileSystem::rename(const char* old_path, const cha
 
 inline Result<FileStats, FSStatus> FileSystem::stat(const char* path) {
     if (!mounted_) return Err<FileStats, FSStatus>(FSStatus::NOT_MOUNTED);
+    if (!path || path[0] == '\0') return Err<FileStats, FSStatus>(FSStatus::INVALID_PATH);
 #ifndef USE_LITTLEFS
     auto& storage = detail::mockStorage();
     auto it = storage.find(std::string(path));
@@ -365,9 +372,20 @@ inline Result<int, FSStatus> FileSystem::readFile(const char* path, void* buffer
 inline Result<void, FSStatus> FileSystem::writeFile(const char* path, const void* buffer, size_t size) {
     if (!mounted_) return Err<void, FSStatus>(FSStatus::NOT_MOUNTED);
 #ifndef USE_LITTLEFS
+    // Проверка существования родительской директории
+    std::string p(path);
+    size_t lastSlash = p.find_last_of('/');
+    if (lastSlash != std::string::npos && lastSlash > 0) {
+        std::string parentDir = p.substr(0, lastSlash);
+        auto& storage = detail::mockStorage();
+        auto it = storage.find(parentDir);
+        if (it == storage.end() || !it->second.is_directory) {
+            return Err<void, FSStatus>(FSStatus::NOT_FOUND);
+        }
+    }
     detail::MockFile file;
     file.is_directory = false;
-    file.data.assign(static_cast<const uint8_t*>(buffer), 
+    file.data.assign(static_cast<const uint8_t*>(buffer),
                      static_cast<const uint8_t*>(buffer) + size);
     detail::mockStorage()[std::string(path)] = std::move(file);
     stats_.write_count++;

@@ -378,6 +378,16 @@ TEST(LogBoundaryTest, AllLevels) {
 // Тесты thread-safety
 // ============================================================================
 
+class LogThreadSafetyTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        Logger::instance().reset();
+    }
+    void TearDown() override {
+        Logger::instance().reset();
+    }
+};
+
 class MockThreadSafeOutput : public ILogOutput {
 public:
     void write(const LogEntry& entry, const char* formatted) override {
@@ -389,7 +399,7 @@ public:
     std::atomic<size_t> write_count_{0};
 };
 
-TEST(LogThreadSafetyTest, ConcurrentLogging) {
+TEST_F(LogThreadSafetyTest, ConcurrentLogging) {
     auto& logger = Logger::instance();
     MockThreadSafeOutput output;
 
@@ -424,7 +434,7 @@ TEST(LogThreadSafetyTest, ConcurrentLogging) {
     EXPECT_GE(output.write_count_.load(), 0);  // Хотя бы некоторые дошли
 }
 
-TEST(LogThreadSafetyTest, MultipleOutputsConcurrent) {
+TEST_F(LogThreadSafetyTest, MultipleOutputsConcurrent) {
     auto& logger = Logger::instance();
     MockThreadSafeOutput output1, output2, output3;
 

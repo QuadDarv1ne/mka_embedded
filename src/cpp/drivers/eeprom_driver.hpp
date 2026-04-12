@@ -103,6 +103,10 @@ public:
      * @brief Чтение массива данных
      */
     bool read(uint16_t address, std::span<uint8_t> data) {
+        // Проверка на пустые данные
+        if (data.empty()) {
+            return false;
+        }
         // Защита от integer overflow: используем безопасную проверку
         if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
@@ -114,6 +118,10 @@ public:
      * @brief Запись массива данных (с учётом границ страниц)
      */
     bool write(uint16_t address, std::span<const uint8_t> data) {
+        // Проверка на пустые данные
+        if (data.empty()) {
+            return false;
+        }
         // Защита от integer overflow
         if (data.size() > TOTAL_SIZE || static_cast<uint32_t>(address) + data.size() > TOTAL_SIZE) {
             return false;
