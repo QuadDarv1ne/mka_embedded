@@ -174,10 +174,19 @@ public:
     void deallocate(void* ptr) {
         if (!ptr) return;
         if (!isValidPointer(ptr)) return;  // Проверка границ пула
+        
+        // Проверка выравнивания указателя (важно для ARM/STM32)
+        constexpr size_t ALIGNMENT = alignof(BlockHeader);
+        if ((reinterpret_cast<uintptr_t>(ptr) % ALIGNMENT) != 0) {
+            return;  // Невыровненный указатель — потенциальная ошибка
+        }
 
         BlockHeader* block = static_cast<BlockHeader*>(ptr) - 1;
         if (block->allocated == false) return;  // Double free защита
-
+        
+        // Проверка что order валиден
+        if (block->order > MAX_ORDER) return;  // Повреждённый заголовок
+        
         block->allocated = false;
 
         // Попытка объединения (coalescing) с соседними блоками
@@ -229,6 +238,12 @@ private:
     };
     static_assert(sizeof(BlockHeader) == 16, "BlockHeader must be 16 bytes for alignment");
     static_assert(alignof(BlockHeader) <= 8, "BlockHeader alignment must be <= 8");
+    
+    // Проверка размера пула
+    static_assert(MAX_ORDER <= 16, "MAX_ORDER must be <= 16 to prevent overflow");
+    static_assert(MIN_BLOCK_SIZE >= alignof(BlockHeader), 
+                  "MIN_BLOCK_SIZE must be >= BlockHeader alignment");
+    static_assert(sizeof(pool_) >= 4096, "Pool must be large enough for practical use");
 
     struct FreeList {
         BlockHeader* head = nullptr;
@@ -247,6 +262,12 @@ private:
         }
         // Обнуление всей памяти пула
         std::memset(pool_.data(), 0, pool_.size());
+        
+        // Ограничиваем totalSize размером пула
+        if (totalSize > pool_.size()) {
+            totalSize = pool_.size();
+        }
+        
         // Инициализация всего пула как одного большого свободного блока
         if (totalSize >= sizeof(BlockHeader) + MIN_BLOCK_SIZE) {
             uint8_t order = MAX_ORDER;
@@ -265,6 +286,7 @@ private:
             block->next = nullptr;
             freeLists_[order].head = block;
             freeLists_[order].count = 1;
+            totalSize_ = totalSize;
         }
     }
     
@@ -296,6 +318,13 @@ private:
             block->order = fromOrder - 1;
             block->allocated = false;
             block->next = nullptr;
+            
+            // Второй блок тоже добавляем в свободный список
+            second->order = fromOrder - 1;
+            second->allocated = false;
+            second->next = freeLists_[fromOrder - 1].head;
+            freeLists_[fromOrder - 1].head = second;
+            freeLists_[fromOrder - 1].count++;
 
             // Рекурсивная проверка с защитой от переполнения стека
             if (fromOrder - 1 <= MAX_ORDER) {

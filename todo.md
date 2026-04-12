@@ -612,43 +612,47 @@
 - ✅ **Blocking вызовы** — все методы имеют timeout и retry логику
 - ✅ **Static assertions** — compile-time валидация размеров типов и структур
 
-### Аудит качества (12 апреля 2026 — ЗАВЕРШЁН + ИСПРАВЛЕНИЯ БАГОВ)
-- ✅ **ВСЕ КРИТИЧЕСКИЕ ПРОБЕЛЫ ИСПРАВЛЕНЫ:**
+### Аудит качества (12 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
+- ⚠️ **Обнаружены критические пробелы в тестах:**
   - FileSystem: 18 из ~25 тестов DISABLED ✅ ИСПРАВЛЕНО
-  - CANopen: только проверка констант ✅ ИСПРАВЛЕНО
-  - sensors_drivers.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО
-  - radio_driver.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО
-  - eeprom_driver.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО
-  - sun_sensor.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО
-  - span.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО
-  - Memory Pool: нет стресс-тестов ✅ ИСПРАВЛЕНО
-  - SGP4: нет негативных тестов ✅ ИСПРАВЛЕНО
-  - FDIR: нет интеграционных тестов ✅ ИСПРАВЛЕНО
-  - Watchdog Manager: нет полных тестов ✅ ИСПРАВЛЕНО
-  - Result utility: нет полных тестов ✅ ИСПРАВЛЕНО
-  - Callback utility: нет полных тестов ✅ ИСПРАВЛЕНО
-  - OTA: тест отключен ✅ ВКЛЮЧЁН
-  - FreeRTOS wrapper: тест отключен ✅ ВКЛЮЧЁН
-- ✅ **КРИТИЧЕСКИЕ БАГИ ИСПРАВЛЕНЫ:**
-  - **auto_actualization.hpp:** dangling pointer в registerDataSource() — заменён const char* на char[][]
-  - **health_monitor.hpp:** uint32_t wrap при проверке интервала и newErrors
-  - **task_scheduler.hpp:** деление на ноль в isTaskReady() (period=0) и calculateTaskPower() (duration=0)
-  - **moscow_time.hpp:** неточный алгоритм fromUnixTimestamp() (цикл while с фиксированным 30-дневным месяцем)
-  - **moscow_time.hpp:** дублирующий вызов fromUnixTimestamp в MSKDateTime::now()
-  - **moscow_time.hpp:** валидация дат без учёта реального кол-ва дней в месяце
-  - **moscow_time.hpp:** unsigned underflow при обратном ходе часов (NTP коррекция)
-  - **auto_actualization.hpp:** unsigned underflow в getActualizationStats()
-  - **command_handler.hpp:** unsigned wrap в unregisterCommand() при commandCount_ == 0
-  - **param_store.hpp:** buffer overflow в deserialize() при entries_[j].size > sizeof(ParamValue)
-  - **param_store.hpp:** отсутствие ограничения count <= MAX_PARAMS
-  - **adcs_algorithms.hpp:** UKF matrixInverse3x3() для 6x6 матрицы (диагональная аппроксимация → полный Гаусс-Жордан)
-- ✅ **ФИНАЛЬНАЯ СТАТИСТИКА (ВСЕГО):**
-  - **40 тестовых файлов** с **450+ тестами**
-  - Создано 16 новых тестовых файлов
-  - Исправлено 12 критических багов
-  - Обновлён README.md с полной структурой проекта
-- ✅ **СИНХРОНИЗИРОВАНО:** origin/main обновлён
-- ✅ **СТАТУС:** Проект готов к релизу v2.1.0
+  - CANopen: только проверка констант, нет тестов NMT/SDO/PDO ✅ ИСПРАВЛЕНО
+  - sensors_drivers.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_sensors.cpp создан)
+  - radio_driver.hpp: НЕТ ТЕСТОВ — отложено (требует Mock UART)
+  - eeprom_driver.hpp: НЕТ ТЕСТОВ — отложено
+  - sun_sensor.hpp: НЕТ ТЕСТОВ — отложено
+  - span.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_span.cpp создан)
+- ✅ **ВЫПОЛНЕНО:**
+  - Включены все DISABLED тесты FileSystem (21 тест)
+  - Переписаны тесты CANopen с 6 до 30+ тестов (NMT, SDO, PDO, Emergency)
+  - Создан test_sensors.cpp для BMI160, LIS3MDL, BMP388, LSM6DSO
+  - Создан test_span.cpp для Span utility
+  - Создан test_adcs_negative.cpp с 30+ негативными тестами (NaN, Inf, extreme)
+  - Добавлены моки MockI2C и MockSPI для тестирования драйверов
+  - Добавлены stress-тесты со случайными данными
+  - Исправлены баги memory_pool.hpp (выравнивание, splitBlock, static_assert)
+- ✅ **СИНХРОНИЗИРОВАНО:**
+  - origin/dev обновлён
+  - origin/main обновлён (merge dev → main выполнен)
+- ✅ **ГОТОВО:** Все изменения отправлены и синхронизированы
+
+### Исправления багов (12 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
+- ✅ **ИСПРАВЛЕНО 16 КРИТИЧЕСКИХ БАГОВ:**
+  - **auto_actualization.hpp:** dangling pointer → char[][]
+  - **health_monitor.hpp:** uint32_t wrap → безопасная разность
+  - **task_scheduler.hpp:** деление на ноль → проверка period/duration > 0
+  - **moscow_time.hpp:** алгоритм дат → алгоритм Гаусса
+  - **moscow_time.hpp:** дублирующий вызов → убран
+  - **moscow_time.hpp:** валидация дат → проверка дней в месяце
+  - **moscow_time.hpp:** unsigned underflow → защита от обратного хода
+  - **auto_actualization.hpp:** unsigned underflow → проверка >=
+  - **command_handler.hpp:** unsigned wrap → проверка count == 0
+  - **param_store.hpp:** buffer overflow → проверка size <= sizeof(ParamValue)
+  - **param_store.hpp:** нет ограничения count → count <= MAX_PARAMS
+  - **adcs_algorithms.hpp:** UKF matrix inversion → полный Гаусс-Жордан
+  - **memory_pool.hpp:** выравнивание указателя → проверка ALIGNMENT
+  - **memory_pool.hpp:** повреждённый order → проверка order <= MAX_ORDER
+  - **memory_pool.hpp:** потеря блока → добавлен second в freeLists
+  - **memory_pool.hpp:** totalSize > pool_.size() → ограничение
 
 ### Идеи на будущее
 - Интеграция с ROS 2 для наземных тестов
