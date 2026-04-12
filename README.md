@@ -64,6 +64,15 @@ mka_embedded/
 │       └── hil/
 │           └── hil_framework.py          # HIL тестирование
 ├── tests/                                # Юнит-тесты (40 файлов, 450+ тестов)
+├── scripts/                                # SDR скрипты и утилиты
+│   ├── sdr_capture_enhanced.py             # Улучшенный приём и анализ сигналов
+│   ├── sdr_noaa.py                         # Приём метеоспутников NOAA (APT)
+│   ├── sdr_ax25.py                         # Приём AX.25 пакетов (APRS)
+│   ├── sdr_scanner.py                      # Сканер спектра
+│   ├── sdr_antenna.py                      # Калькулятор антенн
+│   ├── test_rtlsdr.py                      # Тест RTL-SDR устройства
+│   ├── SDR_README.md                       # Документация по SDR скриптам
+│   └── sdr_direwolf.conf                   # Конфигурация Dire Wolf
 ├── exercises/
 │   └── labs.md                           # Практические задания
 ├── cheatsheets/
@@ -182,6 +191,39 @@ Fault Detection, Isolation and Recovery:
 - Симулятор `ADCS` (ориентация)
 - Инъекция неисправностей
 - Сценарии тестирования
+
+#### SDR инструменты (`scripts/`)
+
+**Приём и анализ радиосигналов для CubeSat:**
+
+| Скрипт | Назначение |
+|--------|------------|
+| `sdr_capture_enhanced.py` | Универсальный приём с FFT, SNR, детекцией пиков |
+| `sdr_noaa.py` | Приём APT изображений с NOAA спутников |
+| `sdr_ax25.py` | Приём APRS пакетов (AX.25) |
+| `sdr_scanner.py` | Сканирование спектра |
+| `sdr_antenna.py` | Калькулятор антенн |
+
+**Примеры использования:**
+
+```bash
+# Приём ISS (145.8 МГц)
+python scripts\sdr_capture_enhanced.py --freq 145.8 --plot
+
+# Приём NOAA 19
+python scripts\sdr_noaa.py --sat noaa19
+
+# Мониторинг APRS
+python scripts\sdr_ax25.py --monitor --decode
+
+# Сканирование VHF диапазона
+python scripts\sdr_scanner.py --start 137 --stop 146
+
+# Расчёт антенны для 145.8 МГц
+python scripts\sdr_antenna.py --freq 145.8
+```
+
+**Подробнее:** См. [scripts/SDR_README.md](scripts/SDR_README.md)
 
 ### Документация
 
