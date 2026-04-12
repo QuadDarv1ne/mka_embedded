@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <array>
 #include <type_traits>
+#include <stdexcept>
 
 namespace mka {
 
@@ -34,7 +35,7 @@ public:
     using pointer = T*;
     using const_pointer = const T*;
     using iterator = pointer;
-    using const_iterator = const_pointer;
+    using const_iterator = const T*;
 
     static constexpr size_type extent = static_cast<size_type>(-1);
 
@@ -79,16 +80,27 @@ public:
     // Доступ к элементам
     // ========================================================================
 
-    constexpr reference operator[](size_type idx) const noexcept {
+    constexpr reference operator[](size_type idx) const {
+#ifdef MKA_SPAN_CHECK_BOUNDS
+        if (idx >= size_) throw std::out_of_range("span index out of range");
+#endif
         return data_[idx];
     }
 
-    constexpr reference front() const noexcept {
+    constexpr reference front() const {
+#ifdef MKA_SPAN_CHECK_BOUNDS
+        if (size_ == 0) throw std::out_of_range("span is empty");
+#endif
         return data_[0];
     }
-    constexpr reference back() const noexcept {
+    
+    constexpr reference back() const {
+#ifdef MKA_SPAN_CHECK_BOUNDS
+        if (size_ == 0) throw std::out_of_range("span is empty");
+#endif
         return data_[size_ - 1];
     }
+    
     constexpr pointer data() const noexcept { return data_; }
 
     // ========================================================================
