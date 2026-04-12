@@ -283,21 +283,23 @@ public:
     virtual Status transmitWithRetry(std::span<const uint8_t> data,
                                      uint32_t timeoutMs,
                                      uint8_t maxRetries = 3) {
+        if (maxRetries == 0) maxRetries = 1;  // Гарантируем хотя бы одну попытку
+        
         uint8_t attempts = 0;
         while (attempts < maxRetries) {
             Status status = transmit(data, timeoutMs);
-            
+
             if (status == Status::OK) {
                 return Status::OK;
             }
-            
+
             // Повтор при timeout или перегрузке
             if (status == Status::TIMEOUT || status == Status::BUSY) {
                 attempts++;
                 continue;
             }
-            
-            return status;
+
+            return status;  // Не восстанавливаемая ошибка
         }
         return Status::TIMEOUT;
     }
@@ -307,20 +309,22 @@ public:
                                     uint32_t timeoutMs,
                                     size_t& received,
                                     uint8_t maxRetries = 3) {
+        if (maxRetries == 0) maxRetries = 1;  // Гарантируем хотя бы одну попытку
+        
         uint8_t attempts = 0;
         while (attempts < maxRetries) {
             Status status = receive(buffer, timeoutMs, received);
-            
-            if (status == Status::OK && received > 0) {
-                return Status::OK;
+
+            if (status == Status::OK) {
+                return Status::OK;  // OK даже если received == 0 (таймаут)
             }
-            
+
             if (status == Status::TIMEOUT) {
                 attempts++;
                 continue;
             }
-            
-            return status;
+
+            return status;  // Не восстанавливаемая ошибка
         }
         return Status::TIMEOUT;
     }
@@ -426,21 +430,23 @@ public:
                                      std::span<uint8_t> rxData,
                                      uint32_t timeoutMs,
                                      uint8_t maxRetries = 3) {
+        if (maxRetries == 0) maxRetries = 1;  // Гарантируем хотя бы одну попытку
+        
         uint8_t attempts = 0;
         while (attempts < maxRetries) {
             Status status = transfer(txData, rxData, timeoutMs);
-            
+
             if (status == Status::OK) {
                 return Status::OK;
             }
-            
+
             // Проверка на переполнение FIFO
             if (isFIFOOverflow()) {
                 clearFIFO();
                 attempts++;
                 continue;
             }
-            
+
             // Другая ошибка — возвращаем сразу
             return status;
         }
@@ -553,21 +559,23 @@ public:
                                           std::span<const uint8_t> data,
                                           uint32_t timeoutMs,
                                           uint8_t maxRetries = 3) {
+        if (maxRetries == 0) maxRetries = 1;  // Гарантируем хотя бы одну попытку
+        
         uint8_t attempts = 0;
         while (attempts < maxRetries) {
             Status status = writeRegister(devAddress, regAddress, data, timeoutMs);
-            
+
             if (status == Status::OK) {
                 return Status::OK;
             }
-            
+
             // Попытка восстановления шины при ошибке
             if (status == Status::BUSY || status == Status::TIMEOUT) {
                 recoverBus();
                 attempts++;
                 continue;
             }
-            
+
             return status;
         }
         return Status::TIMEOUT;
@@ -579,20 +587,22 @@ public:
                                          std::span<uint8_t> data,
                                          uint32_t timeoutMs,
                                          uint8_t maxRetries = 3) {
+        if (maxRetries == 0) maxRetries = 1;  // Гарантируем хотя бы одну попытку
+        
         uint8_t attempts = 0;
         while (attempts < maxRetries) {
             Status status = readRegister(devAddress, regAddress, data, timeoutMs);
-            
+
             if (status == Status::OK) {
                 return Status::OK;
             }
-            
+
             if (status == Status::BUSY || status == Status::TIMEOUT) {
                 recoverBus();
                 attempts++;
                 continue;
             }
-            
+
             return status;
         }
         return Status::TIMEOUT;
