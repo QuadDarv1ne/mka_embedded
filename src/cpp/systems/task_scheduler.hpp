@@ -379,12 +379,17 @@ public:
         }
         
         // Проверка периодичности
-        if (task.scheduleType == ScheduleType::PERIODIC || 
+        if (task.scheduleType == ScheduleType::PERIODIC ||
             task.scheduleType == ScheduleType::ORBITAL) {
-            OrbitTime elapsed = currentTime - task.startTime;
-            OrbitTime nextTime = task.startTime + task.period * 
-                static_cast<OrbitTime>(static_cast<int>(elapsed / task.period) + 1);
+            // Защита от деления на ноль
+            if (task.period <= 0.0) {
+                return false;
+            }
             
+            OrbitTime elapsed = currentTime - task.startTime;
+            OrbitTime nextTime = task.startTime + task.period *
+                static_cast<OrbitTime>(static_cast<int>(elapsed / task.period) + 1);
+
             if (currentTime < nextTime) {
                 // Уже выполнялась в этом цикле
                 if (task.lastExecutionTime > currentTime - task.period) {
@@ -565,8 +570,12 @@ private:
         for (size_t i = 0; i < task.numResources; i++) {
             power += task.resources[i].powerConsumption;
         }
-        return task.estimatedEnergy / task.duration > power ? 
-               task.estimatedEnergy / task.duration : power;
+        // Защита от деления на ноль
+        if (task.duration > 0.0f) {
+            float avgPower = task.estimatedEnergy / task.duration;
+            return avgPower > power ? avgPower : power;
+        }
+        return power;
     }
 };
 

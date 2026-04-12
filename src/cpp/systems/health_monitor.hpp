@@ -185,16 +185,20 @@ public:
         auto* driver = drivers_[index];
         const auto& config = configs_[index];
         
-        // Проверяем интервал
-        if (currentTimeMs - lastCheckTime_[index] < config.checkIntervalMs) {
+        // Проверяем интервал (с защитой от wrap uint32_t)
+        uint32_t elapsed = (currentTimeMs >= lastCheckTime_[index]) ? 
+                          (currentTimeMs - lastCheckTime_[index]) : 0;
+        if (elapsed < config.checkIntervalMs) {
             return;
         }
-        
+
         lastCheckTime_[index] = currentTimeMs;
-        
+
         // Получаем количество ошибок
         uint32_t errorCount = driver->getErrorCount();
-        uint32_t newErrors = errorCount - lastErrorCounts_[index];
+        // Защита от wrap: если счётчик сброшен между проверками
+        uint32_t newErrors = (errorCount >= lastErrorCounts_[index]) ? 
+                            (errorCount - lastErrorCounts_[index]) : errorCount;
         
         // Если ошибок нет, сбрасываем серьёзность
         if (newErrors == 0 && driver->isHealthy()) {

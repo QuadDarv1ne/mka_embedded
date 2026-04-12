@@ -292,12 +292,19 @@ public:
         if (!name || sourceCount_ >= MAX_DATA_SOURCES) {
             return false;
         }
+
+        // Копируем имя в буфер вместо сохранения указателя (предотвращает dangling pointer)
+        size_t nameLen = std::strlen(name);
+        if (nameLen >= MAX_NAME_LENGTH - 1) {
+            nameLen = MAX_NAME_LENGTH - 1;  // Обрезаем если слишком длинное
+        }
+        std::memcpy(names_[sourceCount_], name, nameLen);
+        names_[sourceCount_][nameLen] = '\0';
         
-        names_[sourceCount_] = name;
         configs_[sourceCount_] = config;
         lastUpdateTimes_[sourceCount_] = 0;
         updateCounts_[sourceCount_] = 0;
-        
+
         sourceCount_++;
         return true;
     }
@@ -320,8 +327,9 @@ public:
         }
         
         uint64_t currentTime = utcSource_();
-        uint64_t age = currentTime - lastUpdateTime;
-        
+        // Защита от обратного хода часов (NTP коррекция, сбой RTC)
+        uint64_t age = (currentTime >= lastUpdateTime) ? (currentTime - lastUpdateTime) : 0;
+
         lastUpdateTimes_[index] = lastUpdateTime;
         
         const auto& config = configs_[index];
@@ -482,8 +490,9 @@ public:
     
 private:
     std::function<uint64_t()> utcSource_;
-    
-    const char* names_[MAX_DATA_SOURCES];
+
+    static constexpr size_t MAX_NAME_LENGTH = 64;
+    char names_[MAX_DATA_SOURCES][MAX_NAME_LENGTH];
     DataFreshnessConfig configs_[MAX_DATA_SOURCES];
     uint64_t lastUpdateTimes_[MAX_DATA_SOURCES];
     uint32_t updateCounts_[MAX_DATA_SOURCES];
