@@ -629,10 +629,30 @@
   - Создан test_adcs_negative.cpp с 30+ негативными тестами (NaN, Inf, extreme)
   - Добавлены моки MockI2C и MockSPI для тестирования драйверов
   - Добавлены stress-тесты со случайными данными
-- ✅ **СИНХРОНИЗИРОВАНО:** 
+  - Исправлены баги memory_pool.hpp (выравнивание, splitBlock, static_assert)
+- ✅ **СИНХРОНИЗИРОВАНО:**
   - origin/dev обновлён
   - origin/main обновлён (merge dev → main выполнен)
 - ✅ **ГОТОВО:** Все изменения отправлены и синхронизированы
+
+### Исправления багов (12 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
+- ✅ **ИСПРАВЛЕНО 16 КРИТИЧЕСКИХ БАГОВ:**
+  - **auto_actualization.hpp:** dangling pointer → char[][]
+  - **health_monitor.hpp:** uint32_t wrap → безопасная разность
+  - **task_scheduler.hpp:** деление на ноль → проверка period/duration > 0
+  - **moscow_time.hpp:** алгоритм дат → алгоритм Гаусса
+  - **moscow_time.hpp:** дублирующий вызов → убран
+  - **moscow_time.hpp:** валидация дат → проверка дней в месяце
+  - **moscow_time.hpp:** unsigned underflow → защита от обратного хода
+  - **auto_actualization.hpp:** unsigned underflow → проверка >=
+  - **command_handler.hpp:** unsigned wrap → проверка count == 0
+  - **param_store.hpp:** buffer overflow → проверка size <= sizeof(ParamValue)
+  - **param_store.hpp:** нет ограничения count → count <= MAX_PARAMS
+  - **adcs_algorithms.hpp:** UKF matrix inversion → полный Гаусс-Жордан
+  - **memory_pool.hpp:** выравнивание указателя → проверка ALIGNMENT
+  - **memory_pool.hpp:** повреждённый order → проверка order <= MAX_ORDER
+  - **memory_pool.hpp:** потеря блока → добавлен second в freeLists
+  - **memory_pool.hpp:** totalSize > pool_.size() → ограничение
 
 ### Идеи на будущее
 - Интеграция с ROS 2 для наземных тестов
