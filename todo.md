@@ -638,10 +638,14 @@
   - **moscow_time.hpp:** валидация дат без учёта реального кол-ва дней в месяце
   - **moscow_time.hpp:** unsigned underflow при обратном ходе часов (NTP коррекция)
   - **auto_actualization.hpp:** unsigned underflow в getActualizationStats()
+  - **command_handler.hpp:** unsigned wrap в unregisterCommand() при commandCount_ == 0
+  - **param_store.hpp:** buffer overflow в deserialize() при entries_[j].size > sizeof(ParamValue)
+  - **param_store.hpp:** отсутствие ограничения count <= MAX_PARAMS
+  - **adcs_algorithms.hpp:** UKF matrixInverse3x3() для 6x6 матрицы (диагональная аппроксимация → полный Гаусс-Жордан)
 - ✅ **ФИНАЛЬНАЯ СТАТИСТИКА (ВСЕГО):**
   - **40 тестовых файлов** с **450+ тестами**
   - Создано 16 новых тестовых файлов
-  - Исправлено 8 критических багов
+  - Исправлено 12 критических багов
   - Обновлён README.md с полной структурой проекта
 - ✅ **СИНХРОНИЗИРОВАНО:** origin/main обновлён
 - ✅ **СТАТУС:** Проект готов к релизу v2.1.0
