@@ -323,6 +323,16 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_actualization_integration mka_systems mka_ml GTest::gtest_main)
     add_test(NAME test_actualization_integration COMMAND test_actualization_integration)
 
+    # Тест сенсоров с моками (BMI160, LIS3MDL, BMP388, LSM6DSO)
+    add_executable(test_sensors tests/test_sensors.cpp)
+    target_link_libraries(test_sensors mka_core GTest::gtest_main)
+    add_test(NAME test_sensors COMMAND test_sensors)
+
+    # Тест Span utility
+    add_executable(test_span tests/test_span.cpp)
+    target_link_libraries(test_span mka_core GTest::gtest_main)
+    add_test(NAME test_span COMMAND test_span)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
