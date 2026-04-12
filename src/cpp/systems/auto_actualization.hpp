@@ -262,11 +262,11 @@ public:
         invalidCount = 0;
         
         uint64_t currentTime = utcSource_ ? utcSource_() : 0;
-        
+
         for (size_t i = 0; i < calculationCount_; i++) {
-            // Рассчитываем статус напрямую
-            uint64_t age = (lastActualizationTimes_[i] > 0 && currentTime > 0) ? 
-                           (currentTime - lastActualizationTimes_[i]) : 
+            // Рассчитываем статус напрямую (с защитой от обратного хода часов)
+            uint64_t age = (lastActualizationTimes_[i] > 0 && currentTime >= lastActualizationTimes_[i]) ?
+                           (currentTime - lastActualizationTimes_[i]) :
                            UINT64_MAX;
             
             const auto& config = configs_[i];

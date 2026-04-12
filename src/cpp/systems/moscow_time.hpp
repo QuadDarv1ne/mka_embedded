@@ -52,9 +52,8 @@ struct UTCDateTime {
     
     /// Получить Unix timestamp (секунды от epoch)
     uint64_t toUnixTimestamp() const {
-        // Упрощённый расчёт дней от epoch (1970-01-01)
-        // Для полной реализации нужен более сложный алгоритм
-        uint64_t days = 0;
+        // Корректный алгоритм конвертации даты в Unix timestamp
+        // Основан на алгоритме Гаусса
         int y = year;
         int m = month;
         
@@ -63,45 +62,58 @@ struct UTCDateTime {
             y--;
             m += 12;
         }
-        
-        // Дни от года
-        days = 365 * y + y / 4 - y / 100 + y / 400;
-        
-        // Дни от месяца (приближённо)
+
+        // Дни от года 0 до текущей даты
+        int32_t days = 365 * y + y / 4 - y / 100 + y / 400;
+        // Дни от начала года до текущего месяца (формула для календаря с марта)
         days += (153 * (m - 3) + 2) / 5;
-        
-        // Дни от дня
-        days += day - 1;
-        
+        // Добавляем день месяца
+        days += day;
+
         // Корректировка на Unix epoch (1970-01-01)
+        // 719468 - количество дней от 0000-03-01 до 1970-01-01
         days -= 719468;
-        
-        return days * 86400ULL + hour * 3600ULL + minute * 60ULL + second;
+
+        return static_cast<uint64_t>(days) * 86400ULL + hour * 3600ULL + minute * 60ULL + second;
     }
-    
+
     /// Установить из Unix timestamp
     void fromUnixTimestamp(uint64_t timestamp) {
-        uint64_t days = timestamp / 86400;
+        int64_t days = static_cast<int64_t>(timestamp / 86400);
         uint64_t seconds = timestamp % 86400;
-        
-        hour = seconds / 3600;
-        minute = (seconds % 3600) / 60;
-        second = seconds % 60;
+
+        hour = static_cast<uint8_t>(seconds / 3600);
+        minute = static_cast<uint8_t>((seconds % 3600) / 60);
+        second = static_cast<uint8_t>(seconds % 60);
         millisecond = 0;
-        
-        // Обратное преобразование дней в дату
-        // Упрощённый алгоритм
+
+        // Обратное преобразование: Unix days -> civil date
+        // Сдвиг к эпохе 0000-03-01
         days += 719468;
         
-        year = static_cast<uint16_t>((days * 400) / 146097 + 1);
-        uint32_t dayOfYear = days - (365 * year + year / 4 - year / 100 + year / 400);
+        // Эра (400-летний цикл = 146097 дней)
+        int32_t era = (days >= 0 ? days : days - 146096) / 146097;
+        uint32_t dayOfEra = static_cast<uint32_t>(days - era * 146097);
         
-        month = 1;
-        while (dayOfYear > 30) {
-            dayOfYear -= 30;
-            month++;
+        // Год внутри эры (0-399)
+        uint32_t yearOfEra = (dayOfEra - dayOfEra / 1460 + dayOfEra / 36524 - dayOfEra / 146096) / 365;
+        
+        // Год
+        year = static_cast<uint16_t>(yearOfEra + era * 400);
+        
+        // День года (0-365)
+        uint32_t dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100);
+        
+        // Месяц и день
+        // Обратная формула: mp = (5 * dayOfYear + 2) / 153
+        uint32_t mp = (5 * dayOfYear + 2) / 153;
+        month = static_cast<uint8_t>(mp + (mp < 10 ? 3 : -9));
+        day = static_cast<uint8_t>(dayOfYear - (153 * mp + 2) / 5 + 1);
+        
+        // Коррекция года если месяц Январь/Февраль
+        if (month <= 2) {
+            year++;
         }
-        day = static_cast<uint8_t>(dayOfYear + 1);
     }
     
     /// Строковое представление "YYYY-MM-DD HH:MM:SS"
@@ -138,23 +150,39 @@ struct MSKDateTime : public UTCDateTime {
         // Получаем текущее время из системы
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
-        
+
         MSKDateTime msk;
-        msk.fromUnixTimestamp(static_cast<uint64_t>(time_t));
-        
-        // Добавляем смещение МСК
+        // Конвертируем UTC в МСК (UTC+3)
         uint64_t mskTime = static_cast<uint64_t>(time_t) + MoscowTimeConstants::UTC_OFFSET_SECONDS;
         msk.fromUnixTimestamp(mskTime);
-        
+
         return msk;
     }
     
     /// Проверка валидности
     bool isValid() const {
-        return year >= 2000 && year <= 2100 &&
-               month >= 1 && month <= 12 &&
-               day >= 1 && day <= 31 &&
-               hour < 24 && minute < 60 && second < 60;
+        if (year < 2000 || year > 2100) return false;
+        if (month < 1 || month > 12) return false;
+        if (day < 1) return false;
+        if (hour >= 24 || minute >= 60 || second >= 60) return false;
+        
+        // Проверка количества дней в месяце
+        uint8_t daysInMonth;
+        switch (month) {
+            case 1: case 3: case 5: case 7: case 8: case 10: case 12:
+                daysInMonth = 31; break;
+            case 4: case 6: case 9: case 11:
+                daysInMonth = 30; break;
+            case 2: {
+                // Високосный год
+                bool isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+                daysInMonth = isLeap ? 29 : 28;
+                break;
+            }
+            default: return false;
+        }
+        
+        return day <= daysInMonth;
     }
 };
 
