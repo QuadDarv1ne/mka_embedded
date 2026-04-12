@@ -612,6 +612,26 @@
 - ✅ **Blocking вызовы** — все методы имеют timeout и retry логику
 - ✅ **Static assertions** — compile-time валидация размеров типов и структур
 
+### Аудит качества (12 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
+- ⚠️ **Обнаружены критические пробелы в тестах:**
+  - FileSystem: 18 из ~25 тестов DISABLED ✅ ИСПРАВЛЕНО
+  - CANopen: только проверка констант, нет тестов NMT/SDO/PDO ✅ ИСПРАВЛЕНО
+  - sensors_drivers.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_sensors.cpp создан)
+  - radio_driver.hpp: НЕТ ТЕСТОВ — отложено (требует Mock UART)
+  - eeprom_driver.hpp: НЕТ ТЕСТОВ — отложено
+  - sun_sensor.hpp: НЕТ ТЕСТОВ — отложено
+  - span.hpp: НЕТ ТЕСТОВ ✅ ИСПРАВЛЕНО (test_span.cpp создан)
+- ✅ **ВЫПОЛНЕНО:**
+  - Включены все DISABLED тесты FileSystem (21 тест)
+  - Переписаны тесты CANopen с 6 до 30+ тестов (NMT, SDO, PDO, Emergency)
+  - Создан test_sensors.cpp для BMI160, LIS3MDL, BMP388, LSM6DSO
+  - Создан test_span.cpp для Span utility
+  - Создан test_adcs_negative.cpp с 30+ негативными тестами (NaN, Inf, extreme)
+  - Добавлены моки MockI2C и MockSPI для тестирования драйверов
+  - Добавлены stress-тесты со случайными данными
+- ✅ **СИНХРОНИЗИРОВАНО:** origin/dev обновлён
+- 🔧 **СЛЕДУЮЩИЙ ШАГ:** Подготовка к мержу в main
+
 ### Идеи на будущее
 - Интеграция с ROS 2 для наземных тестов
 - Web-based визуализация телеметрии

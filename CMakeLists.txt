@@ -353,6 +353,21 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_sliding_mode mka_algorithms GTest::gtest_main)
     add_test(NAME test_sliding_mode COMMAND test_sliding_mode)
 
+    # Тест сенсоров с моками (BMI160, LIS3MDL, BMP388, LSM6DSO)
+    add_executable(test_sensors tests/test_sensors.cpp)
+    target_link_libraries(test_sensors mka_core GTest::gtest_main)
+    add_test(NAME test_sensors COMMAND test_sensors)
+
+    # Тест Span utility
+    add_executable(test_span tests/test_span.cpp)
+    target_link_libraries(test_span mka_core GTest::gtest_main)
+    add_test(NAME test_span COMMAND test_span)
+
+    # Тест негативных сценариев ADCS (NaN, Inf, extreme)
+    add_executable(test_adcs_negative tests/test_adcs_negative.cpp)
+    target_link_libraries(test_adcs_negative mka_algorithms mka_ml GTest::gtest_main)
+    add_test(NAME test_adcs_negative COMMAND test_adcs_negative)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
