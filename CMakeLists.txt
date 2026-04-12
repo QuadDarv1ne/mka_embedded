@@ -368,6 +368,16 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_adcs_negative mka_algorithms mka_ml GTest::gtest_main)
     add_test(NAME test_adcs_negative COMMAND test_adcs_negative)
 
+    # Тест EEPROM/FRAM драйверов
+    add_executable(test_eeprom tests/test_eeprom.cpp)
+    target_link_libraries(test_eeprom mka_core GTest::gtest_main)
+    add_test(NAME test_eeprom COMMAND test_eeprom)
+
+    # Стресс-тесты Memory Pool
+    add_executable(test_memory_pool_stress tests/test_memory_pool_stress.cpp)
+    target_link_libraries(test_memory_pool_stress mka_core GTest::gtest_main)
+    add_test(NAME test_memory_pool_stress COMMAND test_memory_pool_stress)
+
     # Тест OTA обновлений - временно отключен (требует mock реализаций)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_core GTest::gtest_main)
