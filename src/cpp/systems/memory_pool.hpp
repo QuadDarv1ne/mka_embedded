@@ -241,9 +241,8 @@ private:
     
     // Проверка размера пула
     static_assert(MAX_ORDER <= 16, "MAX_ORDER must be <= 16 to prevent overflow");
-    static_assert(MIN_BLOCK_SIZE >= alignof(BlockHeader), 
+    static_assert(MIN_BLOCK_SIZE >= alignof(BlockHeader),
                   "MIN_BLOCK_SIZE must be >= BlockHeader alignment");
-    static_assert(sizeof(pool_) >= 4096, "Pool must be large enough for practical use");
 
     struct FreeList {
         BlockHeader* head = nullptr;
@@ -253,6 +252,9 @@ private:
     size_t totalSize_ = 0;
     std::array<uint8_t, MAX_ORDER * MIN_BLOCK_SIZE * 256> pool_{};
     FreeList freeLists_[MAX_ORDER + 1];
+
+    // Проверка размера пула (после объявления pool_)
+    static_assert(sizeof(pool_) >= 4096, "Pool must be large enough for practical use");
 
     void initPool(size_t totalSize) {
         // Инициализация свободных списков

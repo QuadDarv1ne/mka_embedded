@@ -53,7 +53,7 @@ public:
         const auto& fileData = it->second.data;
         size_t toRead = std::min(size, fileData.size());
         std::memcpy(buffer, fileData.data(), toRead);
-        return Ok<int>(static_cast<int>(toRead));
+        return Ok<int, FSStatus>(static_cast<int>(toRead));
     }
 
     bool exists(const std::string& path) const {
@@ -63,7 +63,7 @@ public:
     Result<void, FSStatus> remove(const std::string& path) {
         auto it = files_.find(path);
         if (it == files_.end()) {
-            return Err<FSStatus>(FSStatus::NOT_FOUND);
+            return Err<void, FSStatus>(FSStatus::NOT_FOUND);
         }
         files_.erase(it);
         return Ok<FSStatus>();
@@ -80,7 +80,7 @@ public:
     Result<void, FSStatus> rename(const std::string& oldPath, const std::string& newPath) {
         auto it = files_.find(oldPath);
         if (it == files_.end()) {
-            return Err<FSStatus>(FSStatus::NOT_FOUND);
+            return Err<void, FSStatus>(FSStatus::NOT_FOUND);
         }
         auto file = std::move(it->second);
         file.path = newPath;
@@ -118,13 +118,16 @@ protected:
         // Настраиваем FileSystem на использование mock block device
         auto result = fs_.configure(
             [this](uint32_t block, void* buffer, size_t size) -> Result<int, FSStatus> {
-                return Ok<int>(0);  // Mock read
+                (void)block; (void)buffer; (void)size;
+                return Ok<int, FSStatus>(0);  // Mock read
             },
             [this](uint32_t block, const void* buffer, size_t size) -> Result<int, FSStatus> {
-                return Ok<int>(0);  // Mock write
+                (void)block; (void)buffer; (void)size;
+                return Ok<int, FSStatus>(0);  // Mock write
             },
             [this](uint32_t block) -> Result<int, FSStatus> {
-                return Ok<int>(0);  // Mock erase
+                (void)block;
+                return Ok<int, FSStatus>(0);  // Mock erase
             },
             [this]() -> Result<void, FSStatus> {
                 return Ok<FSStatus>();  // Mock sync

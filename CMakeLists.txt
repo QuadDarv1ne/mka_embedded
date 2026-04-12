@@ -103,6 +103,7 @@ set(HAL_SOURCES
 # Драйверы
 set(DRIVER_SOURCES
     src/cpp/drivers/sensors_drivers.hpp
+    src/cpp/drivers/new_sensors_drivers.hpp
     src/cpp/drivers/eeprom_driver.hpp
     src/cpp/drivers/radio_driver.hpp
     src/cpp/drivers/sun_sensor.hpp
@@ -133,6 +134,12 @@ set(SYSTEM_SOURCES
     src/cpp/systems/ota_updater.hpp
     src/cpp/systems/ota_updater.cpp
     src/cpp/systems/canopen.hpp
+    src/cpp/systems/health_monitor.hpp
+    src/cpp/systems/moscow_time.hpp
+    src/cpp/systems/auto_actualization.hpp
+    src/cpp/systems/actualization_integration.hpp
+    src/cpp/systems/task_scheduler.hpp
+    src/cpp/systems/power_manager.hpp
 )
 
 # Утилиты
@@ -433,16 +440,6 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
     target_link_libraries(test_freertos_wrapper mka_rtos GTest::gtest_main)
     add_test(NAME test_freertos_wrapper COMMAND test_freertos_wrapper)
-
-    # Тест OTA обновлений - временно отключен (требует mock реализаций)
-    # add_executable(test_ota tests/test_ota.cpp)
-    # target_link_libraries(test_ota mka_core GTest::gtest_main)
-    # add_test(NAME test_ota COMMAND test_ota)
-
-    # Тест FreeRTOS wrapper - отключен (требует FreeRTOS для хост-билда)
-    # add_executable(test_freertos_wrapper tests/test_freertos_wrapper.cpp)
-    # target_link_libraries(test_freertos_wrapper mka_core GTest::gtest_main)
-    # add_test(NAME test_freertos_wrapper COMMAND test_freertos_wrapper)
 endif()
 
 # ============================================================================
