@@ -522,7 +522,7 @@ private:
             }
             return status;
         } else {
-            hal::Status status = i2c_->readRegister(address_, reg, data, len, 100);
+            hal::Status status = i2c_->readRegister(address_, reg, {data, len}, 100);
             if (status != hal::Status::OK) {
                 errorCount_++;
                 if (status == hal::Status::TIMEOUT) timeoutCount_++;
@@ -530,7 +530,7 @@ private:
             return status;
         }
     }
-    
+
     hal::Status writeRegister(uint8_t reg, const uint8_t* data, size_t len) {
         hal::Status status;
         if (useSPI_) {
@@ -542,7 +542,7 @@ private:
             }
             spi_->deselectDevice();
         } else {
-            status = i2c_->writeRegister(address_, reg, data, len, 100);
+            status = i2c_->writeRegister(address_, reg, {data, len}, 100);
         }
         
         if (status != hal::Status::OK) {
@@ -685,39 +685,39 @@ public:
     
     hal::Status init(const Config& config = {}) {
         config_ = config;
-        
+
         // Проверка ID
         uint8_t whoAmI;
-        if (i2c_.readRegister(address_, Register::WHO_AM_I, &whoAmI, 1, 100) 
+        if (i2c_.readRegister(address_, Register::WHO_AM_I, {&whoAmI, 1}, 100)
             != hal::Status::OK) {
             return hal::Status::ERROR;
         }
-        
+
         if (whoAmI != WHO_AM_I_VALUE) {
             return hal::Status::ERROR;
         }
-        
+
         // CTRL_REG1: OM (operating mode) + DO (data rate)
         uint8_t ctrl1 = (0x03 << 2) | config.odr;  // UHP mode
-        if (i2c_.writeRegister(address_, Register::CTRL_REG1, &ctrl1, 1, 100) != hal::Status::OK) {
+        if (i2c_.writeRegister(address_, Register::CTRL_REG1, {&ctrl1, 1}, 100) != hal::Status::OK) {
             errorCount_++;
         }
 
         // CTRL_REG2: FS (full scale)
         uint8_t ctrl2 = static_cast<uint8_t>(config.scale);
-        if (i2c_.writeRegister(address_, Register::CTRL_REG2, &ctrl2, 1, 100) != hal::Status::OK) {
+        if (i2c_.writeRegister(address_, Register::CTRL_REG2, {&ctrl2, 1}, 100) != hal::Status::OK) {
             errorCount_++;
         }
 
         // CTRL_REG3: MD (mode) - continuous
         uint8_t ctrl3 = config.mode;
-        if (i2c_.writeRegister(address_, Register::CTRL_REG3, &ctrl3, 1, 100) != hal::Status::OK) {
+        if (i2c_.writeRegister(address_, Register::CTRL_REG3, {&ctrl3, 1}, 100) != hal::Status::OK) {
             errorCount_++;
         }
 
         // CTRL_REG4: OMZ (Z-axis operating mode)
         uint8_t ctrl4 = 0x0C;  // UHP for Z
-        if (i2c_.writeRegister(address_, Register::CTRL_REG4, &ctrl4, 1, 100) != hal::Status::OK) {
+        if (i2c_.writeRegister(address_, Register::CTRL_REG4, {&ctrl4, 1}, 100) != hal::Status::OK) {
             errorCount_++;
         }
 
@@ -2120,7 +2120,7 @@ private:
             }
             spi_->deselectDevice();
         } else {
-            status = i2c_->readRegister(address_, reg, data, len, 100);
+            status = i2c_->readRegister(address_, reg, {data, len}, 100);
         }
         
         if (status != hal::Status::OK) {
@@ -2141,9 +2141,9 @@ private:
             }
             spi_->deselectDevice();
         } else {
-            status = i2c_->writeRegister(address_, reg, data, len, 100);
+            status = i2c_->writeRegister(address_, reg, {data, len}, 100);
         }
-        
+
         if (status != hal::Status::OK) {
             errorCount_++;
             if (status == hal::Status::TIMEOUT) timeoutCount_++;
@@ -2704,7 +2704,7 @@ private:
             }
             return status;
         } else {
-            hal::Status status = i2c_->readRegister(address_, reg, data, len, 100);
+            hal::Status status = i2c_->readRegister(address_, reg, {data, len}, 100);
             if (status != hal::Status::OK) {
                 errorCount_++;
                 if (status == hal::Status::TIMEOUT) timeoutCount_++;
@@ -2729,7 +2729,7 @@ private:
             }
             return status;
         } else {
-            hal::Status status = i2c_->writeRegister(address_, reg, data, len, 100);
+            hal::Status status = i2c_->writeRegister(address_, reg, {data, len}, 100);
             if (status != hal::Status::OK) {
                 errorCount_++;
                 if (status == hal::Status::TIMEOUT) timeoutCount_++;
