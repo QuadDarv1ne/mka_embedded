@@ -145,8 +145,8 @@ struct CompactEventLogEntry {
         , severity_subsystem((static_cast<uint8_t>(entry.severity) << 4) |
                              static_cast<uint8_t>(entry.subsystem))
         , source(entry.source)
-        , value_scaled(static_cast<int8_t>(entry.value / 10))
-        , threshold_scaled(static_cast<int8_t>(entry.threshold / 10))
+        , value_scaled(clampToInt8(static_cast<int32_t>(entry.value / 10.0f)))
+        , threshold_scaled(clampToInt8(static_cast<int32_t>(entry.threshold / 10.0f)))
         , recovery(entry.recoveryTaken) {}
 
     // Конвертация в полную запись
@@ -157,10 +157,17 @@ struct CompactEventLogEntry {
         full.severity = static_cast<Severity>((severity_subsystem >> 4) & 0x0F);
         full.subsystem = static_cast<Subsystem>(severity_subsystem & 0x0F);
         full.source = source;
-        full.value = value_scaled * 10;
-        full.threshold = threshold_scaled * 10;
+        full.value = value_scaled * 10.0f;
+        full.threshold = threshold_scaled * 10.0f;
         full.recoveryTaken = recovery;
         return full;
+    }
+
+private:
+    static int8_t clampToInt8(int32_t value) {
+        if (value < -128) return -128;
+        if (value > 127) return 127;
+        return static_cast<int8_t>(value);
     }
 };
 
@@ -598,11 +605,20 @@ public:
  */
 class FrozenValueDetector {
 public:
-    FrozenValueDetector(uint32_t thresholdSamples = 10)
-        : thresholdSamples_(thresholdSamples) {}
-    
+    FrozenValueDetector(uint32_t thresholdSamples = 10, float epsilon = 0.0001f)
+        : thresholdSamples_(thresholdSamples), epsilon_(epsilon), initialized_(false) {}
+
     bool check(float value) {
-        if (std::abs(value - lastValue_) < 0.0001f) {
+        // Инициализация при первом вызове
+        if (!initialized_) {
+            lastValue_ = value;
+            initialized_ = true;
+            return false;
+        }
+        
+        // Проверка на неизменность значения (с учётом масштаба)
+        float relativeEpsilon = epsilon_ * (1.0f + std::abs(lastValue_));
+        if (std::abs(value - lastValue_) < relativeEpsilon) {
             unchangedCount_++;
             return unchangedCount_ >= thresholdSamples_;
         } else {
@@ -611,16 +627,19 @@ public:
             return false;
         }
     }
-    
+
     void reset() {
         lastValue_ = 0.0f;
         unchangedCount_ = 0;
+        initialized_ = false;
     }
-    
+
 private:
     float lastValue_ = 0.0f;
     uint32_t unchangedCount_ = 0;
     uint32_t thresholdSamples_;
+    float epsilon_;  // Относительный порог неизменности
+    bool initialized_ = false;  // Флаг первой инициализации
 };
 
 /**
@@ -674,15 +693,23 @@ private:
 class GlitchDetector {
 public:
     GlitchDetector(float threshold, uint32_t glitchWindow = 3)
-        : threshold_(threshold), glitchWindow_(glitchWindow) {}
-    
+        : threshold_(threshold), glitchWindow_(glitchWindow), initialized_(false) {}
+
     bool check(float value) {
+        // Инициализация при первом вызове
+        if (!initialized_) {
+            filteredValue_ = value;
+            initialized_ = true;
+            return false;
+        }
+        
         // Проверка на резкое изменение
         if (std::abs(value - filteredValue_) > threshold_) {
             glitchCount_++;
             if (glitchCount_ >= glitchWindow_) {
                 // Подтверждённый глитч
                 filteredValue_ = value; // Принять новое значение
+                glitchCount_ = 0;
                 return true;
             }
         } else {
@@ -692,17 +719,19 @@ public:
         }
         return false;
     }
-    
+
     void reset() {
         filteredValue_ = 0.0f;
         glitchCount_ = 0;
+        initialized_ = false;
     }
-    
+
 private:
     float filteredValue_ = 0.0f;
     float threshold_;
     uint32_t glitchCount_ = 0;
     uint32_t glitchWindow_;
+    bool initialized_ = false;  // Флаг первой инициализации
 };
 
 } // namespace fdir
