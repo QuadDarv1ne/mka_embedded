@@ -417,7 +417,8 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_test(NAME test_sgp4_negative COMMAND test_sgp4_negative)
 
     # Интеграционные тесты FDIR — временно отключены
-    # API FDIR изменён: checkParameter, getRecentEvents сигнатуры не совпадают
+    # Множественные API несовместимости: checkParameter, getRecentEvents, setRecoveryCallback,
+    # FrozenValueDetector::update, StuckBitDetector::update, GlitchDetector::update удалены/переименованы
     # add_executable(test_fdir_integration tests/test_fdir_integration.cpp)
     # target_link_libraries(test_fdir_integration mka_systems GTest::gtest_main)
     # add_test(NAME test_fdir_integration COMMAND test_fdir_integration)
