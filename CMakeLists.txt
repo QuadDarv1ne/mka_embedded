@@ -382,8 +382,9 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_span mka_core GTest::gtest_main)
     add_test(NAME test_span COMMAND test_span)
 
-    # Тест негативных сценариев ADCS — временно отключен (EKFFilter/UKFFilter удалены, API изменён)
-    # Требуется полный рефакторинг теста под текущий API (MadgwickFilter::updateIMU, PIDController::Config и т.д.)
+    # Тест негативных сценариев ADCS — временно отключен
+    # API не совместим: EKFFilter/UKFFilter удалены, MadgwickFilter::update→updateIMU,
+    # PID/BDot конструкторы требуют Config struct, TRIAD/QUEST estimate API изменён
     # add_executable(test_adcs_negative tests/test_adcs_negative.cpp)
     # target_link_libraries(test_adcs_negative mka_algorithms mka_ml GTest::gtest_main)
     # add_test(NAME test_adcs_negative COMMAND test_adcs_negative)
@@ -415,7 +416,8 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_sgp4_negative mka_ml GTest::gtest_main)
     add_test(NAME test_sgp4_negative COMMAND test_sgp4_negative)
 
-    # Интеграционные тесты FDIR — временно отключены (API не совместим)
+    # Интеграционные тесты FDIR — временно отключены
+    # API FDIR изменён: checkParameter, getRecentEvents сигнатуры не совпадают
     # add_executable(test_fdir_integration tests/test_fdir_integration.cpp)
     # target_link_libraries(test_fdir_integration mka_systems GTest::gtest_main)
     # add_test(NAME test_fdir_integration COMMAND test_fdir_integration)
