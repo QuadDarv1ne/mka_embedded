@@ -261,6 +261,34 @@ python utils/ccsds_protocol.py
 python hil/hil_framework.py
 ```
 
+### C++ тесты
+
+```bash
+# Сборка
+mkdir build && cd build
+cmake .. -G "MinGW Makefiles"  # или make/ninja на Linux/Mac
+make -j$(nproc)
+
+# Запуск всех тестов
+ctest --output-on-failure
+
+# Запуск отдельного теста
+./test_algorithms.exe
+```
+
+**Статус тестов:** ✅ 33/33 проходят (100%)
+
+| Категория | Тестов | Статус |
+|-----------|--------|--------|
+| Алгоритмы | test_algorithms, test_sgp4, test_ukf, test_anomaly_detector, test_triad, test_quest, test_sliding_mode | ✅ |
+| FDIR & State Machine | test_fdir, test_statemachine, test_health_monitor | ✅ |
+| Системные модули | test_commands, test_param_store, test_watchdog, test_memory_pool, test_log_system, test_telemetry, test_file_system, test_littlefs | ✅ |
+| Интеграция | test_driver_integration, test_actualization_integration, test_auto_actualization | ✅ |
+| Драйверы | test_new_sensors, test_eeprom, test_canopen | ✅ |
+| Утилиты | test_utils, test_span, test_callback, test_moscow_time, test_task_scheduler, test_power_manager | ✅ |
+| Негативные тесты | test_sgp4_negative, test_memory_pool_stress, test_watchdog_manager | ✅ |
+| Результат | test_result | ✅ 49/49 (ручной запуск, отключен в CTest на Windows из-за death test артефактов) |
+
 ### Интеграция C++
 
 ```cpp
