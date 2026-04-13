@@ -331,6 +331,17 @@ public:
      */
     bool isInitialized() const { return initialized_; }
 
+    /**
+     * @brief Сброс состояния (для тестов)
+     */
+    void reset() {
+        taskCount_ = 0;
+        virtualWdts_ = {};
+        expireCallback_ = nullptr;
+        initialized_ = false;
+        hwWdt_ = nullptr;
+    }
+
 private:
     IHardwareWatchdog* hwWdt_ = nullptr;
     bool initialized_ = false;

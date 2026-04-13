@@ -418,11 +418,10 @@ if(BUILD_TESTS AND HOST_BUILD)
     # target_link_libraries(test_fdir_integration mka_systems GTest::gtest_main)
     # add_test(NAME test_fdir_integration COMMAND test_fdir_integration)
 
-    # Тест Watchdog Manager — временно отключен (API сильно изменён: нет reset/feedWatchdog/checkTimeouts)
-    # Требуется полный рефакторинг теста под текущий API WatchdogManager
-    # add_executable(test_watchdog_manager tests/test_watchdog_manager.cpp)
-    # target_link_libraries(test_watchdog_manager mka_systems GTest::gtest_main)
-    # add_test(NAME test_watchdog_manager COMMAND test_watchdog_manager)
+    # Тест Watchdog Manager — включен после переписывания под текущий API
+    add_executable(test_watchdog_manager tests/test_watchdog_manager.cpp)
+    target_link_libraries(test_watchdog_manager mka_core GTest::gtest_main)
+    add_test(NAME test_watchdog_manager COMMAND test_watchdog_manager)
 
     # Полные тесты Result utility — включены (49 тестов проходят)
     # На Windows может быть SegFault из-за death тестов - это артефакт
