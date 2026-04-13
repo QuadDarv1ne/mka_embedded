@@ -40,6 +40,13 @@ public:
         : context_(const_cast<void*>(reinterpret_cast<const void*>(func)))
         , invoker_(&invokeFunction<F>) {}
 
+    // Конструктор для non-capturing лямбд
+    template<typename F,
+             std::enable_if_t<std::is_convertible_v<F, Ret(*)(Args...)>, int> = 0>
+    constexpr Callback(F lambda) noexcept
+        : context_(nullptr)
+        , invoker_(invokeLambda<F>) {}
+
     constexpr bool isEmpty() const noexcept { return invoker_ == nullptr; }
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
     constexpr explicit operator bool() const noexcept { return isValid(); }
@@ -91,6 +98,19 @@ private:
         auto* func = reinterpret_cast<F*>(context);
         return func(args...);
     }
+
+    template<typename F>
+    static Ret invokeLambda(void* context, Args... args) {
+        (void)context;
+        F lambda;
+        return lambda(args...);
+    }
+
+    static Ret invokeFuncPtr(void* context, Args... args) {
+        using FuncPtr = Ret(*)(Args...);
+        auto* funcPtr = reinterpret_cast<FuncPtr*>(context);
+        return (*funcPtr)(args...);
+    }
 };
 
 template<typename... Args>
@@ -110,6 +130,13 @@ public:
     constexpr Callback(F* func) noexcept
         : context_(const_cast<void*>(reinterpret_cast<const void*>(func)))
         , invoker_(&invokeFunction<F>) {}
+
+    // Конструктор для non-capturing лямбд
+    template<typename F,
+             std::enable_if_t<std::is_convertible_v<F, void(*)(Args...)>, int> = 0>
+    constexpr Callback(F lambda) noexcept
+        : context_(nullptr)
+        , invoker_(invokeLambda<F>) {}
 
     constexpr bool isEmpty() const noexcept { return invoker_ == nullptr; }
     constexpr bool isValid() const noexcept { return invoker_ != nullptr; }
@@ -160,6 +187,13 @@ private:
     static void invokeFunction(void* context, Args... args) {
         auto* func = reinterpret_cast<F*>(context);
         func(args...);
+    }
+
+    template<typename F>
+    static void invokeLambda(void* context, Args... args) {
+        (void)context;
+        F lambda;
+        lambda(args...);
     }
 };
 

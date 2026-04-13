@@ -431,11 +431,10 @@ if(BUILD_TESTS AND HOST_BUILD)
     add_test(NAME test_result COMMAND test_result)
     set_tests_properties(test_result PROPERTIES TIMEOUT 10)
 
-    # Полные тесты Callback utility — временно отключены
-    # Callback не поддерживает лямбды с захватом (требует trivially copyable)
-    # add_executable(test_callback tests/test_callback.cpp)
-    # target_link_libraries(test_callback mka_core GTest::gtest_main)
-    # add_test(NAME test_callback COMMAND test_callback)
+    # Полные тесты Callback utility — включены после добавления поддержки лямбд
+    add_executable(test_callback tests/test_callback.cpp)
+    target_link_libraries(test_callback mka_core GTest::gtest_main)
+    add_test(NAME test_callback COMMAND test_callback)
 
     # Тест OTA обновлений — временно отключен (отсутствует реализация OTAUpdater::init)
     # add_executable(test_ota tests/test_ota.cpp)
