@@ -343,7 +343,7 @@ public:
     ) {
         uint8_t hash[SHA256_SIZE];
         auto result = calculate(data, size, hash);
-        if (!result.hasValue()) return false;
+        if (!result.isOk()) return false;
         return std::memcmp(hash, expected, SHA256_SIZE) == 0;
     }
 };

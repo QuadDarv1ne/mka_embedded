@@ -436,7 +436,7 @@ if(BUILD_TESTS AND HOST_BUILD)
     # target_link_libraries(test_callback mka_utils GTest::gtest_main)
     # add_test(NAME test_callback COMMAND test_callback)
 
-    # Тест OTA обновлений — временно отключен (API не совместим)
+    # Тест OTA обновлений — временно отключен (отсутствует реализация OTAUpdater::init)
     # add_executable(test_ota tests/test_ota.cpp)
     # target_link_libraries(test_ota mka_systems GTest::gtest_main)
     # add_test(NAME test_ota COMMAND test_ota)
