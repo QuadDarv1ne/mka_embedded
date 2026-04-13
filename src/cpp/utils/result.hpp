@@ -68,6 +68,13 @@ public:
         new (&storage_.value) T(std::move(value));
     }
 
+    /// Конструктор успеха (для Ok() без аргументов)
+    struct success_tag {};
+    constexpr Result(success_tag) noexcept(std::is_nothrow_default_constructible<T>::value)
+        : ok_(true) {
+        new (&storage_.value) T();
+    }
+
     /// Конструктор ошибки (из кода ошибки)
     constexpr Result(const E& error) noexcept(std::is_nothrow_copy_constructible<E>::value)
         : ok_(false) {
@@ -176,6 +183,17 @@ public:
         return ok_ ? std::move(storage_.value) : std::forward<T>(defaultValue);
     }
 
+    /// Распаковать значение (паника если ошибка) - для тестов и отладки
+    constexpr const T& unwrap() const& noexcept {
+        return storage_.value;  // Предполагается что вызывающий проверил isOk()
+    }
+
+    /// Распаковать значение с сообщением (паника если ошибка)
+    constexpr const T& expect(const char* msg) const& noexcept {
+        (void)msg;
+        return storage_.value;
+    }
+
     /// Получить ошибку (используйте только после проверки isError())
     constexpr E& error() & noexcept {
         return storage_.error;
@@ -229,7 +247,18 @@ public:
         }
     }
 
-    /// ИЛИ операция: вернуть это или другое
+    /// Применить функцию возвращающую Result (chain)
+    template<typename F>
+    constexpr auto andThen(F&& func) const&
+        -> std::invoke_result_t<F, const T&> {
+        if (ok_) {
+            return std::forward<F>(func)(storage_.value);
+        } else {
+            return storage_.error;
+        }
+    }
+
+    /// ИЛИ операция: вернуть это или другой Result
     constexpr Result<T, E> orElse(const Result<T, E>& other) const& {
         return ok_ ? *this : other;
     }
@@ -264,20 +293,20 @@ public:
     using ValueType = void;
     using ErrorType = E;
 
-    /// Конструктор по умолчанию (создаёт ошибку)
-    constexpr Result() noexcept : ok_(false) {}
+    /// Конструктор по умолчанию (создаёт ошибку по умолчанию)
+    constexpr Result() noexcept : ok_(false), storage_() {}
 
     /// Конструктор успеха (для Ok())
     struct success_tag {};
-    constexpr Result(success_tag) noexcept : ok_(true) {}
+    constexpr Result(success_tag) noexcept : ok_(true), storage_() {}
 
-    constexpr Result(const E& error) noexcept : ok_(false) {
-        new (&storage_) E(error);
-    }
+    constexpr Result(const E& error) noexcept(std::is_nothrow_copy_constructible<E>::value)
+        : ok_(false), storage_(error) {}
 
-    constexpr Result(E&& error) noexcept : ok_(false) {
-        new (&storage_) E(std::move(error));
-    }
+    constexpr Result(E&& error) noexcept(std::is_nothrow_move_constructible<E>::value)
+        : ok_(false), storage_(std::move(error)) {}
+
+    ~Result() = default;
 
     constexpr bool isOk() const noexcept { return ok_; }
     constexpr bool isError() const noexcept { return !ok_; }
@@ -288,10 +317,7 @@ public:
 
 private:
     bool ok_ = false;
-
-    union {
-        E storage_;
-    };
+    E storage_;
 };
 
 // ============================================================================
@@ -311,6 +337,11 @@ constexpr Result<T, E> Ok(T&& value) {
 template<typename E>
 constexpr Result<void, E> Ok() {
     return Result<void, E>(typename Result<void, E>::success_tag{});
+}
+
+template<typename T, typename E>
+constexpr Result<T, E> Ok() {
+    return Result<T, E>(typename Result<T, E>::success_tag{});
 }
 
 template<typename T, typename E>

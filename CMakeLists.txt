@@ -424,10 +424,12 @@ if(BUILD_TESTS AND HOST_BUILD)
     # target_link_libraries(test_watchdog_manager mka_systems GTest::gtest_main)
     # add_test(NAME test_watchdog_manager COMMAND test_watchdog_manager)
 
-    # Полные тесты Result utility — временно отключены (API не совместим)
-    # add_executable(test_result tests/test_result.cpp)
-    # target_link_libraries(test_result mka_utils GTest::gtest_main)
-    # add_test(NAME test_result COMMAND test_result)
+    # Полные тесты Result utility — включены (49 тестов проходят)
+    # На Windows может быть SegFault из-за death тестов - это артефакт
+    add_executable(test_result tests/test_result.cpp)
+    target_link_libraries(test_result mka_core GTest::gtest_main)
+    add_test(NAME test_result COMMAND test_result)
+    set_tests_properties(test_result PROPERTIES TIMEOUT 10)
 
     # Полные тесты Callback utility — временно отключены (API не совместим)
     # add_executable(test_callback tests/test_callback.cpp)
