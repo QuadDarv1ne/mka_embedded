@@ -377,12 +377,13 @@ if(BUILD_TESTS AND HOST_BUILD)
     # target_link_libraries(test_sensors mka_core GTest::gtest_main)
     # add_test(NAME test_sensors COMMAND test_sensors)
 
-    # Тест Span utility — временно отключен (API span.hpp не совместим)
-    # add_executable(test_span tests/test_span.cpp)
-    # target_link_libraries(test_span mka_core GTest::gtest_main)
-    # add_test(NAME test_span COMMAND test_span)
+    # Тест Span utility — включен после добавления vector конструктора и reverse итераторов
+    add_executable(test_span tests/test_span.cpp)
+    target_link_libraries(test_span mka_core GTest::gtest_main)
+    add_test(NAME test_span COMMAND test_span)
 
-    # Тест негативных сценариев ADCS — временно отключен (API не совместим)
+    # Тест негативных сценариев ADCS — временно отключен (EKFFilter/UKFFilter удалены, API изменён)
+    # Требуется полный рефакторинг теста под текущий API (MadgwickFilter::updateIMU, PIDController::Config и т.д.)
     # add_executable(test_adcs_negative tests/test_adcs_negative.cpp)
     # target_link_libraries(test_adcs_negative mka_algorithms mka_ml GTest::gtest_main)
     # add_test(NAME test_adcs_negative COMMAND test_adcs_negative)
@@ -392,11 +393,10 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_eeprom mka_core GTest::gtest_main)
     add_test(NAME test_eeprom COMMAND test_eeprom)
 
-    # Стресс-тесты Memory Pool — временно отключены
-    # Стресс-тест Memory Pool — временно отключен (API не совместим)
-    # add_executable(test_memory_pool_stress tests/test_memory_pool_stress.cpp)
-    # target_link_libraries(test_memory_pool_stress mka_core GTest::gtest_main)
-    # add_test(NAME test_memory_pool_stress COMMAND test_memory_pool_stress)
+    # Стресс-тесты Memory Pool — включены после исправления API
+    add_executable(test_memory_pool_stress tests/test_memory_pool_stress.cpp)
+    target_link_libraries(test_memory_pool_stress mka_core GTest::gtest_main)
+    add_test(NAME test_memory_pool_stress COMMAND test_memory_pool_stress)
 
     # Тест Radio драйвера — временно отключен (требует CMSIS header cmsis_compiler.h)
     # add_executable(test_radio tests/test_radio.cpp)
@@ -418,7 +418,8 @@ if(BUILD_TESTS AND HOST_BUILD)
     # target_link_libraries(test_fdir_integration mka_systems GTest::gtest_main)
     # add_test(NAME test_fdir_integration COMMAND test_fdir_integration)
 
-    # Тест Watchdog Manager — временно отключен (API не совместим)
+    # Тест Watchdog Manager — временно отключен (API сильно изменён: нет reset/feedWatchdog/checkTimeouts)
+    # Требуется полный рефакторинг теста под текущий API WatchdogManager
     # add_executable(test_watchdog_manager tests/test_watchdog_manager.cpp)
     # target_link_libraries(test_watchdog_manager mka_systems GTest::gtest_main)
     # add_test(NAME test_watchdog_manager COMMAND test_watchdog_manager)

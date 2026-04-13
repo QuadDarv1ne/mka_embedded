@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <array>
+#include <vector>
 #include <type_traits>
 #include <stdexcept>
 
@@ -67,6 +68,19 @@ public:
     constexpr span(T (&arr)[N]) noexcept
         : data_(arr), size_(N) {}
 
+    // Конструктор для C-style массива (const T из non-const массива)
+    template<size_t N, typename U = T, std::enable_if_t<std::is_const_v<U>, int> = 0>
+    constexpr span(std::remove_const_t<T> (&arr)[N]) noexcept
+        : data_(arr), size_(N) {}
+
+    // Конструктор для std::vector (только для non-const T)
+    template<typename U = T, std::enable_if_t<!std::is_const_v<U>, int> = 0>
+    constexpr span(std::vector<T>& vec) noexcept
+        : data_(vec.data()), size_(vec.size()) {}
+
+    constexpr span(const std::vector<std::remove_const_t<T>>& vec) noexcept
+        : data_(vec.data()), size_(vec.size()) {}
+
     // ========================================================================
     // Итераторы
     // ========================================================================
@@ -75,6 +89,14 @@ public:
     constexpr iterator end() const noexcept { return data_ + size_; }
     constexpr const_iterator cbegin() const noexcept { return data_; }
     constexpr const_iterator cend() const noexcept { return data_ + size_; }
+
+    // Reverse итераторы
+    constexpr std::reverse_iterator<iterator> rbegin() const noexcept {
+        return std::reverse_iterator<iterator>(end());
+    }
+    constexpr std::reverse_iterator<iterator> rend() const noexcept {
+        return std::reverse_iterator<iterator>(begin());
+    }
 
     // ========================================================================
     // Доступ к элементам
@@ -126,7 +148,7 @@ public:
 
     constexpr span subspan(size_type offset, size_type count = static_cast<size_type>(-1)) const noexcept {
         if (offset >= size_) {
-            return span(nullptr, 0);  // Пустой span если offset за пределами
+            return span(data_ + offset, size_type{0});  // Пустой span если offset за пределами
         }
         if (count == static_cast<size_type>(-1) || count > size_ - offset) {
             count = size_ - offset;
