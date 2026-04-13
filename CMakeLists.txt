@@ -398,7 +398,8 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_memory_pool_stress mka_core GTest::gtest_main)
     add_test(NAME test_memory_pool_stress COMMAND test_memory_pool_stress)
 
-    # Тест Radio драйвера — временно отключен (требует CMSIS header cmsis_compiler.h)
+    # Тест Radio драйвера — временно отключен
+    # Требует значительного рефакторинга (API mismatch, SysTick, std::span)
     # add_executable(test_radio tests/test_radio.cpp)
     # target_link_libraries(test_radio mka_core GTest::gtest_main)
     # add_test(NAME test_radio COMMAND test_radio)

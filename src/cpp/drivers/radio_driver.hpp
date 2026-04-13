@@ -15,7 +15,7 @@
 #include <array>
 #include <chrono>
 
-#if defined(__GNUC__) && !defined(STM32F4) && !defined(STM32F7) && !defined(STM32H7)
+#if defined(__GNUC__) && !defined(STM32F4) && !defined(STM32F7) && !defined(STM32H7) && !defined(__MINGW32__) && !defined(_WIN32)
 #include <cmsis_compiler.h>  // Для SysTick на bare-metal
 #endif
 
