@@ -404,7 +404,8 @@ if(BUILD_TESTS AND HOST_BUILD)
     # target_link_libraries(test_radio mka_core GTest::gtest_main)
     # add_test(NAME test_radio COMMAND test_radio)
 
-    # Тест Sun Sensor драйвера — временно отключен (требует обновления под текущий API)
+    # Тест Sun Sensor драйвера — временно отключен
+    # IADC интерфейс сложный для мокирования (init, calibrate, readMulti, startContinuous, toVolts)
     # add_executable(test_sun_sensor tests/test_sun_sensor.cpp)
     # target_link_libraries(test_sun_sensor mka_core GTest::gtest_main)
     # add_test(NAME test_sun_sensor COMMAND test_sun_sensor)
