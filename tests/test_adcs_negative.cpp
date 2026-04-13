@@ -19,6 +19,7 @@
 #include "algorithms/adcs_algorithms.hpp"
 
 using namespace mka::algorithms;
+using namespace mka::adcs;
 
 // ============================================================================
 // Quaternion Negative Tests

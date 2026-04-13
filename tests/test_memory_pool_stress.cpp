@@ -17,6 +17,7 @@
 
 #include "systems/memory_pool.hpp"
 
+using namespace mka;
 using namespace mka::memory;
 
 // ============================================================================
@@ -256,60 +257,55 @@ TEST(MemoryPoolStressTest, OverlappingAllocations) {
 // ============================================================================
 
 TEST(FixedBlockPoolStressTest, RapidAllocDealloc) {
-    constexpr size_t blockSize = 64;
-    constexpr size_t blockCount = 100;
-    FixedBlockPool pool(blockSize, blockCount);
-    
+    // FixedBlockPool теперь template с compile-time параметрами
+    FixedBlockPool<64, 100> pool;
+
     std::vector<void*> allocations;
-    
+
     for (int i = 0; i < 1000; ++i) {
         void* ptr = pool.allocate();
         if (ptr != nullptr) {
             allocations.push_back(ptr);
         }
-        
+
         if (!allocations.empty() && i % 3 == 0) {
             pool.deallocate(allocations.back());
             allocations.pop_back();
         }
     }
-    
+
     for (void* ptr : allocations) {
         pool.deallocate(ptr);
     }
 }
 
 TEST(FixedBlockPoolStressTest, ExhaustPool) {
-    constexpr size_t blockSize = 32;
-    constexpr size_t blockCount = 50;
-    FixedBlockPool pool(blockSize, blockCount);
-    
+    FixedBlockPool<32, 50> pool;
+
     std::vector<void*> allocations;
-    
+
     // Выделить все блоки
-    for (size_t i = 0; i < blockCount * 2; ++i) {
+    for (size_t i = 0; i < 100; ++i) {
         void* ptr = pool.allocate();
         if (ptr != nullptr) {
             allocations.push_back(ptr);
         }
     }
-    
-    // Должно выделить ровно blockCount блоков
-    EXPECT_EQ(allocations.size(), blockCount);
-    
+
+    // Должно выделить ровно 50 блоков
+    EXPECT_EQ(allocations.size(), 50u);
+
     for (void* ptr : allocations) {
         pool.deallocate(ptr);
     }
 }
 
 TEST(FixedBlockPoolStressTest, DoubleDealloc) {
-    constexpr size_t blockSize = 64;
-    constexpr size_t blockCount = 10;
-    FixedBlockPool pool(blockSize, blockCount);
-    
+    FixedBlockPool<64, 10> pool;
+
     void* ptr = pool.allocate();
     EXPECT_NE(ptr, nullptr);
-    
+
     pool.deallocate(ptr);
     // Повторное освоболение должно быть безопасным
     pool.deallocate(ptr);

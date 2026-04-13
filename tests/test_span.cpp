@@ -11,6 +11,10 @@
 
 using namespace mka;
 
+// Alias для совместимости с тестами
+template<typename T, std::size_t Extent = std::dynamic_extent>
+using Span = span<T, Extent>;
+
 // ============================================================================
 // Basic Span Tests
 // ============================================================================

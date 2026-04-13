@@ -17,7 +17,7 @@
 
 #include "systems/watchdog_manager.hpp"
 
-using namespace mka::watchdog;
+using namespace mka::wdt;
 
 // ============================================================================
 // Basic Watchdog Tests
