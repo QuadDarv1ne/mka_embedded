@@ -4,6 +4,8 @@
  */
 
 #include "systems/ota_updater.hpp"
+#include <cstring>
+#include <string>
 
 namespace mka {
 namespace ota {
@@ -124,15 +126,15 @@ static void final(SHA256Context* ctx, uint8_t* hash) {
 }
 
 Result<void, OTAError> SHA256::calculate(const void* data, size_t size, uint8_t* output) {
-    if (!data || !output) {
-        return makeError(OTAError::INVALID_PARAMETER);
+    if (!data || !output || size == 0) {
+        return Err<void, OTAError>(OTAError::INVALID_HEADER);
     }
-    
+
     SHA256Context ctx;
     init(&ctx);
     update(&ctx, static_cast<const uint8_t*>(data), size);
     final(&ctx, output);
-    
+
     return Ok<void>();
 }
 

@@ -27,6 +27,17 @@ typedef void* TimerHandle_t;
 typedef void* EventGroupHandle_t;
 typedef void* StreamBufferHandle_t;
 
+// ============================================================================
+// Размеры буферов для FreeRTOS статических объектов
+// Эти значения достаточны для типичной конфигурации FreeRTOS
+// ============================================================================
+constexpr size_t FREERTOS_TASK_BUFFER_SIZE = 128;
+constexpr size_t FREERTOS_QUEUE_BUFFER_SIZE = 80;
+constexpr size_t FREERTOS_SEMAPHORE_BUFFER_SIZE = 40;
+constexpr size_t FREERTOS_MUTEX_BUFFER_SIZE = 40;
+constexpr size_t FREERTOS_TIMER_BUFFER_SIZE = 40;
+constexpr size_t FREERTOS_EVENT_BUFFER_SIZE = 40;
+
 // FreeRTOS API declarations (для компиляции без заголовков FreeRTOS)
 extern "C" {
     // Task API
@@ -170,13 +181,12 @@ private:
     uint32_t priority_;
     TaskFunction func_;
     TaskHandle_t handle_ = nullptr;
-    
+
     alignas(8) std::array<uint8_t, StackSize> stack_{};
     // Static task buffer (platform-specific structure)
-    // Размер TaskHandle_t + TCB зависит от FreeRTOS конфигурации
-    uint8_t taskBuffer_[128]{};  // Достаточно для TCB на большинстве платформ
+    alignas(8) uint8_t taskBuffer_[FREERTOS_TASK_BUFFER_SIZE]{};
     static_assert(sizeof(taskBuffer_) >= 64, "taskBuffer_ too small for FreeRTOS TCB");
-    
+
     static void taskWrapper(void* param) {
         Task* task = static_cast<Task*>(param);
         if (task && task->func_) {
@@ -239,7 +249,8 @@ public:
 private:
     QueueHandle_t handle_ = nullptr;
     alignas(8) std::array<uint8_t, Length * sizeof(T)> storage_{};
-    uint8_t queueBuffer_[80]{};  // Placeholder для StaticQueue_t
+    alignas(8) uint8_t queueBuffer_[FREERTOS_QUEUE_BUFFER_SIZE]{};
+    static_assert(sizeof(queueBuffer_) >= 40, "queueBuffer_ too small for StaticQueue_t");
 };
 
 // ============================================================================
@@ -274,7 +285,8 @@ public:
     
 private:
     SemaphoreHandle_t handle_ = nullptr;
-    uint8_t semBuffer_[40]{};  // Placeholder
+    alignas(8) uint8_t semBuffer_[FREERTOS_SEMAPHORE_BUFFER_SIZE]{};
+    static_assert(sizeof(semBuffer_) >= 24, "semBuffer_ too small for StaticSemaphore_t");
 };
 
 /**
@@ -297,7 +309,8 @@ public:
     
 private:
     SemaphoreHandle_t handle_ = nullptr;
-    uint8_t semBuffer_[40]{};
+    alignas(8) uint8_t semBuffer_[FREERTOS_SEMAPHORE_BUFFER_SIZE]{};
+    static_assert(sizeof(semBuffer_) >= 24, "semBuffer_ too small for StaticSemaphore_t (counting)");
 };
 
 /**
@@ -322,7 +335,8 @@ public:
     
 private:
     SemaphoreHandle_t handle_ = nullptr;
-    uint8_t mutexBuffer_[40]{};
+    alignas(8) uint8_t mutexBuffer_[FREERTOS_MUTEX_BUFFER_SIZE]{};
+    static_assert(sizeof(mutexBuffer_) >= 24, "mutexBuffer_ too small for StaticSemaphore_t (mutex)");
 };
 
 /**
@@ -390,7 +404,8 @@ private:
     TimerCallback callback_;
     TimerHandle_t handle_ = nullptr;
     bool running_ = false;
-    uint8_t timerBuffer_[40]{};
+    alignas(8) uint8_t timerBuffer_[FREERTOS_TIMER_BUFFER_SIZE]{};
+    static_assert(sizeof(timerBuffer_) >= 24, "timerBuffer_ too small for StaticTimer_t");
     
     static void timerCallback(TimerHandle_t timer) {
         if (timer) {
@@ -432,15 +447,18 @@ public:
     uint32_t clear(uint32_t bits) {
         return xEventGroupClearBits(handle_, bits);
     }
-    
+
     bool isSet(uint32_t bit) const {
-        // Check if specific bit is set
-        return false;  // Simplified
+        // Проверить установлен ли конкретный бит (без сброса и с нулевым таймаутом)
+        // xEventGroupWaitBits возвращает установленные биты
+        uint32_t bits = xEventGroupWaitBits(handle_, bit, pdFALSE, pdFALSE, 0);
+        return (bits & bit) != 0;
     }
     
 private:
     EventGroupHandle_t handle_ = nullptr;
-    uint8_t eventBuffer_[40]{};
+    alignas(8) uint8_t eventBuffer_[FREERTOS_EVENT_BUFFER_SIZE]{};
+    static_assert(sizeof(eventBuffer_) >= 24, "eventBuffer_ too small for StaticEventGroup_t");
 };
 
 // ============================================================================
