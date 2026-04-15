@@ -56,7 +56,10 @@ public:
     // ========================================================================
 
     /// Конструктор по умолчанию (создаёт ошибку)
-    constexpr Result() noexcept : ok_(false) {}
+    constexpr Result() noexcept(std::is_nothrow_default_constructible<E>::value)
+        : ok_(false), storage_() {
+        new (&storage_.error) E();
+    }
 
     /// Конструктор успеха (из значения)
     constexpr Result(const T& value) noexcept(std::is_nothrow_copy_constructible<T>::value)

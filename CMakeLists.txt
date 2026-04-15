@@ -428,13 +428,10 @@ if(BUILD_TESTS AND HOST_BUILD)
     target_link_libraries(test_watchdog_manager mka_core GTest::gtest_main)
     add_test(NAME test_watchdog_manager COMMAND test_watchdog_manager)
 
-    # Полные тесты Result utility — 49 тестов проходят вручную
-    # DISABLED в CTest: Windows CTest вызывает SEGFAULT на death тестах (артефакт)
-    # Запуск вручную: test_result.exe — 49/49 PASS
+    # Полные тесты Result utility — 49 тестов
     add_executable(test_result tests/test_result.cpp)
     target_link_libraries(test_result mka_core GTest::gtest_main)
     add_test(NAME test_result COMMAND test_result)
-    set_tests_properties(test_result PROPERTIES DISABLED ON)
 
     # Полные тесты Callback utility — включены после добавления поддержки лямбд
     add_executable(test_callback tests/test_callback.cpp)
