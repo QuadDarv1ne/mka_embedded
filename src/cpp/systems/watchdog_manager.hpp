@@ -189,7 +189,9 @@ public:
             
             if (!wdt.enabled) continue;
             
-            if (now - wdt.lastKickTime > wdt.timeoutMs) {
+            // Защита от uint32_t wrap-around: если now < lastKickTime, таймер только что переполнился
+            uint32_t elapsed = (now >= wdt.lastKickTime) ? (now - wdt.lastKickTime) : wdt.timeoutMs + 1;
+            if (elapsed > wdt.timeoutMs) {
                 // Задача зависла
                 if (!wdt.expired) {
                     wdt.expired = true;

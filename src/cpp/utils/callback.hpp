@@ -43,7 +43,7 @@ public:
     // Конструктор для non-capturing лямбд
     template<typename F,
              std::enable_if_t<std::is_convertible_v<F, Ret(*)(Args...)>, int> = 0>
-    constexpr Callback(F lambda) noexcept
+    constexpr Callback(F /*lambda*/) noexcept
         : context_(nullptr)
         , invoker_(invokeLambda<F>) {}
 
@@ -131,10 +131,10 @@ public:
         : context_(const_cast<void*>(reinterpret_cast<const void*>(func)))
         , invoker_(&invokeFunction<F>) {}
 
-    // Конструктор для non-capturing лямбд
+    // Конструктор для non-capturing лямбд (void return)
     template<typename F,
              std::enable_if_t<std::is_convertible_v<F, void(*)(Args...)>, int> = 0>
-    constexpr Callback(F lambda) noexcept
+    constexpr Callback(F /*lambda*/) noexcept
         : context_(nullptr)
         , invoker_(invokeLambda<F>) {}
 

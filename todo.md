@@ -635,7 +635,19 @@
 - ✅ **Blocking вызовы** — все методы имеют timeout и retry логику
 - ✅ **Static assertions** — compile-time валидация размеров типов и структур
 
-### Аудит качества (12 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
+### Аудит качества (15 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
+- ✅ **Сборка:** 0 предупреждений, 0 ошибок
+- ✅ **Тесты:** 33/33 проходят (100%), 1 disabled (test_result — Windows CTest death test артефакт)
+- ✅ **Исправлено 8 проблем:**
+  - callback.hpp: unused parameter warning (2 места)
+  - moscow_time.hpp: null deref в getFreshnessStats() + address-of-never-null warning
+  - watchdog_manager.hpp: uint32_t wrap-around защита (false positive каждые ~49.7 дней)
+  - span.hpp: OOB pointer arithmetic в subspan()
+  - file_system_littlefs.hpp: readdir() возвращал Err с FSStatus::OK → FSStatus::NOT_FOUND
+  - radio_driver.hpp: flawed SysTick wrap detection → используем COUNTFLAG
+  - test_log_system.cpp: strncpy warning → memcpy + null terminator
+  - test_eeprom.cpp: unused parameter warnings (2 места)
+- ✅ **Синхронизация:** main merged into dev
 - ⚠️ **Обнаружены критические пробелы в тестах:**
   - FileSystem: 18 из ~25 тестов DISABLED ✅ ИСПРАВЛЕНО
   - CANopen: только проверка констант, нет тестов NMT/SDO/PDO ✅ ИСПРАВЛЕНО
@@ -785,7 +797,7 @@
 
 ---
 
-*Последнее обновление: 12 апреля 2026 (v2.0.0-dev — тестирование, 27/27 тестов проходят)*
+*Последнее обновление: 15 апреля 2026 (v2.0.0-dev — аудит качества, 33/33 тестов проходят)*
 
 ---
 

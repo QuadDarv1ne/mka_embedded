@@ -148,7 +148,7 @@ public:
 
     constexpr span subspan(size_type offset, size_type count = static_cast<size_type>(-1)) const noexcept {
         if (offset >= size_) {
-            return span(data_ + offset, size_type{0});  // Пустой span если offset за пределами
+            return span(data_ + size_, size_type{0});  // Пустой span, избегаем OOB арифметики
         }
         if (count == static_cast<size_type>(-1) || count > size_ - offset) {
             count = size_ - offset;

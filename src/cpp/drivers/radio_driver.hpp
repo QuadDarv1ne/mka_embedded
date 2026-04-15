@@ -627,17 +627,14 @@ private:
         extern uint32_t HAL_GetTick(void);
         return HAL_GetTick();
 #elif defined(__GNUC__)
-        // Bare-metal без HAL — SysTick или внешний таймер
-        // Если SysTick настроен на 1ms, читаем VAL
+        // Bare-metal без HAL — используем COUNTFLAG для подсчёта переполнений
+        // Примечание: для точного отсчёта времени нужен SysTick ISR
         if (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) {
             static uint32_t s_tickCount = 0;
-            static uint32_t s_lastVal = SysTick->VAL;
-            uint32_t currentVal = SysTick->VAL;
-            // Detect overflow (SysTick counts down)
-            if (currentVal > s_lastVal) {
+            // COUNTFLAG (bit 16) устанавливается при достижении 0, чтение сбрасывает
+            if (SysTick->CTRL & (1UL << 16)) {
                 s_tickCount++;
             }
-            s_lastVal = currentVal;
             return s_tickCount;
         }
         return 0;  // SysTick не инициализирован

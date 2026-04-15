@@ -24,7 +24,7 @@ using namespace mka::nvm;
 
 class MockI2CBus : public II2CBus {
 public:
-    bool write(uint8_t addr, uint16_t reg, std::span<const uint8_t> data) override {
+    bool write(uint8_t /*addr*/, uint16_t reg, std::span<const uint8_t> data) override {
         if (data.size() == 0) return false;
         
         // Проверяем что адрес в пределах EEPROM
@@ -43,7 +43,7 @@ public:
         return true;
     }
 
-    bool read(uint8_t addr, uint16_t reg, std::span<uint8_t> data) override {
+    bool read(uint8_t /*addr*/, uint16_t reg, std::span<uint8_t> data) override {
         if (data.size() == 0) return false;
         
         // Проверяем что адрес в пределах EEPROM

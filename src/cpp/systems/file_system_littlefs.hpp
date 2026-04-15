@@ -458,7 +458,8 @@ inline Result<void, FSStatus> FileSystem::closedir(DirHandle&) {
 }
 
 inline Result<DirEntry, FSStatus> FileSystem::readdir(DirHandle&) {
-    return Err<DirEntry, FSStatus>(FSStatus::OK);
+    // Конец директории — возвращаем NOT_FOUND как сигнал EOF
+    return Err<DirEntry, FSStatus>(FSStatus::NOT_FOUND);
 }
 
 inline Result<void, FSStatus> FileSystem::walk(const char*, std::function<void(const char*, const char**, size_t, const char**, size_t)>) {

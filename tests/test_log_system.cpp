@@ -164,11 +164,14 @@ TEST(LogFormatterTest, FormatLongMessage) {
     entry.level = LogLevel::ERROR;
     entry.category = LogCategory::FDIR;
     
-    // Длинное сообщение
+    // Длинное сообщение (длиннее чем entry.message буфер)
     const char* longMsg = "This is a very long error message that should be "
                           "truncated if it exceeds the buffer size. We need to "
-                          "make sure the formatter handles this correctly.";
-    std::strncpy(entry.message, longMsg, sizeof(entry.message) - 1);
+                          "make sure the formatter handles this correctly and "
+                          "does not overflow the destination buffer with extra data "
+                          "that exceeds the maximum allowed message length here.";
+    std::memcpy(entry.message, longMsg, sizeof(entry.message) - 1);
+    entry.message[sizeof(entry.message) - 1] = '\0';
     
     std::array<char, 128> buffer{};  // Маленький буфер
     LogFormatter::format(entry, buffer.data(), buffer.size());

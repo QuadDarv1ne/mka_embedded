@@ -493,6 +493,7 @@ public:
             }
             
             // Рассчитываем статус напрямую без вызова не-const метода
+            if (!utcSource_) { invalidCount++; continue; }
             uint64_t age = utcSource_() - lastUpdateTimes_[i];
             const auto& config = configs_[i];
             
@@ -529,7 +530,7 @@ private:
     int findSource(const char* name) const {
         if (!name) return -1;
         for (size_t i = 0; i < sourceCount_; i++) {
-            if (names_[i] && std::strcmp(names_[i], name) == 0) {
+            if (names_[i][0] != '\0' && std::strcmp(names_[i], name) == 0) {
                 return static_cast<int>(i);
             }
         }
