@@ -219,14 +219,26 @@ public:
     }
     
     /**
-     * @brief Принудительный переход (без проверки условий)
+     * @brief Принудительный переход (без проверки условий, но с pre/post actions)
      */
     void forceTransition(SatelliteMode targetMode, TransitionReason reason) {
         SatelliteMode oldMode = currentMode_;
+        const TransitionConfig* config = findTransition(oldMode, targetMode);
+
+        // Pre-action (если есть)
+        if (config && config->preAction) {
+            config->preAction(oldMode, targetMode, reason);
+        }
+
         currentMode_ = targetMode;
         lastTransitionReason_ = reason;
         transitionsCount_++;
         addToHistory(oldMode, targetMode, reason);
+
+        // Post-action (если есть)
+        if (config && config->postAction) {
+            config->postAction(oldMode, targetMode, reason);
+        }
 
         if (modeChangeCallback_) {
             modeChangeCallback_(oldMode, targetMode, reason);
@@ -250,44 +262,47 @@ public:
      * Вызывается периодически для проверки условий автоматических переходов.
      */
     void autonomousCheck() {
-        // Проверка питания
+        // Проверка питания — критический уровень (приоритет 1)
         if (context_.batteryLevel < 10.0f && currentMode_ != SatelliteMode::SAFE) {
             enterSafeMode(TransitionReason::POWER_CRITICAL);
             return;
         }
-        
-        if (context_.batteryLevel < 20.0f && 
-            currentMode_ == SatelliteMode::MISSION) {
-            requestTransition(SatelliteMode::NOMINAL, TransitionReason::POWER_LOW);
-            return;
-        }
-        
-        // Проверка температуры
+
+        // Проверка температуры — критический уровень (приоритет 1)
         if (context_.temperatureOBC > 60.0f || context_.temperatureOBC < -20.0f) {
             if (currentMode_ != SatelliteMode::SAFE) {
                 enterSafeMode(TransitionReason::THERMAL_CRITICAL);
                 return;
             }
         }
-        
-        // Проверка subsystem failures
+
+        // Проверка питания — низкий уровень (приоритет 2)
+        if (context_.batteryLevel < 20.0f &&
+            currentMode_ == SatelliteMode::MISSION) {
+            requestTransition(SatelliteMode::NOMINAL, TransitionReason::POWER_LOW);
+            return;
+        }
+
+        // Проверка subsystem failures (приоритет 2)
         if (!context_.adcsNominal && currentMode_ == SatelliteMode::MISSION) {
             requestTransition(SatelliteMode::NOMINAL, TransitionReason::ADCS_FAILURE);
+            return;
         }
-        
-        // Восстановление из SAFE при улучшении условий
+
+        // Восстановление из SAFE при улучшении условий (приоритет 3)
         if (currentMode_ == SatelliteMode::SAFE) {
-            if (context_.batteryLevel > 30.0f && 
-                context_.temperatureOBC > 0.0f && 
+            if (context_.batteryLevel > 30.0f &&
+                context_.temperatureOBC > 0.0f &&
                 context_.temperatureOBC < 50.0f) {
                 requestTransition(SatelliteMode::STANDBY, TransitionReason::AUTONOMOUS);
             }
+            return;  // В SAFE — только восстановление, остальные проверки не нужны
         }
-        
-        // Автоматический переход в NOMINAL из STANDBY
+
+        // Автоматический переход в NOMINAL из STANDBY (приоритет 3)
         if (currentMode_ == SatelliteMode::STANDBY) {
-            if (context_.batteryLevel > 50.0f && 
-                context_.adcsNominal && 
+            if (context_.batteryLevel > 50.0f &&
+                context_.adcsNominal &&
                 context_.commNominal) {
                 requestTransition(SatelliteMode::NOMINAL, TransitionReason::AUTONOMOUS);
             }
