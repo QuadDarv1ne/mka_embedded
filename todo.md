@@ -638,13 +638,18 @@
 ### Аудит качества (15 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
 - ✅ **Сборка:** 0 предупреждений, 0 ошибок
 - ✅ **Тесты:** 34/34 проходят (100%), 0 disabled
-- ✅ **Исправлено 15 проблем (3 коммита):**
+- ✅ **Исправлено 18 проблем (4 коммита):**
   - callback.hpp: unused parameter warning (2 конструктора лямбд)
   - moscow_time.hpp: null deref в getFreshnessStats() + address-of-never-null warning
   - watchdog_manager.hpp: uint32_t wrap-around защита (false positive каждые ~49.7 дней)
   - span.hpp: OOB pointer arithmetic в subspan()
   - file_system_littlefs.hpp: readdir() Err с OK → NOT_FOUND (семантическая корректность)
   - radio_driver.hpp: flawed SysTick wrap detection → COUNTFLAG
+  - **result.hpp: CRITICAL** — default constructor не конструировал storage_.error, UB в деструкторе для std::string (segfault)
+  - CMakeLists.txt: test_result был DISABLED — включён (segfault исправлен)
+  - **ota_updater.cpp: CRITICAL** — SHA256 final() неверный bitlen (использовал datalen после padding)
+  - **sun_sensor.hpp: HIGH** — calibrate() no-op (вычислял углы но не сохранял)
+  - **block_device.hpp: HIGH** — integer overflow block * block_size_ на 32-bit, нет проверки offset
   - test_log_system.cpp: strncpy warning → memcpy + null terminator
   - test_eeprom.cpp: unused parameter warnings (2 места)
   - **param_store.hpp: CRITICAL** — PARAM_FLOAT macro truncating float default to 0/1 (union init bug)
