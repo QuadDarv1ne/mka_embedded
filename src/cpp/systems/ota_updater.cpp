@@ -126,7 +126,7 @@ static void final(SHA256Context* ctx, uint8_t* hash) {
 }
 
 Result<void, OTAError> SHA256::calculate(const void* data, size_t size, uint8_t* output) {
-    if (!data || !output || size == 0) {
+    if (!data || !output) {
         return Err<void, OTAError>(OTAError::INVALID_HEADER);
     }
 

@@ -104,13 +104,9 @@ public:
      */
     bool forceActualize() {
         if (actualizeTLEData()) {
-            // Обновляем время актуализации
-            if (utcSource_) {
-                (void)utcSource_(); // Вызываем для обновления времени
-                // Обновляем через менеджер
-                auto& mgr = getActualizationManager();
-                mgr.actualizeByType(CalculationType::SGP4_ORBITAL);
-            }
+            // Обновляем пропагатор с новыми TLE и актуализируем
+            auto& mgr = getActualizationManager();
+            mgr.actualizeByType(CalculationType::SGP4_ORBITAL);
             return true;
         }
         return false;

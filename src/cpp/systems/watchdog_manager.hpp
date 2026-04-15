@@ -198,7 +198,8 @@ public:
                     wdt.expireCount++;
                     
                     // Логирование
-                    onTaskExpired(wdt.taskName, now - wdt.lastKickTime);
+                    uint32_t elapsedForCallback = (now >= wdt.lastKickTime) ? (now - wdt.lastKickTime) : wdt.timeoutMs;
+                    onTaskExpired(wdt.taskName, elapsedForCallback);
                 }
                 allAlive = false;
             }

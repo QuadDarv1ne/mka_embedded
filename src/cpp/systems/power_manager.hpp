@@ -250,7 +250,7 @@ struct Battery {
         if (remainingEnergy > capacity) remainingEnergy = capacity;
         
         // SOC
-        soc = remainingEnergy / capacity;
+        soc = (capacity > 0) ? (remainingEnergy / capacity) : 0;
         
         // Напряжение (упрощённая модель: линейная зависимость от SOC)
         voltage = minVoltage + (maxVoltage - minVoltage) * soc;

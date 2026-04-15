@@ -35,6 +35,8 @@
 #include <cstdint>
 #include <cstddef>
 #include <functional>
+#include <array>
+#include <utility>
 
 #include "../hal/hal_full.hpp"
 #include "../utils/result.hpp"
@@ -135,11 +137,11 @@ struct FirmwareVersion {
         return !(*this < other);
     }
 
-    /// Convert to string (returns pointer to static buffer)
-    const char* toString() const {
-        static char buffer[32];
+    /// Convert to string (writes to caller-provided buffer)
+    void toString(char* buffer, size_t bufferSize) const {
+        if (!buffer || bufferSize == 0) return;
         int pos = 0;
-        int remaining = sizeof(buffer) - 1;
+        int remaining = static_cast<int>(bufferSize) - 1;
 
         // Format: major.minor.patch.build
         if (remaining > 0) {
@@ -174,7 +176,6 @@ struct FirmwareVersion {
             pos += written;
         }
         buffer[pos] = '\0';
-        return buffer;
     }
 
 private:
@@ -283,27 +284,35 @@ private:
     static bool tableInitialized;
 };
 
-// Inline реализации CRC32
-inline void CRC32::initTable() {
-    if (tableInitialized) return;
-    const uint32_t polynomial = 0xEDB88320;
-    for (uint32_t i = 0; i < 256; i++) {
+// Compile-time CRC32 table generation
+namespace detail {
+    constexpr uint32_t crc32TableEntry(uint32_t i) {
+        const uint32_t polynomial = 0xEDB88320;
         uint32_t crc = i;
         for (int j = 0; j < 8; j++) {
             crc = (crc >> 1) ^ ((crc & 1) ? polynomial : 0);
         }
-        table[i] = crc;
+        return crc;
     }
-    tableInitialized = true;
+
+    template<size_t... I>
+    constexpr auto makeCrc32Table(std::index_sequence<I...>) {
+        return std::array<uint32_t, 256>{crc32TableEntry(I)...};
+    }
+
+    constexpr auto crc32Table = makeCrc32Table(std::make_index_sequence<256>{});
+}
+
+inline void CRC32::initTable() {
+    // Table is compile-time initialized, no runtime work needed
 }
 
 inline uint32_t CRC32::calculate(const void* data, size_t size) {
-    initTable();
     const uint8_t* bytes = static_cast<const uint8_t*>(data);
     uint32_t crc = 0xFFFFFFFF;
     for (size_t i = 0; i < size; i++) {
         uint8_t index = (crc ^ bytes[i]) & 0xFF;
-        crc = (crc >> 8) ^ table[index];
+        crc = (crc >> 8) ^ detail::crc32Table[index];
     }
     return crc ^ 0xFFFFFFFF;
 }

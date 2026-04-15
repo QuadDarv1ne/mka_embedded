@@ -117,11 +117,11 @@ struct UTCDateTime {
     }
     
     /// Строковое представление "YYYY-MM-DD HH:MM:SS"
-    const char* toString() const {
-        static char buffer[32];
-        snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d",
-                 year, month, day, hour, minute, second);
-        return buffer;
+    void toString(char* buffer, size_t bufferSize) const {
+        if (buffer && bufferSize >= 20) {
+            snprintf(buffer, bufferSize, "%04d-%02d-%02d %02d:%02d:%02d",
+                     year, month, day, hour, minute, second);
+        }
     }
 };
 
@@ -494,7 +494,9 @@ public:
             
             // Рассчитываем статус напрямую без вызова не-const метода
             if (!utcSource_) { invalidCount++; continue; }
-            uint64_t age = utcSource_() - lastUpdateTimes_[i];
+            uint64_t now = utcSource_();
+            uint64_t last = lastUpdateTimes_[i];
+            uint64_t age = (now >= last) ? (now - last) : 0;
             const auto& config = configs_[i];
             
             DataFreshnessStatus status;
