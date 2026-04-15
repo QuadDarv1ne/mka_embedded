@@ -638,7 +638,7 @@
 ### Аудит качества (15 апреля 2026 — ИТЕРАЦИЯ 2)
 - ✅ **Сборка:** 0 предупреждений, 0 ошибок
 - ✅ **Тесты:** 34/34 проходят (100%), 0 disabled
-- ✅ **Исправлено 6 багов (1 коммит):**
+- ✅ **Исправлено 8 багов (2 коммита):**
   - ota_updater.cpp: SHA256 zero-length input rejection → теперь принимает пустой input
   - power_manager.hpp: Battery SOC division by zero при capacity==0 → защита
   - watchdog_manager.hpp: uint32_t underflow в onTaskExpired callback → корректный elapsed
@@ -647,8 +647,9 @@
   - ota_updater.hpp: FirmwareVersion::toString() static buffer thread-safety → caller-provided buffer
   - ota_updater.hpp: CRC32 table init race condition → compile-time constexpr таблица
   - actualization_integration.hpp: forceActualize() no-op вызов utcSource_() → actualizeByType
-- ✅ **Синхронизация:** origin/dev обновлён
-- ✅ **Глубокий аудит:** 46 проблем найдено, 6 критических исправлено
+  - log_system.hpp: double-formatting в convenience методах → единый logv() с однократным форматированием
+- ✅ **Синхронизация:** origin/dev и origin/main обновлены
+- ✅ **Глубокий аудит:** 46 проблем найдено, 8 исправлено
 
 ### Аудит качества (15 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
 - ✅ **Сборка:** 0 предупреждений, 0 ошибок
