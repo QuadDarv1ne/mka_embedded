@@ -638,13 +638,20 @@
 ### Аудит качества (15 апреля 2026 — ТЕКУЩАЯ ИТЕРАЦИЯ)
 - ✅ **Сборка:** 0 предупреждений, 0 ошибок
 - ✅ **Тесты:** 33/33 проходят (100%), 1 disabled (test_result — Windows CTest death test артефакт)
-- ✅ **Исправлено 8 проблем:**
-  - callback.hpp: unused parameter warning (2 места)
+- ✅ **Исправлено 14 проблем (2 коммита):**
+  - callback.hpp: unused parameter warning (2 конструктора лямбд)
   - moscow_time.hpp: null deref в getFreshnessStats() + address-of-never-null warning
   - watchdog_manager.hpp: uint32_t wrap-around защита (false positive каждые ~49.7 дней)
   - span.hpp: OOB pointer arithmetic в subspan()
-  - file_system_littlefs.hpp: readdir() возвращал Err с FSStatus::OK → FSStatus::NOT_FOUND
-  - radio_driver.hpp: flawed SysTick wrap detection → используем COUNTFLAG
+  - file_system_littlefs.hpp: readdir() Err с OK → NOT_FOUND (семантическая корректность)
+  - radio_driver.hpp: flawed SysTick wrap detection → COUNTFLAG
+  - test_log_system.cpp: strncpy warning → memcpy + null terminator
+  - test_eeprom.cpp: unused parameter warnings (2 места)
+  - **param_store.hpp: CRITICAL** — PARAM_FLOAT macro truncating float default to 0/1 (union init bug)
+  - **adcs_algorithms.hpp: HIGH** — EKF Q_ matrix missing q0 process noise (3/4 quaternion components)
+  - **adcs_algorithms.hpp: HIGH** — matrixInverse3x3 делегировала к 6x6 (OOB read для 3x3 matrix)
+  - fdir.hpp: ParameterMonitor callback reports wrong threshold (warning вместо error/critical)
+  - telemetry.hpp: удалён мёртвый код timestamp validation (CommandHeader не имеет timestamp)
   - test_log_system.cpp: strncpy warning → memcpy + null terminator
   - test_eeprom.cpp: unused parameter warnings (2 места)
 - ✅ **Синхронизация:** main merged into dev
