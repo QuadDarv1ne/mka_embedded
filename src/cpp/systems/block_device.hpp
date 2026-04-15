@@ -232,8 +232,11 @@ public:
             return Err<int, BlockDeviceStatus>(BlockDeviceStatus::OUT_OF_BOUNDS);
         }
 
-        size_t addr = block * block_size_ + offset;
-        if (addr + size > storage_.size()) {
+        if (offset >= block_size_) {
+            return Err<int, BlockDeviceStatus>(BlockDeviceStatus::OUT_OF_BOUNDS);
+        }
+        size_t addr = static_cast<size_t>(block) * block_size_ + offset;
+        if (addr + size > storage_.size() || addr + size < addr) {
             return Err<int, BlockDeviceStatus>(BlockDeviceStatus::OUT_OF_BOUNDS);
         }
 
@@ -252,9 +255,11 @@ public:
         if (block >= block_count_) {
             return Err<int, BlockDeviceStatus>(BlockDeviceStatus::OUT_OF_BOUNDS);
         }
-
-        size_t addr = block * block_size_ + offset;
-        if (addr + size > storage_.size()) {
+        if (offset >= block_size_) {
+            return Err<int, BlockDeviceStatus>(BlockDeviceStatus::OUT_OF_BOUNDS);
+        }
+        size_t addr = static_cast<size_t>(block) * block_size_ + offset;
+        if (addr + size > storage_.size() || addr + size < addr) {
             return Err<int, BlockDeviceStatus>(BlockDeviceStatus::OUT_OF_BOUNDS);
         }
 
@@ -273,7 +278,7 @@ public:
         }
 
         // Erase block (set to 0xFF)
-        size_t addr = block * block_size_;
+        size_t addr = static_cast<size_t>(block) * block_size_;
         std::fill(storage_.begin() + addr, storage_.begin() + addr + block_size_, 0xFF);
 
         // Track erase count for wear leveling

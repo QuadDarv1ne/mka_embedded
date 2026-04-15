@@ -96,25 +96,25 @@ static void update(SHA256Context* ctx, const uint8_t* data, size_t length) {
 }
 
 static void final(SHA256Context* ctx, uint8_t* hash) {
+    uint64_t totalBits = (static_cast<uint64_t>(ctx->datalen) + ctx->bitlen) * 8;
     uint32_t i = ctx->datalen;
     ctx->data[i++] = 0x80;
-    
+
     if (i > 56) {
         while (i < 64) ctx->data[i++] = 0;
         transform(ctx);
         i = 0;
     }
     while (i < 56) ctx->data[i++] = 0;
-    
-    ctx->bitlen += ctx->datalen * 8;
-    ctx->data[63] = ctx->bitlen;
-    ctx->data[62] = ctx->bitlen >> 8;
-    ctx->data[61] = ctx->bitlen >> 16;
-    ctx->data[60] = ctx->bitlen >> 24;
-    ctx->data[59] = ctx->bitlen >> 32;
-    ctx->data[58] = ctx->bitlen >> 40;
-    ctx->data[57] = ctx->bitlen >> 48;
-    ctx->data[56] = ctx->bitlen >> 56;
+
+    ctx->data[63] = totalBits;
+    ctx->data[62] = totalBits >> 8;
+    ctx->data[61] = totalBits >> 16;
+    ctx->data[60] = totalBits >> 24;
+    ctx->data[59] = totalBits >> 32;
+    ctx->data[58] = totalBits >> 40;
+    ctx->data[57] = totalBits >> 48;
+    ctx->data[56] = totalBits >> 56;
     transform(ctx);
     
     for (int j = 0; j < 8; j++) {

@@ -191,15 +191,19 @@ public:
     /**
      * @brief Калибровка по эталонному вектору
      */
-    void calibrate(const SunVector& reference, 
+    void calibrate(const SunVector& reference,
                    const std::array<uint16_t, CH_COUNT>& rawValues) {
-        // Вычисление новых коэффициентов по эталону
-        // Упрощённый алгоритм
         float refAngleX = std::atan2(reference.x, reference.z);
         float refAngleY = std::atan2(reference.y, reference.z);
-        
-        // Обновление калибровки (итеративно)
-        // В реальной системе требуется множественные измерения
+
+        // Вычисление новых scale коэффициентов по эталону
+        for (int i = 0; i < CH_COUNT; i++) {
+            if (rawValues[i] > calibration_.offset[i]) {
+                calibration_.scale[i] = refAngleX /
+                    static_cast<float>(rawValues[i] - calibration_.offset[i]);
+            }
+        }
+        calibration_.lastCalibrationTime = std::chrono::system_clock::now();
     }
     
     /**
