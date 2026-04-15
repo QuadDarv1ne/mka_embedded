@@ -289,6 +289,65 @@ public:
     void log(LogLevel level, LogCategory category,
              const char* file, int line, const char* function,
              const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        logv(level, category, file, line, function, fmt, args);
+        va_end(args);
+    }
+    
+    // Удобные методы
+    void debug(LogCategory cat, const char* file, int line,
+               const char* func, const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        logv(LogLevel::DEBUG, cat, file, line, func, fmt, args);
+        va_end(args);
+    }
+
+    void info(LogCategory cat, const char* file, int line,
+              const char* func, const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        logv(LogLevel::INFO, cat, file, line, func, fmt, args);
+        va_end(args);
+    }
+
+    void warning(LogCategory cat, const char* file, int line,
+                 const char* func, const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        logv(LogLevel::WARNING, cat, file, line, func, fmt, args);
+        va_end(args);
+    }
+
+    void error(LogCategory cat, const char* file, int line,
+               const char* func, const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        logv(LogLevel::ERROR, cat, file, line, func, fmt, args);
+        va_end(args);
+    }
+
+    void critical(LogCategory cat, const char* file, int line,
+                  const char* func, const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        logv(LogLevel::CRITICAL, cat, file, line, func, fmt, args);
+        va_end(args);
+    }
+    
+    // Доступ к буферу
+    size_t getEntryCount() const { return buffer_.size(); }
+    bool getEntry(size_t index, LogEntry& entry) const { return buffer_.get(index, entry); }
+    void clearBuffer() { buffer_.clear(); }
+    
+private:
+    Logger() = default;
+
+    // Internal va_list implementation to avoid double-formatting
+    void logv(LogLevel level, LogCategory category,
+              const char* file, int line, const char* function,
+              const char* fmt, va_list args) {
         if (level < config_.minLevel) return;
 
         std::lock_guard<std::mutex> lock(mutex_);
@@ -306,10 +365,7 @@ public:
         entry.function = function;
 
         // Форматирование сообщения
-        va_list args;
-        va_start(args, fmt);
         vsnprintf(entry.message, sizeof(entry.message), fmt, args);
-        va_end(args);
 
         // Добавление в буфер
         buffer_.push(entry);
@@ -324,65 +380,6 @@ public:
             }
         }
     }
-    
-    // Удобные методы
-    void debug(LogCategory cat, const char* file, int line, 
-               const char* func, const char* fmt, ...) {
-        va_list args;
-        va_start(args, fmt);
-        char msg[128];
-        vsnprintf(msg, sizeof(msg), fmt, args);
-        va_end(args);
-        log(LogLevel::DEBUG, cat, file, line, func, "%s", msg);
-    }
-    
-    void info(LogCategory cat, const char* file, int line,
-              const char* func, const char* fmt, ...) {
-        va_list args;
-        va_start(args, fmt);
-        char msg[128];
-        vsnprintf(msg, sizeof(msg), fmt, args);
-        va_end(args);
-        log(LogLevel::INFO, cat, file, line, func, "%s", msg);
-    }
-    
-    void warning(LogCategory cat, const char* file, int line,
-                 const char* func, const char* fmt, ...) {
-        va_list args;
-        va_start(args, fmt);
-        char msg[128];
-        vsnprintf(msg, sizeof(msg), fmt, args);
-        va_end(args);
-        log(LogLevel::WARNING, cat, file, line, func, "%s", msg);
-    }
-    
-    void error(LogCategory cat, const char* file, int line,
-               const char* func, const char* fmt, ...) {
-        va_list args;
-        va_start(args, fmt);
-        char msg[128];
-        vsnprintf(msg, sizeof(msg), fmt, args);
-        va_end(args);
-        log(LogLevel::ERROR, cat, file, line, func, "%s", msg);
-    }
-    
-    void critical(LogCategory cat, const char* file, int line,
-                  const char* func, const char* fmt, ...) {
-        va_list args;
-        va_start(args, fmt);
-        char msg[128];
-        vsnprintf(msg, sizeof(msg), fmt, args);
-        va_end(args);
-        log(LogLevel::CRITICAL, cat, file, line, func, "%s", msg);
-    }
-    
-    // Доступ к буферу
-    size_t getEntryCount() const { return buffer_.size(); }
-    bool getEntry(size_t index, LogEntry& entry) const { return buffer_.get(index, entry); }
-    void clearBuffer() { buffer_.clear(); }
-    
-private:
-    Logger() = default;
 
     LoggerConfig config_;
     LogBuffer<BUFFER_SIZE> buffer_;
