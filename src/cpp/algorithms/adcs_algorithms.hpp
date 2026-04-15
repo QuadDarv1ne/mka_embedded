@@ -208,9 +208,11 @@ public:
         Q_ = {};
         float gyroVar = config_.gyroNoiseStd * config_.gyroNoiseStd;
         float biasVar = config_.gyroBiasNoiseStd * config_.gyroBiasNoiseStd;
+        for (int i = 0; i < 4; ++i) {
+            Q_[i * 7 + i] = gyroVar;  // quaternion process noise (q0, q1, q2, q3)
+        }
         for (int i = 0; i < 3; ++i) {
-            Q_[(i + 1) * 7 + (i + 1)] = gyroVar;  // orientation
-            Q_[(i + 4) * 7 + (i + 4)] = biasVar;  // bias
+            Q_[(i + 4) * 7 + (i + 4)] = biasVar;  // bias process noise (bx, by, bz)
         }
 
         // Ковариации шумов измерений (6x6)
@@ -1818,11 +1820,28 @@ private:
     }
 
     /**
-     * @brief Упрощённая матричная инверсия (для 6x6 используется полная инверсия)
+     * @brief Инверсия матрицы 3x3 через определитель и adjugate
      */
     void matrixInverse3x3(const float* A, float* Ainv) {
-        // Используем полную инверсию 6x6 вместо диагональной аппроксимации
-        invertMatrix6x6(A, Ainv);
+        float det = A[0] * (A[4] * A[8] - A[5] * A[7])
+                  - A[1] * (A[3] * A[8] - A[5] * A[6])
+                  + A[2] * (A[3] * A[7] - A[4] * A[6]);
+        if (std::abs(det) < 1e-9f) {
+            // Сингулярная матрица — возвращаем единичную
+            for (int i = 0; i < 9; i++) Ainv[i] = 0.0f;
+            Ainv[0] = Ainv[4] = Ainv[8] = 1.0f;
+            return;
+        }
+        float invDet = 1.0f / det;
+        Ainv[0] = (A[4] * A[8] - A[5] * A[7]) * invDet;
+        Ainv[1] = (A[2] * A[7] - A[1] * A[8]) * invDet;
+        Ainv[2] = (A[1] * A[5] - A[2] * A[4]) * invDet;
+        Ainv[3] = (A[5] * A[6] - A[3] * A[8]) * invDet;
+        Ainv[4] = (A[0] * A[8] - A[2] * A[6]) * invDet;
+        Ainv[5] = (A[2] * A[3] - A[0] * A[5]) * invDet;
+        Ainv[6] = (A[3] * A[7] - A[4] * A[6]) * invDet;
+        Ainv[7] = (A[1] * A[6] - A[0] * A[7]) * invDet;
+        Ainv[8] = (A[0] * A[4] - A[1] * A[3]) * invDet;
     }
 
     /**

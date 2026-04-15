@@ -532,14 +532,10 @@ public:
         return true;
     }
 
-    void setTimestampThreshold(uint32_t maxAgeSeconds) {
-        timestampThreshold_ = maxAgeSeconds;
-        useTimestampValidation_ = true;
-    }
-
-    void disableTimestampValidation() {
-        useTimestampValidation_ = false;
-    }
+    // Примечание: timestamp validation требует поля timestamp в CommandHeader
+    // и глобального источника времени. Заглушки для будущего расширения.
+    void setTimestampThreshold(uint32_t) {}
+    void disableTimestampValidation() {}
 
 private:
     struct HandlerEntry {
@@ -549,9 +545,6 @@ private:
 
     std::array<HandlerEntry, MAX_COMMANDS> handlers_{};
     size_t handlerCount_ = 0;
-    
-    uint32_t timestampThreshold_ = 60;
-    bool useTimestampValidation_ = false;
 
     CommandHandler findHandler(uint8_t commandId) {
         for (size_t i = 0; i < handlerCount_; ++i) {

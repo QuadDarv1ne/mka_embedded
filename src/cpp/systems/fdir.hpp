@@ -280,8 +280,7 @@ public:
             if (pendingSeverity_ != Severity::INFO && pendingSeverity_ != reportedSeverity_) {
                 reportedSeverity_ = pendingSeverity_;
                 if (callback_) {
-                    float threshold = (value < config_.nominalValue) 
-                        ? config_.warningLow : config_.warningHigh;
+                    float threshold = selectThreshold(pendingSeverity_, value);
                     callback_(pendingSeverity_, value, threshold);
                 }
             }
@@ -312,10 +311,20 @@ public:
     }
     
 private:
+    float selectThreshold(Severity sev, float value) const {
+        bool below = (value < config_.nominalValue);
+        switch (sev) {
+            case Severity::CRITICAL: return below ? config_.criticalLow : config_.criticalHigh;
+            case Severity::ERROR:    return below ? config_.errorLow : config_.errorHigh;
+            case Severity::WARNING:  return below ? config_.warningLow : config_.warningHigh;
+            default:                 return config_.nominalValue;
+        }
+    }
+
     ParameterConfig config_;
     Callback callback_;
     ParameterStats stats_;
-    
+
     Severity lastSeverity_ = Severity::INFO;
     Severity pendingSeverity_ = Severity::INFO;
     Severity reportedSeverity_ = Severity::INFO;

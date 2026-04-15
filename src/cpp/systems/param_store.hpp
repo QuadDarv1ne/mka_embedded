@@ -489,7 +489,7 @@ private:
     mka::param::ParamEntry { \
         id, mka::param::ParamType::UINT8, \
         {true, true, true, false, false, 0}, \
-        1, {{def}}, {{min}}, {{max}}, \
+        1, { .u8 = static_cast<uint8_t>(def) }, { .u8 = static_cast<uint8_t>(min) }, { .u8 = static_cast<uint8_t>(max) }, \
         name, desc, unit \
     }
 
@@ -497,7 +497,7 @@ private:
     mka::param::ParamEntry { \
         id, mka::param::ParamType::FLOAT, \
         {true, true, true, false, false, 0}, \
-        4, {{def}}, {{min}}, {{max}}, \
+        4, { .f = static_cast<float>(def) }, { .f = static_cast<float>(min) }, { .f = static_cast<float>(max) }, \
         name, desc, unit \
     }
 
@@ -505,7 +505,7 @@ private:
     mka::param::ParamEntry { \
         id, mka::param::ParamType::UINT32, \
         {true, false, false, false, false, 0}, \
-        4, {{def}}, {{0}}, {{0}}, \
+        4, { .u32 = static_cast<uint32_t>(def) }, { .u32 = 0 }, { .u32 = 0 }, \
         name, desc, unit \
     }
 
